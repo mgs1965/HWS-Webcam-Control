@@ -116,7 +116,7 @@ def configure_camera_mode(force=False):
         return False
     
     if current_camera_mode is None and mode_entered_time is None:
-    mode_entered_time = local_now()
+        mode_entered_time = local_now()
 
     previous_mode = current_camera_mode
     mode_changed = required_mode != previous_mode

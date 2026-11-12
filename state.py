@@ -4,7 +4,7 @@ Do not import directly; use weather_camera.py.
 
 
 def snapshot_counters():
-    return {'capture_count': capture_count, 'camera_acquisition_failures': camera_acquisition_failure_count, 'image_processing_failures': image_processing_failure_count, 'storage_failures': storage_failure_count, 'telemetry_failures': telemetry_failure_count, 'status_failures': status_failure_count, 'camera_restarts': camera_restart_count, 'ftp_failures': ftp_failure_count}
+    return {'capture_count': capture_count, 'camera_acquisition_failures': camera_acquisition_failure_count, 'image_processing_failures': image_processing_failure_count, 'storage_failures': storage_failure_count, 'telemetry_failures': telemetry_failure_count, 'status_failures': status_failure_count, 'camera_restarts': camera_restart_count, 'ftp_failures': ftp_failure_count, 'ftp_worker_restarts': ftp_worker_restart_count, 'ftp_worker_unexpected_stops': ftp_worker_unexpected_stops,}
 
 def get_audit_log_filename(event_time=None):
     event_time = event_time or local_now()

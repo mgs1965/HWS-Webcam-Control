@@ -61,6 +61,35 @@ def write_status_file(capture_time, metadata, measurement):
         'ftp_consecutive_failures':
             ftp_consecutive_failures,
 
+        'ftp_worker_alive':
+            ftp_thread is not None
+            and ftp_thread.is_alive(),
+
+        'ftp_worker_restart_count':
+            ftp_worker_restart_count,
+
+        'ftp_worker_unexpected_stops':
+            ftp_worker_unexpected_stops,
+
+        'ftp_worker_last_seen':
+            (
+                ftp_worker_last_seen.isoformat()
+                if ftp_worker_last_seen is not None
+                else None
+            ),
+
+        'ftp_worker_last_restart':
+            (
+                ftp_worker_last_restart.isoformat()
+                if ftp_worker_last_restart is not None
+                else None
+            ),
+
+        'ftp_last_success_time':
+            ftp_last_success_time.isoformat()
+            if ftp_last_success_time
+            else None,    
+
         'capture_count':
             capture_count,
 
@@ -357,35 +386,111 @@ def queue_live_upload(image_filename, status_filename, capture_time):
         remove_upload_snapshot((image_snapshot, status_snapshot))
 
 def ftp_worker():
-    global ftp_image_success_count, ftp_status_success_count
-    global ftp_failure_count, ftp_consecutive_failures, ftp_last_success_time, ftp_last_upload_ms
+
+    global ftp_image_success_count
+    global ftp_status_success_count
+    global ftp_failure_count
+    global ftp_consecutive_failures
+    global ftp_last_success_time
+    global ftp_last_upload_ms
     global ftp_worker_last_seen
+
     while not shutdown_event.is_set() or not web_upload_queue.empty():
-            
+
         ftp_worker_last_seen = local_now()
 
+        image_filename = None
+        status_filename = None
+
         try:
-            image_filename, status_filename = web_upload_queue.get(timeout=1)
-        except queue.Empty:
-            continue
-        started = time.monotonic()
-        try:
-            image_ok = upload_to_ftp(image_filename, LATEST_IMAGE_REMOTE_FILENAME, allow_shutdown=True)
-            status_ok = upload_to_ftp(status_filename, LATEST_STATUS_REMOTE_FILENAME, allow_shutdown=True)
-            ftp_last_upload_ms = (time.monotonic() - started) * 1000.0
-            ftp_image_success_count += int(image_ok)
-            ftp_status_success_count += int(status_ok)
-            if image_ok and status_ok:
-                ftp_consecutive_failures = 0
-                ftp_last_success_time = local_now()
-            else:
+
+            try:
+
+                image_filename, status_filename = (
+                    web_upload_queue.get(timeout=1)
+                )
+
+            except queue.Empty:
+                continue
+
+            started = time.monotonic()
+
+            try:
+
+                image_ok = upload_to_ftp(
+                    image_filename,
+                    LATEST_IMAGE_REMOTE_FILENAME,
+                    allow_shutdown=True,
+                )
+
+                status_ok = upload_to_ftp(
+                    status_filename,
+                    LATEST_STATUS_REMOTE_FILENAME,
+                    allow_shutdown=True,
+                )
+
+                ftp_last_upload_ms = (
+                    time.monotonic() - started
+                ) * 1000.0
+
+                ftp_image_success_count += int(image_ok)
+                ftp_status_success_count += int(status_ok)
+
+                if image_ok and status_ok:
+
+                    if ftp_consecutive_failures > 0:
+
+                        logger.info(
+                            '[FTP] RECOVERED | PreviousFailures=%d',
+                            ftp_consecutive_failures,
+                        )
+
+                        audit_event(
+                            'ftp_recovered',
+                            failures=ftp_consecutive_failures,
+                        )
+
+                    ftp_consecutive_failures = 0
+                    ftp_last_success_time = local_now()
+
+                else:
+
+                    ftp_failure_count += 1
+                    ftp_consecutive_failures += 1
+
+            except Exception:
+
                 ftp_failure_count += 1
                 ftp_consecutive_failures += 1
+
+                logger.exception(
+                    '[FTP WORKER] Unexpected processing error'
+                )
+
+                try:
+
+                    audit_event(
+                        'ftp_worker_processing_error',
+                        severity='ERROR',
+                    )
+
+                except Exception:
+
+                    logger.exception(
+                        '[FTP WORKER] Audit logging failed'
+                    )
+                
         finally:
+
             ftp_worker_last_seen = local_now()
 
-            remove_upload_snapshot(
-                (image_filename, status_filename)
-            )
+            if image_filename is not None:
 
-            web_upload_queue.task_done()
+                remove_upload_snapshot(
+                    (
+                        image_filename,
+                        status_filename,
+                    )
+                )
+
+                web_upload_queue.task_done()

@@ -21,6 +21,7 @@ def ensure_ftp_worker_running():
     global ftp_thread
     global ftp_worker_restart_count
     global ftp_worker_unexpected_stops
+    global ftp_worker_last_restart
 
     if ftp_thread is None:
         return
@@ -31,14 +32,24 @@ def ensure_ftp_worker_running():
     ftp_worker_unexpected_stops += 1
     ftp_worker_restart_count += 1
 
-    logger.error(
-        '[FTP WORKER] Unexpected stop detected. Restarting worker.'
-    )
+    ftp_worker_last_restart = local_now()
 
+    logger.error(
+        '[FTP WORKER] Unexpected stop detected. '
+        'Restart=%d '
+        'LastSeen=%s '
+        'LastSuccess=%s',
+        ftp_worker_restart_count,
+        ftp_worker_last_seen,
+        ftp_last_success_time,
+    )
+    
     audit_event(
         'ftp_worker_restarted',
         severity='ERROR',
         restart_count=ftp_worker_restart_count,
+        last_seen=str(ftp_worker_last_seen),
+        last_success=str(ftp_last_success_time),
     )
 
     ftp_thread = threading.Thread(

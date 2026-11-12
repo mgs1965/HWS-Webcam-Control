@@ -1,0 +1,447 @@
+{
+  "CameraAcquisitionError": {
+    "module": "camera.py",
+    "sha256": "76014ee00d38e833fdaadb915543f92764e30277ffaaa9f03c77d831bfe80dd1",
+    "lines": 2
+  },
+  "normalise_camera_array": {
+    "module": "camera.py",
+    "sha256": "f274ce52264a172707008ce2a31c08dc8c169c3a285c84d7a8915902a1aa8ade",
+    "lines": 4
+  },
+  "convert_array_to_image": {
+    "module": "camera.py",
+    "sha256": "9a8346681594a2e12dd4e9025197b8adc259eae70609045848947e1cba97f14d",
+    "lines": 2
+  },
+  "create_web_image": {
+    "module": "camera.py",
+    "sha256": "1dc0d8edfc5b7c3251561d8318c5072da208339b28beabaf51eba9638f6e5bde",
+    "lines": 6
+  },
+  "load_overlay_font": {
+    "module": "camera.py",
+    "sha256": "44f6c6839c7f937fc3a4fbd9a1e9a2b2ce0bf701b7db279100731e0fe42757d1",
+    "lines": 5
+  },
+  "add_overlay": {
+    "module": "camera.py",
+    "sha256": "8a65a9b98e1ef03c4cb7a85e0253fc505993b415fdd0183f1d7001961919f1b1",
+    "lines": 20
+  },
+  "save_jpeg_atomic": {
+    "module": "camera.py",
+    "sha256": "3dc302eb9bd725a197d3047b96b5eeb489d48bec10d13b49a99681c6d9b95f3c",
+    "lines": 4
+  },
+  "replace_latest_image": {
+    "module": "camera.py",
+    "sha256": "56743428f6e9667962534537740b2369deab7dc139114a247ca64ed981e1cf2e",
+    "lines": 4
+  },
+  "capture_frame": {
+    "module": "camera.py",
+    "sha256": "16ed189ab8430b532bb3d9a534c9ce033e3467b53883bbf9b500098605f5ec0a",
+    "lines": 74
+  },
+  "restart_camera": {
+    "module": "camera.py",
+    "sha256": "1fedc0dfd517a96b8fab1337663ee4312367778d0ac2ffd1bba9db2cd9129dd3",
+    "lines": 18
+  },
+  "clamp": {
+    "module": "exposure.py",
+    "sha256": "be21c9d356fa276e24dc9a758811f39e7edbdf18c105ee62cd5cba1e772015a5",
+    "lines": 2
+  },
+  "limited_change": {
+    "module": "exposure.py",
+    "sha256": "34a8c4163a0ceeb94f3240bbe46e503ed00d5c1a61655d690ee2b4800e2488f8",
+    "lines": 2
+  },
+  "build_camera_controls": {
+    "module": "exposure.py",
+    "sha256": "6c71c94cf2b74453846256eb102ed030ec200a5483912db2cdcc2efa6d4f7c65",
+    "lines": 30
+  },
+  "update_awb_learning": {
+    "module": "exposure.py",
+    "sha256": "8e79029e932e96049b94895a7cee1b275ca5d5a9531e06cf5760fbf1cddf43e5",
+    "lines": 27
+  },
+  "update_manual_exposure": {
+    "module": "exposure.py",
+    "sha256": "e0f42ed225cc314c7d9a046d9e9e245aa73f776164ec90e1a8486a95ea558361",
+    "lines": 237
+  },
+  "measure_image": {
+    "module": "image_quality.py",
+    "sha256": "ae4b2f44f0fc6214c489d1f492b583c1fa99bb02589b7f4abf774e8764665f7c",
+    "lines": 25
+  },
+  "update_night_observability": {
+    "module": "image_quality.py",
+    "sha256": "4d9d60a11a9db6b922a656fa42bd3ae85a0814a0562da8c2ca53b0c9ab2f8931",
+    "lines": 59
+  },
+  "update_image_quality": {
+    "module": "image_quality.py",
+    "sha256": "64677ab06adb10f473fb6c95d2bc52a3dc9a74cfc7bfc87a42fb2874425007e9",
+    "lines": 124
+  },
+  "local_now": {
+    "module": "modes.py",
+    "sha256": "d10df080d0d0528e5a4cbe312b8b77561e9a710fc76b5a6f1c41d40c31c4d42c",
+    "lines": 2
+  },
+  "calculate_sun_time": {
+    "module": "modes.py",
+    "sha256": "2d393f4d2f6c466eee1645b3cbca3f6f281790ee1279542aef3ba0abc5b41127",
+    "lines": 33
+  },
+  "get_harpenden_sun_times": {
+    "module": "modes.py",
+    "sha256": "4b6bae8b31b4bdb010e774ed573fd830efb63946bc5d5319fba95383d49682ac",
+    "lines": 9
+  },
+  "calculate_solar_elevation": {
+    "module": "modes.py",
+    "sha256": "2e8586c18ea3e6fb23ef57f5ea336c63dc64d4591342d9c3d9e8cb661f17fa09",
+    "lines": 12
+  },
+  "determine_camera_mode": {
+    "module": "modes.py",
+    "sha256": "9b199425efb082b387a3bad8aba3110c35a312149abce86fcef0673e5ddd9938",
+    "lines": 23
+  },
+  "maximum_exposure_for_mode": {
+    "module": "modes.py",
+    "sha256": "0e789d725a15f7acc26e53af506fcd40dd2e69d432344858cd6cc62a1773a85e",
+    "lines": 7
+  },
+  "configure_camera_mode": {
+    "module": "modes.py",
+    "sha256": "100d758d90752e59dd7b93f3fb6ae7af5aa6d462c55c8b302fe242cf81a22b3c",
+    "lines": 97
+  },
+  "check_for_new_day": {
+    "module": "modes.py",
+    "sha256": "4e56a8832ae1be88f3fbd640ca7c1c0f000e867f9172e886d5814729266ec993",
+    "lines": 14
+  },
+  "validate_storage_paths": {
+    "module": "monitoring.py",
+    "sha256": "3c9fcd9200c74783c821b3a5e15b185d5a17fff9806d294f77eaf8d685320db3",
+    "lines": 14
+  },
+  "get_free_space_gb": {
+    "module": "monitoring.py",
+    "sha256": "824e96c361e6350239fd9fa8d167dcf9c1836834ea9dd1c37aabd347a12f114e",
+    "lines": 2
+  },
+  "get_cpu_temperature_c": {
+    "module": "monitoring.py",
+    "sha256": "13f8ac7d4001081f22caad6a4bef1a66dd1c7ec7189d828160c7c03732871c27",
+    "lines": 7
+  },
+  "cleanup_incomplete_timelapse_files": {
+    "module": "monitoring.py",
+    "sha256": "20cee9a843eb1fa64426358c2e61f6db5e57aaf41fcfe2e6b87af15290f8d1f5",
+    "lines": 19
+  },
+  "compress_previous_month_telemetry": {
+    "module": "monitoring.py",
+    "sha256": "48bb144c724538067db17810f803f235f2c240187be7343a44084ca36185d105",
+    "lines": 13
+  },
+  "cleanup_expired_telemetry": {
+    "module": "monitoring.py",
+    "sha256": "94f74da5a2348e90810c67f11b4d7f7060a968d37636abda5f5e4e109ad87768",
+    "lines": 25
+  },
+  "emergency_storage_cleanup": {
+    "module": "monitoring.py",
+    "sha256": "5622af2782b22a0a7eee162678dc03a112ea053bf1b17c8e9a86d6dd35600b47",
+    "lines": 25
+  },
+  "write_daily_health_summary": {
+    "module": "monitoring.py",
+    "sha256": "057be32acae5d11dc5ef3dd403542fcec96f9faf7b12dca548e0fd78d9b56894",
+    "lines": 10
+  },
+  "update_daily_summary_timelapse_status": {
+    "module": "monitoring.py",
+    "sha256": "b47e58d8fb41feb56306f3dab0c27e84e193f496e4120a338d487b35a5bc16f5",
+    "lines": 29
+  },
+  "cleanup_old_hourly_segments": {
+    "module": "monitoring.py",
+    "sha256": "91ad3fbbf5cab759dc5a85b29d461230b0d554ddf9b4e3c131ed211806b1cda2",
+    "lines": 23
+  },
+  "initialise_anomaly_window": {
+    "module": "monitoring.py",
+    "sha256": "515f82726680c08c9f20a6e73ce009a8fcb67853cb7b2639e322cccc9e2c9784",
+    "lines": 21
+  },
+  "record_capture_anomalies": {
+    "module": "monitoring.py",
+    "sha256": "c992135c9cc29910637bcd16e9f2fb1c51e2b2202fd408fb771147bb1ac064c7",
+    "lines": 19
+  },
+  "log_anomaly_summary": {
+    "module": "monitoring.py",
+    "sha256": "319654844c714e0a3b8985c5088f886cb193f37dd311a0d88fc58b85e826e31e",
+    "lines": 44
+  },
+  "cleanup_old_files": {
+    "module": "monitoring.py",
+    "sha256": "bb5ba8c40a58f6c070868a537be4d385f72f4dde439aa9e4b149e80e5ebd94fd",
+    "lines": 19
+  },
+  "write_status_file": {
+    "module": "publishing.py",
+    "sha256": "d5d0efed86a9af5772b33f5986b9e54ad77b8aec3f71116da2cb0249664c9a22",
+    "lines": 14
+  },
+  "get_monthly_telemetry_filename": {
+    "module": "publishing.py",
+    "sha256": "f19bc6aa3f4caeee71adf947145d40d0ab0ef509bb17488f64a461399d26d116",
+    "lines": 6
+  },
+  "get_schema_safe_telemetry_filename": {
+    "module": "publishing.py",
+    "sha256": "989ca27704519038a5a13dbd8ff5eceb5d64912b2e714a586266af0b7f535910",
+    "lines": 22
+  },
+  "append_monthly_telemetry": {
+    "module": "publishing.py",
+    "sha256": "5ea36fc7fe05d6905894617ba3ded2fbba574335b2f9a29d51d7c6acbbcc5c3f",
+    "lines": 36
+  },
+  "connect_to_ftp": {
+    "module": "publishing.py",
+    "sha256": "d15eafe554c437c0f5dd7622176d741ccd32d304a05bd2b52fe820d848b4607f",
+    "lines": 6
+  },
+  "upload_to_ftp": {
+    "module": "publishing.py",
+    "sha256": "1ca28e9224c02a05708dd0c3dc25ff9f818921c9ea261d2c47ff3f3b680ffe44",
+    "lines": 25
+  },
+  "remove_upload_snapshot": {
+    "module": "publishing.py",
+    "sha256": "3e96ec4d9889db7108f265748c7bdf752817f285b372b44d04f99e4d9b6e38e4",
+    "lines": 6
+  },
+  "cleanup_old_ftp_snapshots": {
+    "module": "publishing.py",
+    "sha256": "2042ac47375c6aa400b8e669bec58504abc08cd9af40032ec7286b5ec1f2af94",
+    "lines": 18
+  },
+  "queue_live_upload": {
+    "module": "publishing.py",
+    "sha256": "39736785eaea470381520639414a58133ca6fa3062d3f50801ec973b877ac341",
+    "lines": 18
+  },
+  "ftp_worker": {
+    "module": "publishing.py",
+    "sha256": "e71b8b4f06cdc7476e4abcd7ce6b4882aabdb170c8de4ebc1d2332335f81dad6",
+    "lines": 24
+  },
+  "handle_termination_signal": {
+    "module": "runtime.py",
+    "sha256": "5ccfcafff96e0a9d94c75614a9cdbacb08565e0ee206a00c53fe4b2a7ebb82e6",
+    "lines": 4
+  },
+  "install_signal_handlers": {
+    "module": "runtime.py",
+    "sha256": "9ce6256888c82a2d1a06feff367a18bb8d61cc018f328a1ac054ca2e68fca81d",
+    "lines": 3
+  },
+  "sleep_until_next_capture": {
+    "module": "runtime.py",
+    "sha256": "6e56463bc5e02e32fce306c7fbb6a0685ada363f3aebd4986dd9c4b1376b48bc",
+    "lines": 4
+  },
+  "main": {
+    "module": "runtime.py",
+    "sha256": "04219a7641c1e54b063c9393be462f31e48b9ff90436a3a6cd216b5fb5e4d37b",
+    "lines": 96
+  },
+  "snapshot_counters": {
+    "module": "state.py",
+    "sha256": "01660f05c1179df19a32136ee32b89f077b0a1b966662f13333beb823ac9df48",
+    "lines": 2
+  },
+  "get_audit_log_filename": {
+    "module": "state.py",
+    "sha256": "59a7fd0a5d4347d94d5b19763a2d14bb9e739fea8288ac939fbeb628da21b018",
+    "lines": 3
+  },
+  "audit_event": {
+    "module": "state.py",
+    "sha256": "ca1cbae3ae47a10e228ae4b88b0b9d2337bd159f96b09872c6a624c9e7364397",
+    "lines": 12
+  },
+  "cleanup_old_audit_logs": {
+    "module": "state.py",
+    "sha256": "b47e39a035276044738ee9a09ceee9d813343a8b9ffc023cd3d237bf97bfbad2",
+    "lines": 8
+  },
+  "save_quality_state": {
+    "module": "state.py",
+    "sha256": "2f4e09580d78e3526a6c844e6db663aac3ab7638409b4735f8d9151b9a1d77d9",
+    "lines": 12
+  },
+  "load_quality_state": {
+    "module": "state.py",
+    "sha256": "ee26dedbcb1bbbaaa822c7ed04bf690a4586189c76869f0e8b339a4d6a309b43",
+    "lines": 35
+  },
+  "save_controller_state": {
+    "module": "state.py",
+    "sha256": "b3489011d77d7f0f161739df25f0c51e2f7b2b398da9df665f169e95ea6d7943",
+    "lines": 18
+  },
+  "load_controller_state": {
+    "module": "state.py",
+    "sha256": "18c8c8375131f5b78c871f420ac412e0e98a7624fe28e1bb9c3bcac2ea464707",
+    "lines": 37
+  },
+  "unique_temporary_filename": {
+    "module": "timelapse.py",
+    "sha256": "1561a1b063fec615a9139272f07869fd70afe24399b7d4101a6d007d06ccb4ad",
+    "lines": 3
+  },
+  "probe_video": {
+    "module": "timelapse.py",
+    "sha256": "585bb637d7556b0a84a5fbd3a83534ca61db5590df8bbdbb72ba53dcb6111e5c",
+    "lines": 42
+  },
+  "validate_timelapse": {
+    "module": "timelapse.py",
+    "sha256": "f7d388d47195a0ecf7c9b26f0ad84267302be09de5bb6cce47945acf7e8edb62",
+    "lines": 27
+  },
+  "frame_list_fingerprint": {
+    "module": "timelapse.py",
+    "sha256": "34fdcbb84983b42870fe5081894ddbeae0e9d87f128ccf2617b865e01f670404",
+    "lines": 5
+  },
+  "get_day_frames": {
+    "module": "timelapse.py",
+    "sha256": "cd266d2e5720605d30956dd80a2092ff5d54112c47268bebf8d70985d1fe790c",
+    "lines": 2
+  },
+  "get_hour_frames": {
+    "module": "timelapse.py",
+    "sha256": "005d80948a02b07eac32dce217e1c8e1315280a90c5223f6da30c7c535a613c8",
+    "lines": 7
+  },
+  "get_hourly_segment_directory": {
+    "module": "timelapse.py",
+    "sha256": "9df94610f43875d9d7da7695cd4ad3213e993d873c7c262ba2804d6319f345c9",
+    "lines": 4
+  },
+  "get_segment_manifest_filename": {
+    "module": "timelapse.py",
+    "sha256": "b886c21c48e5608ade3d728d3bfdbca3fed2f7cd75ecd0548eb0a22abd90981e",
+    "lines": 2
+  },
+  "new_segment_manifest": {
+    "module": "timelapse.py",
+    "sha256": "f7b1d5a830dce237a36ac43db223a62caeb7a1a8b0e2ebf0e56c384b24306696",
+    "lines": 7
+  },
+  "load_segment_manifest": {
+    "module": "timelapse.py",
+    "sha256": "af518fab1e40b02ce6a2924422464b29e2adb2a791a23108e68e14778d730817",
+    "lines": 21
+  },
+  "save_segment_manifest": {
+    "module": "timelapse.py",
+    "sha256": "67a7b9bbe0b0c70e0b59a8ba97610057c9db222587f2242e18af87b002a03bff",
+    "lines": 22
+  },
+  "manifest_entry_matches": {
+    "module": "timelapse.py",
+    "sha256": "0010e0076b3d77cf7fa662637d65ddc21f41ce73aaa83a2b867541bb247f1b37",
+    "lines": 13
+  },
+  "record_segment_manifest": {
+    "module": "timelapse.py",
+    "sha256": "0eea9bfd24a3acb8485a7529cb50e35928b6d7447ecd2ceb992116e7c93e308f",
+    "lines": 14
+  },
+  "remove_obsolete_partial": {
+    "module": "timelapse.py",
+    "sha256": "79be59d30ff88eef8589989871587737644f2cd14220c77632029f48c5d5d5bd",
+    "lines": 11
+  },
+  "_create_timelapse_from_frames_unlocked": {
+    "module": "timelapse.py",
+    "sha256": "1bb5231653d5bbf338c50e9aa1dee4fa99b4fb3de05b576bf7d932c32ae93cb6",
+    "lines": 68
+  },
+  "create_timelapse_from_frames": {
+    "module": "timelapse.py",
+    "sha256": "895eee3d8d33333c78303c13a03b1a05f1525142377e2a3dd55015d71ae099e2",
+    "lines": 5
+  },
+  "build_hourly_segment": {
+    "module": "timelapse.py",
+    "sha256": "6c887d9ada82f373f65db59db713aa392f9fad483714f39955f1d379c5ea41ba",
+    "lines": 27
+  },
+  "build_partial_hour_segment": {
+    "module": "timelapse.py",
+    "sha256": "34731e559ddbf721166295810b1858ad41d37e9b55b21d870f563869f493a476",
+    "lines": 7
+  },
+  "_concatenate_video_segments_unlocked": {
+    "module": "timelapse.py",
+    "sha256": "a497ebc8508d4d8c6a6e2a18ca5f06d1bf5aaf4fae9370918a146f49a43f5492",
+    "lines": 31
+  },
+  "concatenate_video_segments": {
+    "module": "timelapse.py",
+    "sha256": "c9dddaa7d16efb41062c1768b2d9b994894f1abfbb421faa4c2d718f365b1052",
+    "lines": 5
+  },
+  "collect_today_completed_segments": {
+    "module": "timelapse.py",
+    "sha256": "81cf041f674cbc01c664f2a13a2d18d5a469dec231a44075ffc8dba1643c36b3",
+    "lines": 47
+  },
+  "process_hourly_today_timelapse": {
+    "module": "timelapse.py",
+    "sha256": "5a2660f9e967b4b53da46f7326a627605cfc1f83211354d6daae03f691952d77",
+    "lines": 116
+  },
+  "schedule_hourly_today_timelapse": {
+    "module": "timelapse.py",
+    "sha256": "70449b53aee5c1bbab5c4b21bdb2da5ca6eee8c435b3d88917477349d961f646",
+    "lines": 19
+  },
+  "collect_or_repair_daily_segments": {
+    "module": "timelapse.py",
+    "sha256": "ce66323f34d3c19474446521c07e2110b8224771df21eb9777c92adc0e44573a",
+    "lines": 28
+  },
+  "create_timelapse": {
+    "module": "timelapse.py",
+    "sha256": "6bed048b351016041bfafc89e2d0120cbd8e64504133f8b68b44e654829ef52a",
+    "lines": 4
+  },
+  "process_timelapse": {
+    "module": "timelapse.py",
+    "sha256": "24ea41f50bc255d00981ee41a9b90822bd67bbb193284590d5c0363ab7e87018",
+    "lines": 54
+  },
+  "schedule_timelapse": {
+    "module": "timelapse.py",
+    "sha256": "67765f65f35c60f60c7d84b9b1f30c2bd29295486a5c139eef6379b3a55f04cb",
+    "lines": 14
+  }
+}

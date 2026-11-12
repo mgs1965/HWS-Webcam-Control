@@ -212,24 +212,6 @@ def configure_camera_mode(force=False):
     with camera_lock:
         picam2.set_controls(controls_to_apply)
     
-        transition_duration = None
-
-        if mode_entered_time is not None:
-            transition_duration = (
-            local_now() - mode_entered_time
-            ).total_seconds()
-
-            mode_entered_time = local_now()
-            mode_transition_count += 1
-
-            logger.info(
-                '[MODE TRANSITION] %s -> %s | Duration=%s sec | Sun=%.2f',
-                previous_mode,
-                required_mode,
-                round(transition_duration, 1)
-                if transition_duration else '--',
-                current_solar_elevation,
-            )
     current_camera_mode = required_mode
     logger.info('[MODE APPLY] Mode=%s AE=%s AWB=%s Sharp=%.2f', required_mode, controls_to_apply.get('AeEnable'), controls_to_apply.get('AwbEnable'), controls_to_apply.get('Sharpness', 1.0))
     if mode_changed:

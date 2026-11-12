@@ -1,5 +1,5 @@
 """Central release metadata for the Harpenden Weather Station."""
 APP_NAME = "Harpenden Weather Station"
-VERSION = "V45-TL8-M2.5"
-VERSION_DATE = "2026-11-11"
+VERSION = "V46-RC1"
+VERSION_DATE = "2026-11-12"
 TELEMETRY_SCHEMA_VERSION = 2

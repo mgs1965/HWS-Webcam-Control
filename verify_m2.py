@@ -36,7 +36,7 @@ vals={}
 for node in version_tree.body:
     if isinstance(node,ast.Assign) and len(node.targets)==1 and isinstance(node.targets[0],ast.Name) and isinstance(node.value,ast.Constant):
         vals[node.targets[0].id]=node.value.value
-if vals.get("VERSION") != "V45-TL8-M2.5": raise SystemExit("FAIL: central VERSION is not V45-TL8-M2.5")
+if vals.get("VERSION") != "V46-RC1": raise SystemExit("FAIL: central VERSION is not V45-TL8-M2.5")
 if vals.get("TELEMETRY_SCHEMA_VERSION") != 2: raise SystemExit("FAIL: telemetry schema version is not 2")
 pub=(root/"publishing.py").read_text(encoding="utf-8")
 if "_v{TELEMETRY_SCHEMA_VERSION}_" not in pub: raise SystemExit("FAIL: explicit telemetry version filename missing")

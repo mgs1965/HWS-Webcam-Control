@@ -17,6 +17,38 @@ def sleep_until_next_capture():
     next_timestamp = (math.floor(now_timestamp / CAPTURE_INTERVAL_SECONDS) + 1) * CAPTURE_INTERVAL_SECONDS
     shutdown_event.wait(max(0.0, next_timestamp - now_timestamp))
 
+def ensure_ftp_worker_running():
+    global ftp_thread
+    global ftp_worker_restart_count
+    global ftp_worker_unexpected_stops
+
+    if ftp_thread is None:
+        return
+
+    if ftp_thread.is_alive():
+        return
+
+    ftp_worker_unexpected_stops += 1
+    ftp_worker_restart_count += 1
+
+    logger.error(
+        '[FTP WORKER] Unexpected stop detected. Restarting worker.'
+    )
+
+    audit_event(
+        'ftp_worker_restarted',
+        severity='ERROR',
+        restart_count=ftp_worker_restart_count,
+    )
+
+    ftp_thread = threading.Thread(
+        target=ftp_worker,
+        daemon=True,
+        name='ftp-worker',
+    )
+
+    ftp_thread.start()
+
 def main():
     """Start workers and camera, then run the clock-aligned capture service loop."""
     global current_operating_date, consecutive_camera_acquisition_failures, last_housekeeping_time
@@ -58,6 +90,7 @@ def main():
         initialise_anomaly_window()
         while not shutdown_event.is_set():
             sleep_until_next_capture()
+            ensure_ftp_worker_running()
             if shutdown_event.is_set():
                 break
             cycle_started = time.monotonic()

@@ -85,6 +85,7 @@ def update_manual_exposure(measurement, metadata):
     global pending_control_captures, mode_control_pending
     global mode_transition_target_exposure_us
     global low_light_entry_floor_product
+    global low_light_floor_interventions
     if current_camera_mode not in ('TWILIGHT', 'LOW LIGHT', 'NIGHT'):
         return
     actual_exposure = int(metadata.get('ExposureTime', manual_exposure_us or NIGHT_INITIAL_EXPOSURE_US))
@@ -260,6 +261,8 @@ def update_manual_exposure(measurement, metadata):
                     MIN_ANALOGUE_GAIN,
                     ABSOLUTE_MAX_GAIN,
                 )
+            low_light_floor_interventions += 1
+            
             logger.info(
                 '[LOW LIGHT FLOOR] Applied | Requested=%.1fms-eq | Floor=%.1fms-eq | Result=%.0fms G%.2f',
                 requested_product / 1000.0,

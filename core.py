@@ -232,6 +232,9 @@ service_start_time = datetime.now(HARPENDEN_TIMEZONE)
 termination_signal = None
 cached_sun_date = cached_sunrise = cached_sunset = None
 current_operating_date = current_camera_mode = current_solar_elevation = None
+mode_entered_time = None
+mode_transition_count = 0
+mode_last_duration_seconds = None
 last_housekeeping_time = last_timelapse_scheduled_for = None
 last_timelapse_completed_for = next_timelapse_retry_time = None
 last_hourly_today_timelapse_slot = None
@@ -272,6 +275,7 @@ pending_control_captures = 0
 mode_control_pending = False
 mode_transition_target_exposure_us = None
 low_light_entry_floor_product = None
+low_light_floor_interventions = 0
 timelapse_thread = None
 daily_timelapse_lock = threading.Lock()
 hourly_timelapse_lock = threading.Lock()
@@ -286,6 +290,9 @@ web_upload_queue = queue.Queue(maxsize=1)
 FTP_SNAPSHOT_PATH = os.path.join(LOGS_PATH, 'ftp_snapshot')
 os.makedirs(FTP_SNAPSHOT_PATH, exist_ok=True)
 ftp_thread = None
+ftp_worker_restart_count = 0
+ftp_worker_unexpected_stops = 0
+ftp_worker_last_seen = None
 last_timelapse_build_method = None
 last_timelapse_segment_count = 0
 last_timelapse_expected_frames = 0

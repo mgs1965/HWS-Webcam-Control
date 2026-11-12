@@ -334,7 +334,7 @@ def upload_to_ftp(local_filename, remote_filename, allow_shutdown=False):
                     pass
                 ftp.rename(temporary_remote, remote_filename)
             return True
-        except (ftplib.all_errors, OSError) as error:
+        except ftplib.all_errors + (OSError,) as error:
             logger.warning('[FTP] Attempt %d/%d failed for %s: %s', attempt, FTP_MAX_RETRIES, remote_filename, error)
             if attempt < FTP_MAX_RETRIES and shutdown_event.wait(FTP_RETRY_DELAY_SECONDS):
                 return False

@@ -293,6 +293,7 @@ ftp_thread = None
 ftp_worker_restart_count = 0
 ftp_worker_unexpected_stops = 0
 ftp_worker_last_seen = None
+ftp_worker_last_restart = None
 last_timelapse_build_method = None
 last_timelapse_segment_count = 0
 last_timelapse_expected_frames = 0

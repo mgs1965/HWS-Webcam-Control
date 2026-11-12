@@ -2,7 +2,6 @@
 Do not import directly; use weather_camera.py.
 """
 
-
 def local_now():
     return datetime.now(HARPENDEN_TIMEZONE)
 

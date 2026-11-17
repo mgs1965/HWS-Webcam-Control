@@ -60,6 +60,11 @@ def write_status_file(capture_time, metadata, measurement):
 
         'ftp_consecutive_failures':
             ftp_consecutive_failures,
+        'ftp_health_state': ftp_health_state,
+        'ftp_health_state_since': ftp_health_state_since.isoformat() if ftp_health_state_since else None,
+        'ftp_outage_started': ftp_outage_started.isoformat() if ftp_outage_started else None,
+        'ftp_outage_count': ftp_outage_count,
+        'ftp_recovery_count': ftp_recovery_count,
 
         'ftp_worker_alive':
             ftp_thread is not None
@@ -238,7 +243,7 @@ def write_status_file(capture_time, metadata, measurement):
 
     return filename
 
-TELEMETRY_FIELDS = ['capture_time', 'camera_mode', 'solar_elevation_deg', 'exposure_ms', 'analogue_gain', 'digital_gain', 'colour_gain_red', 'colour_gain_blue', 'brightness_raw', 'brightness_filtered', 'target_low', 'target_high', 'brightness_deadband', 'sky_brightness', 'horizon_brightness', 'foreground_brightness', 'contrast', 'highlights_percent', 'shadows_percent', 'free_space_gb', 'next_exposure_ms', 'next_analogue_gain', 'exposure_action', 'awb_sample_count', 'capture_processing_ms', 'capture_count', 'sharpness_score', 'sharpness_baseline', 'sharpness_ratio', 'edge_density', 'image_quality_score', 'image_quality_status', 'quality_learning_samples', 'quality_learning_required', 'lens_status', 'night_observability', 'cpu_temperature_c', 'controller_at_exposure_limit', 'controller_at_gain_limit', 'mode_transition_count', 'low_light_floor_interventions', 'ftp_consecutive_failures']
+TELEMETRY_FIELDS = ['capture_time', 'camera_mode', 'solar_elevation_deg', 'exposure_ms', 'analogue_gain', 'digital_gain', 'colour_gain_red', 'colour_gain_blue', 'brightness_raw', 'brightness_filtered', 'target_low', 'target_high', 'brightness_deadband', 'sky_brightness', 'horizon_brightness', 'foreground_brightness', 'contrast', 'highlights_percent', 'shadows_percent', 'free_space_gb', 'next_exposure_ms', 'next_analogue_gain', 'exposure_action', 'awb_sample_count', 'capture_processing_ms', 'capture_count', 'sharpness_score', 'sharpness_baseline', 'sharpness_ratio', 'edge_density', 'image_quality_score', 'image_quality_status', 'quality_learning_samples', 'quality_learning_required', 'lens_status', 'night_observability', 'cpu_temperature_c', 'controller_at_exposure_limit', 'controller_at_gain_limit', 'mode_transition_count', 'low_light_floor_interventions', 'ftp_consecutive_failures', 'control_id', 'control_ack_state', 'control_ack_capture_count', 'control_ack_latency_seconds', 'control_exposure_acknowledged', 'control_gain_acknowledged', 'control_matched_history_depth', 'control_pending_age_seconds', 'control_superseded_count', 'control_pipeline_lag_count', 'control_timeout_count', 'control_reconciliation_count', 'control_health', 'control_ack_p95_captures', 'ffmpeg_active', 'ffmpeg_job_type']
 
 def get_monthly_telemetry_filename(capture_time):
     """Return the explicit versioned monthly telemetry filename."""
@@ -290,7 +295,7 @@ def append_monthly_telemetry(capture_time, metadata, measurement, processing_ms)
         exposure_action = current_exposure_action
         at_exposure_limit = (manual_exposure_us or 0) >= maximum_exposure_for_mode(current_camera_mode) - 50000
         at_gain_limit = (manual_gain or 0.0) >= ABSOLUTE_MAX_GAIN - 0.01
-    row = {'capture_time': capture_time.isoformat(), 'camera_mode': current_camera_mode, 'solar_elevation_deg': round(current_solar_elevation, 3), 'exposure_ms': round(metadata.get('ExposureTime', 0) / 1000.0, 3), 'analogue_gain': round(float(metadata.get('AnalogueGain', 0.0)), 3), 'digital_gain': round(float(metadata.get('DigitalGain', 1.0)), 3), 'colour_gain_red': round(red_gain, 3), 'colour_gain_blue': round(blue_gain, 3), 'brightness_raw': round(measurement['brightness'], 2), 'brightness_filtered': round(measurement.get('filtered_brightness', measurement['brightness']), 2), 'target_low': measurement.get('target_low', ''), 'target_high': measurement.get('target_high', ''), 'brightness_deadband': measurement.get('brightness_deadband', ''), 'sky_brightness': round(measurement['sky'], 2), 'horizon_brightness': round(measurement['horizon'], 2), 'foreground_brightness': round(measurement['foreground'], 2), 'contrast': round(measurement['contrast'], 2), 'highlights_percent': round(measurement['highlights'], 3), 'shadows_percent': round(measurement['shadows'], 3), 'free_space_gb': round(get_free_space_gb(), 3), 'next_exposure_ms': next_exposure_ms, 'next_analogue_gain': next_analogue_gain, 'exposure_action': exposure_action, 'awb_sample_count': len(awb_gain_history), 'capture_processing_ms': round(processing_ms, 3), 'capture_count': capture_count, 'sharpness_score': round(measurement['sharpness_score'], 3), 'sharpness_baseline': round(measurement['sharpness_baseline'], 3) if measurement.get('sharpness_baseline') is not None else '', 'sharpness_ratio': round(measurement['sharpness_ratio'], 3) if measurement['sharpness_ratio'] is not None else '', 'edge_density': round(measurement['edge_density'], 3), 'image_quality_score': round(measurement['image_quality_score'], 1) if measurement['image_quality_score'] is not None else '', 'image_quality_status': measurement['image_quality_status'], 'quality_learning_samples': measurement['quality_learning_samples'], 'quality_learning_required': measurement['quality_learning_required'], 'lens_status': measurement['lens_status'], 'night_observability': measurement.get('night_observability', 'N/A'), 'cpu_temperature_c': get_cpu_temperature_c(), 'controller_at_exposure_limit': at_exposure_limit, 'controller_at_gain_limit': at_gain_limit, 'mode_transition_count': mode_transition_count, 'low_light_floor_interventions': low_light_floor_interventions,'ftp_consecutive_failures': ftp_consecutive_failures}
+    row = {'capture_time': capture_time.isoformat(), 'camera_mode': current_camera_mode, 'solar_elevation_deg': round(current_solar_elevation, 3), 'exposure_ms': round(metadata.get('ExposureTime', 0) / 1000.0, 3), 'analogue_gain': round(float(metadata.get('AnalogueGain', 0.0)), 3), 'digital_gain': round(float(metadata.get('DigitalGain', 1.0)), 3), 'colour_gain_red': round(red_gain, 3), 'colour_gain_blue': round(blue_gain, 3), 'brightness_raw': round(measurement['brightness'], 2), 'brightness_filtered': round(measurement.get('filtered_brightness', measurement['brightness']), 2), 'target_low': measurement.get('target_low', ''), 'target_high': measurement.get('target_high', ''), 'brightness_deadband': measurement.get('brightness_deadband', ''), 'sky_brightness': round(measurement['sky'], 2), 'horizon_brightness': round(measurement['horizon'], 2), 'foreground_brightness': round(measurement['foreground'], 2), 'contrast': round(measurement['contrast'], 2), 'highlights_percent': round(measurement['highlights'], 3), 'shadows_percent': round(measurement['shadows'], 3), 'free_space_gb': round(get_free_space_gb(), 3), 'next_exposure_ms': next_exposure_ms, 'next_analogue_gain': next_analogue_gain, 'exposure_action': exposure_action, 'awb_sample_count': len(awb_gain_history), 'capture_processing_ms': round(processing_ms, 3), 'capture_count': capture_count, 'sharpness_score': round(measurement['sharpness_score'], 3), 'sharpness_baseline': round(measurement['sharpness_baseline'], 3) if measurement.get('sharpness_baseline') is not None else '', 'sharpness_ratio': round(measurement['sharpness_ratio'], 3) if measurement['sharpness_ratio'] is not None else '', 'edge_density': round(measurement['edge_density'], 3), 'image_quality_score': round(measurement['image_quality_score'], 1) if measurement['image_quality_score'] is not None else '', 'image_quality_status': measurement['image_quality_status'], 'quality_learning_samples': measurement['quality_learning_samples'], 'quality_learning_required': measurement['quality_learning_required'], 'lens_status': measurement['lens_status'], 'night_observability': measurement.get('night_observability', 'N/A'), 'cpu_temperature_c': get_cpu_temperature_c(), 'controller_at_exposure_limit': at_exposure_limit, 'controller_at_gain_limit': at_gain_limit, 'mode_transition_count': mode_transition_count, 'low_light_floor_interventions': low_light_floor_interventions,'ftp_consecutive_failures': ftp_consecutive_failures, 'control_id': control_history[-1]['id'] if control_history else '', 'control_ack_state': control_ack_state, 'control_ack_capture_count': control_history[-1]['capture_count'] if control_history else 0, 'control_ack_latency_seconds': control_last_ack_latency_seconds if control_last_ack_latency_seconds is not None else '', 'control_exposure_acknowledged': control_exposure_acknowledged, 'control_gain_acknowledged': control_gain_acknowledged, 'control_matched_history_depth': control_matched_history_depth if control_matched_history_depth is not None else '', 'control_pending_age_seconds': control_status_fields(capture_time)['control_pending_age_seconds'], 'control_superseded_count': control_superseded_count, 'control_pipeline_lag_count': control_pipeline_lag_count, 'control_timeout_count': control_timeout_count, 'control_reconciliation_count': control_reconciliation_count, 'control_health': control_health, 'control_ack_p95_captures': control_ack_p95_captures, 'ffmpeg_active': globals().get('ffmpeg_active', False), 'ffmpeg_job_type': globals().get('ffmpeg_job_type') or ''}
     with telemetry_lock:
         new_file = not os.path.exists(filename) or os.path.getsize(filename) == 0
         try:
@@ -335,7 +340,7 @@ def upload_to_ftp(local_filename, remote_filename, allow_shutdown=False):
                 ftp.rename(temporary_remote, remote_filename)
             return True
         except ftplib.all_errors + (OSError,) as error:
-            logger.warning('[FTP] Attempt %d/%d failed for %s: %s', attempt, FTP_MAX_RETRIES, remote_filename, error)
+            logger.info('[FTP RETRY] Attempt %d/%d failed for %s: %s', attempt, FTP_MAX_RETRIES, remote_filename, error)
             if attempt < FTP_MAX_RETRIES and shutdown_event.wait(FTP_RETRY_DELAY_SECONDS):
                 return False
     return False
@@ -452,16 +457,19 @@ def ftp_worker():
 
                     ftp_consecutive_failures = 0
                     ftp_last_success_time = local_now()
+                    record_ftp_health_success()
 
                 else:
 
                     ftp_failure_count += 1
                     ftp_consecutive_failures += 1
+                    record_ftp_health_failure('live upload failed')
 
             except Exception:
 
                 ftp_failure_count += 1
                 ftp_consecutive_failures += 1
+                record_ftp_health_failure('worker exception')
 
                 logger.exception(
                     '[FTP WORKER] Unexpected processing error'
@@ -494,3 +502,53 @@ def ftp_worker():
                 )
 
                 web_upload_queue.task_done()
+
+# V47.2 FTP health lifecycle -------------------------------------------------
+def set_ftp_health_state(new_state, reason=None):
+    """Transition FTP health and emit one lifecycle event per state change."""
+    global ftp_health_state, ftp_health_state_since, ftp_outage_started
+    global ftp_outage_count, ftp_recovery_count, ftp_recovery_successes
+    now = local_now()
+    if new_state == ftp_health_state:
+        return False
+    previous = ftp_health_state
+    duration = (now - ftp_health_state_since).total_seconds() if ftp_health_state_since else 0.0
+    if new_state == 'OUTAGE':
+        ftp_outage_started = now; ftp_outage_count += 1
+    if previous == 'OUTAGE' and new_state == 'RECOVERING':
+        ftp_recovery_count += 1
+    if new_state == 'HEALTHY':
+        outage_duration = (now - ftp_outage_started).total_seconds() if ftp_outage_started else 0.0
+        logger.info('[FTP HEALTH] HEALTHY | Previous=%s | PreviousDuration=%.0fs | OutageDuration=%.0fs', previous, duration, outage_duration)
+        ftp_outage_started = None; ftp_recovery_successes = 0
+    elif new_state == 'DEGRADED':
+        logger.warning('[FTP HEALTH] DEGRADED | Previous=%s | Failures=%d | Reason=%s', previous, ftp_consecutive_failures, reason or '--')
+    elif new_state == 'OUTAGE':
+        logger.error('[FTP HEALTH] OUTAGE | Failures=%d | Started=%s | Reason=%s', ftp_consecutive_failures, now.isoformat(), reason or '--')
+    elif new_state == 'RECOVERING':
+        logger.info('[FTP HEALTH] RECOVERING | ConsecutiveSuccesses=%d/%d', ftp_recovery_successes, FTP_HEALTH_RECOVERY_SUCCESSES)
+    ftp_health_state = new_state; ftp_health_state_since = now
+    audit_event('ftp_health_state', severity='ERROR' if new_state == 'OUTAGE' else ('WARNING' if new_state == 'DEGRADED' else 'INFO'), previous=previous, state=new_state, reason=reason, consecutive_failures=ftp_consecutive_failures)
+    return True
+
+def record_ftp_health_failure(reason):
+    """Classify failed FTP batches while suppressing repetitive per-attempt noise."""
+    global ftp_last_failure_log_time, ftp_suppressed_warning_count, ftp_recovery_successes
+    now = local_now(); ftp_recovery_successes = 0
+    if ftp_health_state == 'HEALTHY': set_ftp_health_state('DEGRADED', reason)
+    if ftp_consecutive_failures >= FTP_HEALTH_OUTAGE_FAILURES: set_ftp_health_state('OUTAGE', reason)
+    if ftp_last_failure_log_time is None or (now-ftp_last_failure_log_time).total_seconds() >= FTP_HEALTH_LOG_SUPPRESSION_SECONDS:
+        logger.warning('[FTP FAILURE] State=%s | Consecutive=%d | Suppressed=%d | Reason=%s', ftp_health_state, ftp_consecutive_failures, ftp_suppressed_warning_count, reason)
+        ftp_last_failure_log_time=now; ftp_suppressed_warning_count=0
+    else:
+        ftp_suppressed_warning_count += 1
+
+def record_ftp_health_success():
+    global ftp_recovery_successes
+    if ftp_health_state in ('OUTAGE','DEGRADED'):
+        ftp_recovery_successes += 1
+        if ftp_health_state == 'OUTAGE': set_ftp_health_state('RECOVERING')
+    elif ftp_health_state == 'RECOVERING':
+        ftp_recovery_successes += 1
+    if ftp_health_state in ('RECOVERING','DEGRADED') and ftp_recovery_successes >= FTP_HEALTH_RECOVERY_SUCCESSES:
+        set_ftp_health_state('HEALTHY')

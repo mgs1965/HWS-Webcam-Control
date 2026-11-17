@@ -135,6 +135,10 @@ def capture_frame():
     cpu_temperature_c = get_cpu_temperature_c()
     cpu_temperature_text = f'{cpu_temperature_c:.1f}' if cpu_temperature_c is not None else '--'
     logger.info('[CAPTURE] %s | %s | Sun %.2f | Exp %.0fms | G %.2f | DG %.2f | B %.1f | C %.1f | H %.2f%% | S %.2f | SB %s | SR %s | ED %.2f%% | Q %s | Lens %s | Obs %s | CPU %sC | Proc %.0fms', timestamp, current_camera_mode, current_solar_elevation, metadata.get('ExposureTime', 0) / 1000.0, metadata.get('AnalogueGain', 0), metadata.get('DigitalGain', 0), measurement['brightness'], measurement['contrast'], measurement['highlights'], measurement['sharpness_score'], baseline_text, sharpness_ratio_text, measurement['edge_density'], quality_text, measurement['lens_status'], measurement.get('night_observability', 'N/A'), cpu_temperature_text, processing_ms)
+    try:
+        update_mode_validation(measurement, metadata.get('ExposureTime', 0), metadata.get('AnalogueGain', 0.0))
+    except Exception:
+        logger.exception('[MODE VALIDATION] Unexpected failure isolated from capture cycle')
     record_capture_anomalies(measurement, processing_ms, cpu_temperature_c)
     return (filename, status_filename, capture_time)
 

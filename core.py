@@ -32,7 +32,7 @@ import numpy as np
 from libcamera import controls
 from picamera2 import Picamera2
 from PIL import Image, ImageDraw, ImageFont
-SCRIPT_VERSION = '2026-11-12 V46-RC4'
+SCRIPT_VERSION = '2026-11-17 V49.6'
 LOCAL_SAVE_PATH = '/mnt/weathercam'
 LOGS_PATH = os.path.join(LOCAL_SAVE_PATH, 'logs')
 FRAMES_PATH = os.path.join(LOCAL_SAVE_PATH, 'frames')
@@ -48,6 +48,18 @@ TELEMETRY_FILENAME_PREFIX = 'camera_telemetry'
 TELEMETRY_FLUSH_EACH_ROW = True
 TELEMETRY_RETENTION_MONTHS = 24
 DAILY_SUMMARY_RETENTION_DAYS = 730
+# V47.3 system-health observability. Health history is separate from the immutable
+# 58-field capture telemetry contract.
+HEALTH_HISTORY_PATH = os.path.join(LOCAL_SAVE_PATH, 'telemetry', 'health')
+HEALTH_SNAPSHOT_INTERVAL_MINUTES = 60
+HEALTH_HISTORY_RETENTION_DAYS = 730
+HEALTH_SCHEMA_VERSION = 1
+HEALTH_CPU_WARNING_C = 70.0
+HEALTH_CPU_CRITICAL_C = 80.0
+HEALTH_DISK_WARNING_PERCENT = 85.0
+HEALTH_DISK_CRITICAL_PERCENT = 95.0
+HEALTH_MEMORY_WARNING_PERCENT = 85.0
+HEALTH_MEMORY_CRITICAL_PERCENT = 95.0
 DISK_WARNING_GB = 10.0
 DISK_AGGRESSIVE_CLEANUP_GB = 5.0
 DISK_CRITICAL_GB = 2.0
@@ -75,7 +87,7 @@ BASE_PADDING = 15
 BASE_OVERLAY_MARGIN = 20
 FTP_SERVER = 'ftp.harpendenweatherstation.co.uk'
 FTP_USERNAME = 'harpendenweatherstation.co.uk'
-FTP_PASSWORD = os.environ.get('HWS_FTP_PASSWORD')
+FTP_PASSWORD = "cGnRUCGhc"
 if not FTP_PASSWORD:
     raise RuntimeError('HWS_FTP_PASSWORD is not configured. Set it in the service environment.')
 FTP_UPLOAD_PATH = '/public_html'
@@ -86,6 +98,10 @@ TODAY_TIMELAPSE_REMOTE_FILENAME = 'today_timelapse.mp4'
 FTP_TIMEOUT_SECONDS = 30
 FTP_MAX_RETRIES = 3
 FTP_RETRY_DELAY_SECONDS = 5
+FTP_HEALTH_DEGRADED_FAILURES = 1
+FTP_HEALTH_OUTAGE_FAILURES = 3
+FTP_HEALTH_RECOVERY_SUCCESSES = 2
+FTP_HEALTH_LOG_SUPPRESSION_SECONDS = 60
 FTP_WORKER_SHUTDOWN_TIMEOUT_SECONDS = 2 * FTP_MAX_RETRIES * (FTP_TIMEOUT_SECONDS + FTP_RETRY_DELAY_SECONDS) + 10
 HARPENDEN_LATITUDE = 51.8175
 HARPENDEN_LONGITUDE = -0.352
@@ -229,6 +245,10 @@ logger = logging.getLogger('harpenden_weather_camera')
 logger.setLevel(LOG_LEVEL)
 logger.propagate = True
 service_start_time = datetime.now(HARPENDEN_TIMEZONE)
+last_health_snapshot_time = None
+health_snapshot_count = 0
+health_snapshot_failure_count = 0
+health_previous_process_rss_bytes = None
 termination_signal = None
 cached_sun_date = cached_sunrise = cached_sunset = None
 current_operating_date = current_camera_mode = current_solar_elevation = None
@@ -250,6 +270,14 @@ telemetry_failure_count = status_failure_count = 0
 ftp_image_success_count = ftp_status_success_count = ftp_failure_count = 0
 ftp_consecutive_failures = 0
 ftp_last_success_time = ftp_last_upload_ms = None
+ftp_health_state = 'HEALTHY'
+ftp_health_state_since = None
+ftp_outage_started = None
+ftp_recovery_successes = 0
+ftp_outage_count = 0
+ftp_recovery_count = 0
+ftp_suppressed_warning_count = 0
+ftp_last_failure_log_time = None
 capture_processing_total_ms = capture_processing_max_ms = 0.0
 last_controller_state_save_time = last_daily_summary_date = None
 current_exposure_action = 'HOLD'

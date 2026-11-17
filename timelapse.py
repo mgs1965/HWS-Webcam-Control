@@ -442,7 +442,7 @@ def process_hourly_today_timelapse(slot_time):
         )
 
         if expected_frames < HOURLY_TODAY_TIMELAPSE_MIN_FRAMES:
-            logger.warning(
+            logger.info(
                 '[TODAY TIMELAPSE] Insufficient frames | Slot=%s | Frames=%d',
                 slot_time.isoformat(),
                 expected_frames,
@@ -504,7 +504,7 @@ def process_hourly_today_timelapse(slot_time):
                 local_now()
                 + timedelta(minutes=HOURLY_TIMELAPSE_RETRY_MINUTES)
             )
-            logger.warning(
+            logger.info(
                 '[TODAY TIMELAPSE] RETRY | Slot=%s | At=%s',
                 slot_time.isoformat(),
                 hourly_today_timelapse_next_retry_time.isoformat(),

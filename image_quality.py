@@ -71,7 +71,7 @@ def update_night_observability(measurement):
     measurement['night_observability_failure_streak'] = night_observability_failure_streak
     measurement['night_light_limited'] = light_limited
     if previous != night_observability_open:
-        logger.warning(
+        logger.info(
             '[NIGHT OBSERVABILITY] %s | LightLimited=%s | B=%.1f/%.1f | C=%.1f/%.1f | ED=%.2f/%.2f | SR=%s/%.2f',
             'OPEN' if night_observability_open else 'GATED', light_limited,
             brightness, NIGHT_OBSERVABILITY_MIN_BRIGHTNESS, contrast,

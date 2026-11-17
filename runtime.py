@@ -99,6 +99,7 @@ def main():
         cleanup_old_files()
         last_housekeeping_time = local_now()
         initialise_anomaly_window()
+        log_system_health_snapshot(force=True)
         while not shutdown_event.is_set():
             sleep_until_next_capture()
             ensure_ftp_worker_running()
@@ -135,8 +136,10 @@ def main():
                 last_daily_summary_date = now.date()
             if now - last_housekeeping_time >= timedelta(hours=HOUSEKEEPING_INTERVAL_HOURS):
                 cleanup_old_files()
+                cleanup_expired_health_history()
                 last_housekeeping_time = now
             log_anomaly_summary()
+            log_system_health_snapshot()
             elapsed = time.monotonic() - cycle_started
             if elapsed >= CAPTURE_INTERVAL_SECONDS:
                 logger.warning('[TIMING] Cycle %.2f sec; next clock boundary will be used', elapsed)

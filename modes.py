@@ -1,4 +1,4 @@
-"""V45-TL8-M2 physical module: modes.py. Loaded into the shared runtime namespace.
+"""Physical runtime module: modes.py. Loaded into the shared runtime namespace.
 Do not import directly; use weather_camera.py.
 """
 
@@ -129,6 +129,7 @@ def configure_camera_mode(force=False):
 
         mode_last_duration_seconds = transition_duration
         mode_transition_count += 1
+        arm_mode_validation(previous_mode, required_mode, float(filtered_brightness or 0.0), 0.0, int(manual_exposure_us or 0), float(manual_gain or 0.0))
         mode_entered_time = local_now()
 
         logger.info(

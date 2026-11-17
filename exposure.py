@@ -213,7 +213,7 @@ def update_manual_exposure(measurement, metadata):
     elif brightness < target_low and at_exposure_limit and at_gain_limit:
         action = 'LIMIT REACHED'
         if current_exposure_action != 'LIMIT REACHED':
-            logger.warning('[LIMIT REACHED] Brightness %.1f below target %.1f | Exposure %.0fms | Gain %.2f | No further increase possible', brightness, target_low, actual_exposure / 1000.0, actual_gain)
+            logger.info('[LIMIT REACHED] Brightness %.1f below target %.1f | Exposure %.0fms | Gain %.2f | No further increase possible', brightness, target_low, actual_exposure / 1000.0, actual_gain)
     elif highlights > max_highlights:
         action = 'HIGHLIGHT PROTECTION'
         if actual_gain > MIN_ANALOGUE_GAIN:

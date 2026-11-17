@@ -1,0 +1,9 @@
+[Unit]
+Description=Harpenden Weather Camera V49.6 Dashboard
+After=network-online.target weathercam.service
+Wants=network-online.target
+[Service]
+Type=oneshot
+User=mgs
+EnvironmentFile=-/etc/weathercam/dashboard.env
+ExecStart=/usr/bin/python3 /mnt/weathercam/app/current/weathercam_dashboard/dashboard.py --upload

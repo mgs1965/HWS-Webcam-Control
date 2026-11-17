@@ -1,55 +1,35 @@
-# Harpenden Weather Camera V45-TL8-M2.5
+# Harpenden Weather Camera V49.6
 
-This is the physical modularisation of V45-TL8. The original monolithic Python file is not required at runtime.
+**Final deployment baseline.**
 
-## Architecture
+V49.6 is the dashboard/observability release based on the complete V49.5 source. Camera-control, exposure, mode thresholds, quality calculation, timelapse, camera FTP worker and telemetry-v4 58-field schema are retained.
 
-- `core.py`: imports, constants, logging, locks, queues and shared state
-- `camera.py`: Picamera2 setup, capture, conversion, overlay and recovery
-- `modes.py`: Sun calculations, hysteresis and mode changes
-- `exposure.py`: manual controller, AWB learning and control ACK handling
-- `image_quality.py`: metering, quality, lens and NIGHT observability
-- `state.py`: controller/quality persistence and audit
-- `publishing.py`: status, telemetry and FTP
-- `timelapse.py`: TL8 segments, manifests, today and daily videos
-- `monitoring.py`: storage, CPU, anomaly reports and housekeeping
-- `runtime.py`: signals, cadence and main loop
-- `loader.py`: loads these physical modules into one shared namespace
-- `weather_camera.py`: service entry point
-
-The shared namespace is deliberate. It preserves V45-TL8's existing module-level mutable state, locks, queues and worker-thread semantics without retaining the monolith. A later M3 may replace this with explicit dataclass-based dependency injection after M2 has passed overnight regression testing.
+## UI
+- Restores the approved dark mock-up hierarchy with a large live image and prominent System Health panel.
+- Persistent Camera / FTP / Telemetry / Control / Mode status strip.
+- Live, 24 Hours, 7 Days, 30 Days, Gallery and Diagnostics views.
+- Actual DAY / TWILIGHT / LOW LIGHT / NIGHT mode timeline.
+- Separate graphs for incompatible units; logarithmic exposure plots; axis scales, time/date ticks and legends.
+- Current/min/average/max summary on key Live charts.
+- Gallery cards correlate images with nearest telemetry and support mode/Best filters.
+- Settings renamed Diagnostics; missing values display `Not available`; unknown health is grey, not failure.
+- Gallery publishing retains the V49.5 exact 48-file remote reconciliation and HTML-last commit.
+- Looking North East overlay.
 
 ## Install
-
-Extract all files into one directory on the Raspberry Pi. Do not copy the old monolithic script into this directory. Preserve the existing service environment, including `HWS_FTP_PASSWORD`.
-
 ```bash
-python3 verify_m2.py
-python3 weather_camera.py
+unzip HarpendenWeatherCamera-V49.6.zip
+cd HarpendenWeatherCamera-V49.6
+python3 verify_v49_6.py
+sudo ./install_v49_6.sh
 ```
 
-For systemd, change `ExecStart` to the absolute path of the new `weather_camera.py`, then run:
-
+## Publish immediately
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl restart weather-camera
+sudo bash -c 'set -a; . /etc/weathercam/dashboard.env; set +a; exec sudo -u mgs -E /usr/bin/python3 /mnt/weathercam/app/current/weathercam_dashboard/dashboard.py --upload'
 ```
 
-## Validation
-
-First run for 10-15 minutes in parallel only if a second camera is available. Otherwise stop V45-TL8, start M2, and inspect startup/capture logs. Then run M2 through one dusk-to-dawn cycle and compare mode transitions, AWB lock, controller ACKs, anomaly summaries, hourly segments, today timelapse and FTP results with the validated 10th-11th baseline.
-
-## Change tracking
-
-Treat the complete module set as one release. Update `version.py`, record the change in `CHANGELOG.md`, run `verify_m2.py`, review `git diff`, then commit/tag the complete tested release.
-
-Suggested initial Git commands:
-
+## Rollback
 ```bash
-git init
-git add .
-git commit -m "V45-TL8-M2.5 LOW LIGHT entry floor"
-git tag -a V45-TL8-M2.5 -m "LOW LIGHT entry floor"
+sudo /mnt/weathercam/app/current/rollback_v49_6.sh
 ```
-
-Telemetry v2 monthly files use `camera_telemetry_v2_YYYYMM.csv`.

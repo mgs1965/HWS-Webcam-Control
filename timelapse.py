@@ -667,6 +667,20 @@ def periodic_daily_files(first, last):
         day += timedelta(days=1)
     return files
 
+def normalise_daily_video_rate(filename, info, kind, output):
+    """Return a stream-copied copy of a daily video retimed to TIMELAPSE_FPS when its frame rate differs (legacy releases)."""
+    fps = float((info or {}).get('fps') or 0.0)
+    if fps <= 0 or abs(fps - TIMELAPSE_FPS) <= TIMELAPSE_FPS_TOLERANCE:
+        return filename
+    retimed = unique_temporary_filename(output, 'retimed_' + os.path.basename(filename))
+    command = ['ffmpeg', '-y', '-loglevel', 'error', '-itsscale', '%.9f' % (fps / TIMELAPSE_FPS), '-i', filename, '-map', '0:v:0', '-c:v', 'copy', '-movflags', '+faststart', retimed]
+    result = subprocess.run(command, capture_output=True, text=True, timeout=TIMELAPSE_CONCAT_TIMEOUT_SECONDS)
+    if result.returncode != 0:
+        logger.error('[PERIODIC TIMELAPSE] RETIME FAILED | Kind=%s | File=%s | Error=%s', kind, filename, result.stderr[-1000:] or 'unknown')
+        return None
+    logger.info('[PERIODIC TIMELAPSE] RETIMED | Kind=%s | File=%s | SourceFPS=%.3f', kind, os.path.basename(filename), fps)
+    return retimed
+
 def periodic_uploaded_marker(filename):
     return filename + '.uploaded'
 
@@ -680,13 +694,31 @@ def build_periodic_timelapse(kind, today):
         if len(files) < PERIODIC_MIN_DAILY_FILES[kind]:
             return True
         frames = 0
+        infos = []
         for filename in files:
             info = probe_video(filename)
+            infos.append(info)
             frames += int((info or {}).get('frames') or 0)
         if frames < 2:
             return False
-        if not concatenate_video_segments(files, output, frames, f'{kind}-{first:%Y%m%d}', minimum_file_size=1):
-            return False
+        retimed = []
+        try:
+            inputs = []
+            for filename, info in zip(files, infos):
+                prepared = normalise_daily_video_rate(filename, info, kind, output)
+                if not prepared:
+                    return False
+                if prepared != filename:
+                    retimed.append(prepared)
+                inputs.append(prepared)
+            if not concatenate_video_segments(inputs, output, frames, f'{kind}-{first:%Y%m%d}', minimum_file_size=1):
+                return False
+        finally:
+            for temporary in retimed:
+                try:
+                    os.remove(temporary)
+                except OSError:
+                    pass
         audit_event(f'{kind}_timelapse_completed', first_day=first.isoformat(), last_day=last.isoformat(), daily_files=len(files), frames=frames)
     if UPLOAD_TIMELAPSE:
         if not (upload_to_ftp(output, os.path.basename(output)) and upload_to_ftp(output, PERIODIC_LATEST_REMOTE[kind])):

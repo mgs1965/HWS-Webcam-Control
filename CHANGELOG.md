@@ -1,3 +1,6 @@
+#### V52.1 - 2026-11-19
+- Fix: daily videos from earlier releases with a different frame rate are retimed to 30 fps before joining, so weekly/monthly timelapses pass validation (the first weekly build failed at 5.12 fps).
+
 #### V52.0 - 2026-11-19
 - Camera/image: new `scene_analysis.py` estimates cloud cover, fog/haze, lens droplets, frozen and blocked views and focus drift; alerts are logged, audited and shown in dashboard recommended checks. Scene history is kept in `logs/scene/` (30 days).
 - Camera/image: optional weather-station JSON (`HWS_WEATHER_DATA_PATH`, default `logs/weather_station.json`) is validated and shown in a top overlay bar, the status file and the dashboard.

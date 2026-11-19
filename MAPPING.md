@@ -1,6 +1,6 @@
 # Function map
 
-Current release: V50.3.3. The dashboard template is rendered by `weathercam_dashboard/dashboard.py` and is not deployed with its `__DATA__` placeholder intact.
+Current release: V50.3.4. The dashboard template is rendered by `weathercam_dashboard/dashboard.py` and is not deployed with its `__DATA__` placeholder intact.
 
 ## camera.py
 - `CameraAcquisitionError`
@@ -133,18 +133,19 @@ Current release: V50.3.3. The dashboard template is rendered by `weathercam_dash
 - `generate`
 - `main`
 
-`generate` assembles status, health and telemetry data into the dashboard payload, prepares 24-hour/7-day/30-day trend series including process RSS, and injects that payload exactly once into the template's JSON data block. `publish` uploads the generated page and its assets.
+`generate` assembles status, health and telemetry data into the dashboard payload, prepares 24-hour/7-day/30-day trend series including process RSS, summarizes last-24-hour camera-mode observations, and injects that payload exactly once into the template's JSON data block. `publish` uploads the generated page and its assets.
 
 ## weathercam_dashboard/templates/dashboard.html
 - Renders the Live, Trends, Events and Advanced views.
 - Trends period subtabs select 24-hour, 7-day and 30-day charts for brightness, quality, exposure and process memory.
+- Trends compares 24-hour camera-mode capture counts, estimated time, descriptive telemetry averages and recent transitions; low sample counts are flagged.
 - Main-view navigation uses native radio controls and CSS; Trends period controls are separate.
 - Reads dashboard data from the `dashboard-data` JSON block; the source template remains navigable before data injection.
 - The Gallery view is absent; backend gallery image publishing remains in the dashboard generator.
 
 ## Release and package files
-- `version.py` contains the V50.3.3 release identity and telemetry schema version.
+- `version.py` contains the V50.3.4 release identity and telemetry schema version.
 - `manifest.json` records the release baseline, package filename and release file inventory.
-- `verify_v50_3_3.py` validates release identity, telemetry contract and dashboard structure.
-- `test_v50_3_3.py` contains focused release and dashboard regression checks.
-- `install_v50_3_3.sh` installs the release; `rollback_v50_3_3.sh` restores its recorded previous target.
+- `verify_v50_3_4.py` validates release identity, telemetry contract and dashboard structure.
+- `test_v50_3_4.py` contains focused release and dashboard regression checks.
+- `install_v50_3_4.sh` installs the release; `rollback_v50_3_4.sh` restores its recorded previous target.

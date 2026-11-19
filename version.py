@@ -1,5 +1,5 @@
 """Harpenden Weather Station release identity."""
 APP_NAME="Harpenden Weather Station"
-VERSION="V50.3.3"
+VERSION="V50.3.4"
 VERSION_DATE="2026-11-19"
 TELEMETRY_SCHEMA_VERSION=4

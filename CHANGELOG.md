@@ -1,3 +1,7 @@
+#### V50.3.4 - 2026-11-19
+- Added a Trends panel comparing the last 24 hours of camera-mode time, capture counts, quality, sharpness, brightness, exposure and gain.
+- Added recent mode transitions and sample-count cues; all summaries are observational and do not alter camera control.
+
 #### V50.3.3 - 2026-11-19
 - Moved native main-view radio controls outside the page container so CSS view selectors reveal the selected dashboard view.
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse,csv,ftplib,html,json,os,re,shutil,socket,tempfile
 from datetime import datetime,timedelta,timezone
 from pathlib import Path
-V='50.3.3'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
+V='50.3.4'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
 IMG=Path(os.getenv('WEATHERCAM_LATEST_IMAGE',str(ROOT/'frames/latest.jpg'))); HD=Path(os.getenv('WEATHERCAM_HEALTH_DIR',str(ROOT/'telemetry/health'))); TD=Path(os.getenv('WEATHERCAM_TELEMETRY_DIR',str(ROOT/'logs'))); LD=Path(os.getenv('WEATHERCAM_LOG_DIR',str(ROOT/'logs')))
 def dt(x):
  try:return datetime.fromisoformat(str(x).replace('Z','+00:00')).astimezone(timezone.utc)
@@ -91,8 +91,9 @@ def mode_effectiveness(rows,now):
  cut=now-timedelta(hours=24); samples=[]
  for r in rows:
   t=r.get('_ts');m=str(r.get('camera_mode') or r.get('mode') or '').upper()
-  if t and t>=cut and m:
+  if t and cut<=t<=now and m:
    samples.append((t,m,r))
+ samples.sort(key=lambda sample:sample[0])
  modes=['DAY','TWILIGHT','LOW LIGHT','NIGHT'];out={m:{'duration_seconds':0,'samples':0} for m in modes}
  fields={'brightness':'brightness_raw','exposure_ms':'exposure_ms','analogue_gain':'analogue_gain','digital_gain':'digital_gain','quality':'image_quality_score','sharpness':'sharpness_score','solar_elevation':'solar_elevation_deg'}
  vals={m:{k:[] for k in fields} for m in modes}
@@ -106,18 +107,11 @@ def mode_effectiveness(rows,now):
  for m in modes:
   for k,a in vals[m].items():out[m][k]=round(sum(a)/len(a),2) if a else None
   out[m]['duration_seconds']=round(out[m]['duration_seconds'])
+  out[m]['sample_status']='NO DATA' if out[m]['samples']==0 else 'LIMITED' if out[m]['samples']<10 else 'SAMPLED'
  transitions=[]
  for t,m,r in samples:
   if not transitions or transitions[-1]['mode']!=m:transitions.append({'timestamp':t.isoformat(),'mode':m})
- for i,m in enumerate(modes):
-  if out[m]['samples']==0:out[m]['assessment']='NO DATA'
-  elif m in ('DAY','NIGHT'):out[m]['assessment']='DISTINCT'
-  else:
-   peers=[]
-   for pm in modes:
-    if pm!=m and out[pm]['exposure_ms'] is not None:peers.append(abs((out[m]['exposure_ms'] or 0)-out[pm]['exposure_ms']))
-   out[m]['assessment']='DISTINCT' if peers and min(peers)>=5 else 'REVIEW'
- return {'window_hours':24,'modes':out,'transitions':transitions,'evidence':'COLLECT EVIDENCE' if len(transitions)<6 else 'EVALUATE','note':'Observational only; no camera-control behaviour changed.'}
+ return {'window_hours':24,'modes':out,'transitions':transitions[-12:],'sample_count':len(samples),'note':'Descriptive averages only; modes with fewer than 10 captures are marked limited. Time in each mode is estimated between captures and capped at 30 minutes per sample.'}
 
 def events():
  out=[]
@@ -301,14 +295,15 @@ def generate(upload=False):
  for item in log_events:
   events_payload.append({'time':item.get('time'),'severity':item.get('level','INFO'),'message':item.get('message','Operational event')})
  safe_config={
-  'release':'V50.3.3','telemetry_schema':4,'dashboard_refresh_minutes':5,
+  'release':'V50.3.4','telemetry_schema':4,'dashboard_refresh_minutes':5,
   'capture_interval_seconds':10,'ftp_configured':bool(os.getenv('DASHBOARD_FTP_HOST')),
   'ftp_tls':os.getenv('DASHBOARD_FTP_TLS','0')!='0',
  }
  payload={
   'version':V,'generated':now.isoformat(),'capture_time':capture_text,
   'state':state,'reasons':reasons[:2],'mode':mode,'metrics':metrics,
-  'series':chart_series,'events':events_payload,'hostname':socket.gethostname(),
+  'series':chart_series,'mode_performance':mode_effectiveness(telemetry_rows,now),
+  'events':events_payload,'hostname':socket.gethostname(),
   'counts':{'health':len(health_rows),'telemetry':len(telemetry_rows)},
   'config':safe_config,
  }

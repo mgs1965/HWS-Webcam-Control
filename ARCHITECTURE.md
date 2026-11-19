@@ -1,4 +1,4 @@
-# V50.3.3 Architecture
+# V50.3.4 Architecture
 
 ## Runtime assembly
 
@@ -14,10 +14,10 @@ The capture loop coordinates camera acquisition, camera-mode and exposure contro
 
 `weathercam_dashboard/dashboard.py` combines the latest camera status with health history, telemetry CSV files and operational events. `generate()` builds the JSON payload and renders `weathercam_dashboard/templates/dashboard.html`; it checks for exactly one `__DATA__` placeholder and injects the payload once into a non-executable `application/json` block. The source template safely uses an empty payload when opened before generation, so its navigation remains functional.
 
-The generator prepares brightness, image-quality and exposure series from telemetry and a process-memory series from health snapshots, each for 24-hour, 7-day and 30-day windows. It reduces chart series to a bounded number of points and converts process RSS to megabytes. `publish()` uploads the generated page and assets, including background Gallery images; the Gallery remains absent from the dashboard UI.
+The generator prepares brightness, image-quality and exposure series from telemetry and a process-memory series from health snapshots, each for 24-hour, 7-day and 30-day windows. It reduces chart series to a bounded number of points and converts process RSS to megabytes. It also summarizes capture count, estimated time in mode and average quality-related telemetry over the last 24 hours, with recent mode transitions; these summaries are descriptive only and do not influence camera control. `publish()` uploads the generated page and assets, including background Gallery images; the Gallery remains absent from the dashboard UI.
 
 The dashboard exposes Live, Trends, Events and Advanced views. Main-view navigation uses native radio controls with CSS view selection so navigation still works if JavaScript fails; JavaScript additionally updates the URL and redraws charts. Trends period tabs are separate controls. The dashboard publisher is a oneshot systemd service, scheduled by `weathercam-dashboard.timer` every five minutes.
 
 ## Release and deployment
 
-`version.py` is the release identity source for V50.3.3 and telemetry schema version 4. `manifest.json` records the release baseline, package filename and file inventory. The V50.3.3 verifier checks the release, telemetry contract, dashboard payload handling and navigation structure; the installer deploys to `/mnt/weathercam/app/releases/HarpendenWeatherCamera-V50.3.3` and records a rollback target.
+`version.py` is the release identity source for V50.3.4 and telemetry schema version 4. `manifest.json` records the release baseline, package filename and file inventory. The V50.3.4 verifier checks the release, telemetry contract, dashboard payload handling and navigation structure; the installer deploys to `/mnt/weathercam/app/releases/HarpendenWeatherCamera-V50.3.4` and records a rollback target.

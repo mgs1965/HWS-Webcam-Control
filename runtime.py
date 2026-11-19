@@ -115,6 +115,8 @@ def main():
             try:
                 check_for_new_day()
                 schedule_timelapse()
+                schedule_periodic_timelapses()
+                schedule_keogram_finalise()
                 schedule_hourly_today_timelapse()
                 image_filename, status_filename, capture_time = capture_frame()
                 consecutive_camera_acquisition_failures = 0

@@ -1,3 +1,12 @@
+#### V52.0 - 2026-11-19
+- Camera/image: new `scene_analysis.py` estimates cloud cover, fog/haze, lens droplets, frozen and blocked views and focus drift; alerts are logged, audited and shown in dashboard recommended checks. Scene history is kept in `logs/scene/` (30 days).
+- Camera/image: optional weather-station JSON (`HWS_WEATHER_DATA_PATH`, default `logs/weather_station.json`) is validated and shown in a top overlay bar, the status file and the dashboard.
+- Camera/image: new `keogram.py` builds a daily keogram (one slice per minute) uploaded as `keogram_YYYYMMDD.png` and `latest_keogram.png`, and shown in the dashboard Archive.
+- Camera/image: weekly (`weekly_timelapse_YYYYMMDD.mp4`) and monthly (`monthly_timelapse_YYYYMM.mp4`) summary timelapses are joined from existing daily videos and uploaded as `latest_weekly_timelapse.mp4` / `latest_monthly_timelapse.mp4`.
+- Retention: daily videos are kept 37 days (was 30) so the monthly build is complete; weekly 365 days, monthly 1095 days, keograms 90 days.
+- Camera control and telemetry-v4 (58 fields) are unchanged; new data is additive in `camera_status.json`.
+- Release: archives are named `HWS-Webcam-Control-<version>.zip` and extract to `HWS-Webcam-Control-<version>/`; `build_release.py` builds it from `manifest.json`.
+
 #### V51.0.2 - 2026-11-19
 - Dashboard: alert thresholds are configurable through `DASHBOARD_*` variables in `dashboard.env` (see `dashboard.env.example`).
 - Dashboard: Events view can be filtered by severity, date range and message text; event severities now display correctly.

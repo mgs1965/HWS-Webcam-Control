@@ -247,6 +247,8 @@ def write_status_file(capture_time, metadata, measurement):
     })
     # Existing V47/V49.8.1 control-health fields remain authoritative.
     status.update(control_status_fields(capture_time))
+    status['scene'] = measurement.get('scene')
+    status['weather'] = measurement.get('weather')
     try:
         obs = {k: status.get(k) for k in (
             'capture_time','software_version','telemetry_schema_version','camera_mode','control_health',

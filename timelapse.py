@@ -634,3 +634,103 @@ def schedule_timelapse():
     last_timelapse_scheduled_for = yesterday
     timelapse_thread = threading.Thread(target=process_timelapse, args=(yesterday,), daemon=True, name='daily-timelapse')
     timelapse_thread.start()
+
+PERIODIC_TIMELAPSE_ENABLED = True
+PERIODIC_MIN_DAILY_FILES = {'weekly': 2, 'monthly': 7}
+PERIODIC_MAX_ATTEMPTS = 3
+PERIODIC_RETRY_MINUTES = 30
+PERIODIC_CHECK_SECONDS = 600
+PERIODIC_LATEST_REMOTE = {'weekly': 'latest_weekly_timelapse.mp4', 'monthly': 'latest_monthly_timelapse.mp4'}
+periodic_timelapse_lock = threading.Lock()
+periodic_timelapse_thread = None
+periodic_timelapse_attempts = {}
+periodic_timelapse_next_retry = {}
+periodic_timelapse_last_check = 0.0
+
+def periodic_period(kind, today):
+    """Return (first_day, last_day, filename) for the most recent complete week (Mon-Sun) or month."""
+    if kind == 'weekly':
+        last = today - timedelta(days=today.weekday() + 1)
+        first = last - timedelta(days=6)
+        return first, last, os.path.join(TIMELAPSE_PATH, f'weekly_timelapse_{first:%Y%m%d}.mp4')
+    last = today.replace(day=1) - timedelta(days=1)
+    first = last.replace(day=1)
+    return first, last, os.path.join(TIMELAPSE_PATH, f'monthly_timelapse_{first:%Y%m}.mp4')
+
+def periodic_daily_files(first, last):
+    files = []
+    day = first
+    while day <= last:
+        filename = os.path.join(TIMELAPSE_PATH, f'timelapse_{day:%Y%m%d}.mp4')
+        if os.path.exists(filename):
+            files.append(filename)
+        day += timedelta(days=1)
+    return files
+
+def periodic_uploaded_marker(filename):
+    return filename + '.uploaded'
+
+def build_periodic_timelapse(kind, today):
+    """Join the existing daily videos of the previous full week/month; True when nothing remains to do."""
+    first, last, output = periodic_period(kind, today)
+    if os.path.exists(output) and (not UPLOAD_TIMELAPSE or os.path.exists(periodic_uploaded_marker(output))):
+        return True
+    if not os.path.exists(output):
+        files = periodic_daily_files(first, last)
+        if len(files) < PERIODIC_MIN_DAILY_FILES[kind]:
+            return True
+        frames = 0
+        for filename in files:
+            info = probe_video(filename)
+            frames += int((info or {}).get('frames') or 0)
+        if frames < 2:
+            return False
+        if not concatenate_video_segments(files, output, frames, f'{kind}-{first:%Y%m%d}', minimum_file_size=1):
+            return False
+        audit_event(f'{kind}_timelapse_completed', first_day=first.isoformat(), last_day=last.isoformat(), daily_files=len(files), frames=frames)
+    if UPLOAD_TIMELAPSE:
+        if not (upload_to_ftp(output, os.path.basename(output)) and upload_to_ftp(output, PERIODIC_LATEST_REMOTE[kind])):
+            return False
+        with open(periodic_uploaded_marker(output), 'w', encoding='utf-8') as marker:
+            marker.write(local_now().isoformat())
+    return True
+
+def process_periodic_timelapses(today):
+    if not periodic_timelapse_lock.acquire(blocking=False):
+        return
+    try:
+        for kind in ('weekly', 'monthly'):
+            key = (kind, periodic_period(kind, today)[0])
+            if periodic_timelapse_attempts.get(key, 0) >= PERIODIC_MAX_ATTEMPTS:
+                continue
+            if key in periodic_timelapse_next_retry and local_now() < periodic_timelapse_next_retry[key]:
+                continue
+            periodic_timelapse_attempts[key] = periodic_timelapse_attempts.get(key, 0) + 1
+            try:
+                ok = build_periodic_timelapse(kind, today)
+            except Exception:
+                logger.exception('[PERIODIC TIMELAPSE] FAILED | Kind=%s', kind)
+                ok = False
+            if ok:
+                periodic_timelapse_attempts[key] = 0
+                periodic_timelapse_next_retry[key] = local_now() + timedelta(days=1)
+            else:
+                periodic_timelapse_next_retry[key] = local_now() + timedelta(minutes=PERIODIC_RETRY_MINUTES)
+    finally:
+        periodic_timelapse_lock.release()
+
+def schedule_periodic_timelapses():
+    """Rate-limited background check for weekly and monthly summary videos."""
+    global periodic_timelapse_thread, periodic_timelapse_last_check
+    if not PERIODIC_TIMELAPSE_ENABLED or (periodic_timelapse_thread and periodic_timelapse_thread.is_alive()):
+        return
+    if time.monotonic() - periodic_timelapse_last_check < PERIODIC_CHECK_SECONDS:
+        return
+    periodic_timelapse_last_check = time.monotonic()
+    now = local_now()
+    if now < now.replace(hour=TIMELAPSE_START_HOUR, minute=TIMELAPSE_START_MINUTE + 30, second=0, microsecond=0):
+        return
+    if last_timelapse_completed_for != now.date() - timedelta(days=1):
+        return
+    periodic_timelapse_thread = threading.Thread(target=process_periodic_timelapses, args=(now.date(),), daemon=True, name='periodic-timelapse')
+    periodic_timelapse_thread.start()

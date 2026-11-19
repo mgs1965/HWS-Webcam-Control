@@ -1,5 +1,7 @@
 # Function map
 
+Current release: V50.3.1. The dashboard template is rendered by `weathercam_dashboard/dashboard.py` and is not deployed with its `__DATA__` placeholder intact.
+
 ## camera.py
 - `CameraAcquisitionError`
 - `normalise_camera_array`
@@ -106,3 +108,43 @@
 - `install_signal_handlers`
 - `sleep_until_next_capture`
 - `main`
+
+## weathercam_dashboard/dashboard.py
+- `dt`
+- `num`
+- `get`
+- `jsonfile`
+- `controller_analytics`
+- `controller_history`
+- `controller_events`
+- `status`
+- `health`
+- `telemetry`
+- `series`
+- `mode_series`
+- `mode_effectiveness`
+- `events`
+- `incidents`
+- `atomic`
+- `copy`
+- `recent_gallery_images`
+- `seconds_since`
+- `publish`
+- `generate`
+- `main`
+
+`generate` assembles status, health and telemetry data into the dashboard payload, prepares 24-hour/7-day/30-day trend series including process RSS, and injects that payload exactly once into the template's JSON data block. `publish` uploads the generated page and its assets.
+
+## weathercam_dashboard/templates/dashboard.html
+- Renders the Live, Trends, Events and Advanced views.
+- Trends period subtabs select 24-hour, 7-day and 30-day charts for brightness, quality, exposure and process memory.
+- Main-view navigation and Trends period controls have separate click handlers.
+- Reads dashboard data from the `dashboard-data` JSON block; the source template remains navigable before data injection.
+- The Gallery view is absent; backend gallery image publishing remains in the dashboard generator.
+
+## Release and package files
+- `version.py` contains the V50.3.1 release identity and telemetry schema version.
+- `manifest.json` records the release baseline, package filename and release file inventory.
+- `verify_v50_3_1.py` validates release identity, telemetry contract and dashboard structure.
+- `test_v50_3_1.py` contains focused release and dashboard regression checks.
+- `install_v50_3_1.sh` installs the release; `rollback_v50_3_1.sh` restores its recorded previous target.

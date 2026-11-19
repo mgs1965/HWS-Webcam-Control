@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse,csv,ftplib,html,json,os,re,shutil,socket,tempfile
 from datetime import datetime,timedelta,timezone
 from pathlib import Path
-V='50.3'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
+V='50.3.1'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
 IMG=Path(os.getenv('WEATHERCAM_LATEST_IMAGE',str(ROOT/'frames/latest.jpg'))); HD=Path(os.getenv('WEATHERCAM_HEALTH_DIR',str(ROOT/'telemetry/health'))); TD=Path(os.getenv('WEATHERCAM_TELEMETRY_DIR',str(ROOT/'logs'))); LD=Path(os.getenv('WEATHERCAM_LOG_DIR',str(ROOT/'logs')))
 def dt(x):
  try:return datetime.fromisoformat(str(x).replace('Z','+00:00')).astimezone(timezone.utc)
@@ -301,7 +301,7 @@ def generate(upload=False):
  for item in log_events:
   events_payload.append({'time':item.get('time'),'severity':item.get('level','INFO'),'message':item.get('message','Operational event')})
  safe_config={
-  'release':'V50.3','telemetry_schema':4,'dashboard_refresh_minutes':5,
+  'release':'V50.3.1','telemetry_schema':4,'dashboard_refresh_minutes':5,
   'capture_interval_seconds':10,'ftp_configured':bool(os.getenv('DASHBOARD_FTP_HOST')),
   'ftp_tls':os.getenv('DASHBOARD_FTP_TLS','0')!='0',
  }
@@ -313,7 +313,8 @@ def generate(upload=False):
   'config':safe_config,
  }
  template=(Path(__file__).resolve().parent/'templates/dashboard.html').read_text()
- template=template.replace('__DATA__',json.dumps(payload,separators=(',',':')).replace('</','<\\/'))
+ if template.count('__DATA__') != 1:raise RuntimeError('Dashboard template must contain exactly one data placeholder')
+ template=template.replace('__DATA__',json.dumps(payload,separators=(',',':')).replace('</','<\\/'),1)
  atomic(OUT/'dashboard.html',template)
  atomic(OUT/'dashboard-data.json',json.dumps(payload,indent=2))
  result=publish() if upload else 'generated'

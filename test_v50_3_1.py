@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parent
 def test_release_identity():
     namespace = {}
     exec((ROOT / 'version.py').read_text(encoding='utf-8'), namespace)
-    assert namespace['VERSION'] == 'V50.3'
+    assert namespace['VERSION'] == 'V50.3.1'
     assert namespace['TELEMETRY_SCHEMA_VERSION'] == 4
 
 def test_telemetry_schema():
@@ -24,11 +24,11 @@ def test_credentials_are_not_embedded():
     assert "FTP_PASSWORD = os.getenv('HWS_FTP_PASSWORD', '')" in core
     assert 'cGnRUCGhc' not in core
 
-def test_dashboard_v50_3_payload():
+def test_dashboard_v50_3_1_payload():
     dashboard = (ROOT / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
     template = (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
-    assert "V='50.3'" in dashboard
-    assert "'release':'V50.3'" in dashboard
+    assert "V='50.3.1'" in dashboard
+    assert "'release':'V50.3.1'" in dashboard
     assert "for period,hours in (('24h',24),('7d',168),('30d',720))" in dashboard
     assert 'incidents' in dashboard
     assert "'process_memory':series(recent_health,'memory.process_rss_bytes',scale=1/1048576)" in dashboard
@@ -46,6 +46,12 @@ def test_dashboard_v50_3_payload():
     assert 'id="processMemoryChart"' in template
     assert 'id="trendCharts"' in template
     assert "D.series?.[activePeriod]?.[key]" in template
+    assert template.count('__DATA__') == 1
+    assert "dataText.startsWith('{')?JSON.parse(dataText):{}" in template
+    assert "template.replace('__DATA__'" in dashboard
+    assert "template.count('__DATA__') != 1:raise RuntimeError" in dashboard
+    assert "$('#viewNav').querySelectorAll('button').forEach(button=>button.addEventListener" in template
+    assert "document.querySelectorAll('.nav button').forEach(button=>button.addEventListener" not in template
     assert 'Last 24 hours' in template
     assert 'Last 7 days' in template
     assert 'Last 30 days' in template

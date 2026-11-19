@@ -1,8 +1,8 @@
-# Harpenden Weather Camera V50.3
+# Harpenden Weather Camera V50.3.1
 
 **Simplified dashboard update to V50 reliability and observability.**
 
-V50.3 adds a camera process-memory graph and 7-day/30-day trend periods, retaining V50.2 dashboard usability improvements and V50 reliability work. Camera-control, exposure, mode thresholds, quality calculation, timelapse, camera FTP worker and telemetry-v4 58-field schema are retained.
+V50.3.1 fixes dashboard tab navigation and retains the V50.3 camera process-memory graph and 24-hour/7-day/30-day trend periods. Camera-control, exposure, mode thresholds, quality calculation, timelapse, camera FTP worker and telemetry-v4 58-field schema are unchanged.
 
 ## Dashboard
 - Simplified Live, Trends, Events and Advanced views; the Gallery view is removed.
@@ -15,10 +15,10 @@ V50.3 adds a camera process-memory graph and 7-day/30-day trend periods, retaini
 
 ## Install
 ```bash
-unzip HWS-Webcam-Control-50.3.zip
-cd HWS-Webcam-Control-50.3
-python3 verify_v50_3.py
-sudo bash ./install_v50_3.sh
+unzip HWS-Webcam-Control-50.3.1.zip
+cd HWS-Webcam-Control-50.3.1
+python3 verify_v50_3_1.py
+sudo bash ./install_v50_3_1.sh
 ```
 
 ## Publish immediately
@@ -28,5 +28,5 @@ sudo bash -c 'set -a; . /etc/weathercam/dashboard.env; set +a; exec sudo -u mgs 
 
 ## Rollback
 ```bash
-sudo bash /mnt/weathercam/app/current/rollback_v50_3.sh
+sudo bash /mnt/weathercam/app/current/rollback_v50_3_1.sh
 ```

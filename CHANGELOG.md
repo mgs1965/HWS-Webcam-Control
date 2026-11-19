@@ -1,3 +1,8 @@
+#### V50.3.1 - 2026-11-19
+- Fixed navigation by isolating main-view handlers from Trends period tabs.
+- Made the dashboard template valid and navigable before data injection; the generator injects its JSON payload once into a non-executable data block.
+- Kept V50.3 trend periods, process-memory graph and telemetry-v4 contract.
+
 #### V50.3 - 2026-11-19
 - Added camera process RSS memory history to Trends.
 - Restored trend graphs for 7-day and 30-day periods as Trends subtabs, alongside 24 hours.

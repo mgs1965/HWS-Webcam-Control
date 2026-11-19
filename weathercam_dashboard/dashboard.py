@@ -5,6 +5,28 @@ from datetime import datetime,timedelta,timezone
 from pathlib import Path
 V='51.0.1'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
 IMG=Path(os.getenv('WEATHERCAM_LATEST_IMAGE',str(ROOT/'frames/latest.jpg'))); HD=Path(os.getenv('WEATHERCAM_HEALTH_DIR',str(ROOT/'telemetry/health'))); TD=Path(os.getenv('WEATHERCAM_TELEMETRY_DIR',str(ROOT/'logs'))); LD=Path(os.getenv('WEATHERCAM_LOG_DIR',str(ROOT/'logs')))
+def envnum(name,default):
+ try:
+  value=float(os.getenv(name,''))
+  return value if math.isfinite(value) else default
+ except ValueError:return default
+TH={
+ 'capture_warning_seconds':envnum('DASHBOARD_CAPTURE_WARNING_SECONDS',30),
+ 'capture_critical_seconds':envnum('DASHBOARD_CAPTURE_CRITICAL_SECONDS',120),
+ 'disk_free_warning_gb':envnum('DASHBOARD_DISK_FREE_WARNING_GB',10),
+ 'disk_free_critical_gb':envnum('DASHBOARD_DISK_FREE_CRITICAL_GB',2),
+ 'disk_used_warning_percent':envnum('DASHBOARD_DISK_USED_WARNING_PERCENT',85),
+ 'disk_used_critical_percent':envnum('DASHBOARD_DISK_USED_CRITICAL_PERCENT',95),
+ 'cpu_temp_warning_c':envnum('DASHBOARD_CPU_TEMP_WARNING_C',70),
+ 'cpu_temp_critical_c':envnum('DASHBOARD_CPU_TEMP_CRITICAL_C',80),
+ 'memory_warning_percent':envnum('DASHBOARD_MEMORY_WARNING_PERCENT',85),
+ 'memory_critical_percent':envnum('DASHBOARD_MEMORY_CRITICAL_PERCENT',95),
+ 'health_stale_seconds':envnum('DASHBOARD_HEALTH_STALE_SECONDS',7200),
+ 'dashboard_stale_minutes':envnum('DASHBOARD_STALE_MINUTES',15),
+}
+LATITUDE=envnum('DASHBOARD_LATITUDE',51.8175);LONGITUDE=envnum('DASHBOARD_LONGITUDE',-0.352)
+TIMELAPSE_PREVIEW_MAX_MB=envnum('DASHBOARD_TIMELAPSE_MAX_MB',150)
+PREVIEW_NAME='latest_timelapse.mp4'
 def dt(x):
  try:return datetime.fromisoformat(str(x).replace('Z','+00:00')).astimezone(timezone.utc)
  except:return None
@@ -91,15 +113,15 @@ def recommended_checks(metrics,timelapse):
   checks.append({'issue':'Image publishing','action':'Check network reachability and the configured FTP destination.'})
  if metrics['control_health'] in ('UNHEALTHY','FAILED','DEGRADED'):
   checks.append({'issue':'Camera control','action':'Review recent control acknowledgements and camera-mode events.'})
- if metrics['disk_free_gb'] is not None and metrics['disk_free_gb']<10:
+ if metrics['disk_free_gb'] is not None and metrics['disk_free_gb']<TH['disk_free_warning_gb']:
   checks.append({'issue':'Storage','action':'Review free space and the configured retention/cleanup policy.'})
- if metrics['cpu_temp_c'] is not None and metrics['cpu_temp_c']>=70:
+ if metrics['cpu_temp_c'] is not None and metrics['cpu_temp_c']>=TH['cpu_temp_warning_c']:
   checks.append({'issue':'Temperature','action':'Check Raspberry Pi cooling, ventilation and workload.'})
- if metrics['memory_percent'] is not None and metrics['memory_percent']>=85:
+ if metrics['memory_percent'] is not None and metrics['memory_percent']>=TH['memory_warning_percent']:
   checks.append({'issue':'Memory','action':'Review memory history and running processes on the Raspberry Pi.'})
  if metrics['throttling_active'] is True:
   checks.append({'issue':'Power or thermal throttling','action':'Check the Pi power supply, cooling and active load.'})
- if metrics['health_age_seconds'] is None or metrics['health_age_seconds']>7200:
+ if metrics['health_age_seconds'] is None or metrics['health_age_seconds']>TH['health_stale_seconds']:
   checks.append({'issue':'Health data','action':'Confirm the camera service is recording system-health snapshots.'})
  if timelapse and timelapse['source_gap_count']:
   checks.append({'issue':'Timelapse gaps','action':'Review the missing-hour details in the latest daily report.'})
@@ -215,6 +237,52 @@ def recent_gallery_images(limit=48):
  found.sort(key=lambda x:x[0],reverse=True)
  return [p for _,p in found[:limit]]
 
+def duration_text(seconds):
+ seconds=int(seconds)
+ if seconds%3600==0 and seconds>=3600:return f'{seconds//3600} hours'
+ if seconds%60==0 and seconds>=60:return f'{seconds//60} minutes'
+ return f'{seconds} seconds'
+def sun_times(day):
+ n=day.timetuple().tm_yday;g=2*math.pi/365*(n-1);lat=math.radians(LATITUDE)
+ eq=229.18*(0.000075+0.001868*math.cos(g)-0.032077*math.sin(g)-0.014615*math.cos(2*g)-0.040849*math.sin(2*g))
+ decl=0.006918-0.399912*math.cos(g)+0.070257*math.sin(g)-0.006758*math.cos(2*g)+0.000907*math.sin(2*g)-0.002697*math.cos(3*g)+0.00148*math.sin(3*g)
+ cos_ha=math.cos(math.radians(90.833))/(math.cos(lat)*math.cos(decl))-math.tan(lat)*math.tan(decl)
+ if abs(cos_ha)>1:return None
+ ha=math.degrees(math.acos(cos_ha));midnight=datetime(day.year,day.month,day.day,tzinfo=timezone.utc)
+ return (midnight+timedelta(minutes=720-4*(LONGITUDE+ha)-eq),midnight+timedelta(minutes=720-4*(LONGITUDE-ha)-eq))
+def sun_events(now,days=30):
+ out=[];start=(now-timedelta(days=days)).date()
+ for offset in range(days+2):
+  times=sun_times(start+timedelta(days=offset))
+  if not times:continue
+  for kind,stamp in zip(('sunrise','sunset'),times):
+   if now-timedelta(days=days)<=stamp<=now:out.append({'time':stamp.isoformat(),'type':kind})
+ return out
+def quality_summary(rows,now):
+ def summarise(label,items):
+  pts=[(num(r.get('image_quality_score')),r['_ts']) for r in items]
+  pts=[(v,t) for v,t in pts if v is not None]
+  if not pts:return {'label':label,'samples':0,'best':None,'worst':None,'average':None}
+  best=max(pts,key=lambda x:x[0]);worst=min(pts,key=lambda x:x[0])
+  return {'label':label,'samples':len(pts),'average':round(sum(v for v,_ in pts)/len(pts),1),
+   'best':{'value':round(best[0],1),'time':best[1].isoformat()},'worst':{'value':round(worst[0],1),'time':worst[1].isoformat()}}
+ out=[summarise('Last 24 hours',[r for r in rows if r.get('_ts') and r['_ts']>=now-timedelta(hours=24)])]
+ for back in range(1,7):
+  day=(now-timedelta(days=back)).date()
+  items=[r for r in rows if r.get('_ts') and r['_ts'].date()==day]
+  if items:out.append(summarise(day.isoformat(),items))
+ return out
+def sync_timelapse_preview(video):
+ target=OUT/PREVIEW_NAME
+ if not video or TIMELAPSE_PREVIEW_MAX_MB<=0 or video['size_bytes']>TIMELAPSE_PREVIEW_MAX_MB*1048576:
+  try:target.unlink()
+  except OSError:pass
+  return None
+ src=ROOT/'timelapse'/video['filename']
+ try:
+  if target.exists() and target.stat().st_size==video['size_bytes'] and int(target.stat().st_mtime)==int(src.stat().st_mtime):return PREVIEW_NAME
+ except OSError:pass
+ return PREVIEW_NAME if copy(src,target) else None
 def seconds_since(value,now):
  stamp=dt(value);return None if stamp is None else max(0,int((now-stamp).total_seconds()))
 def publish():
@@ -265,6 +333,11 @@ def publish_with(ftp,host,user,pw,remote,desired):
  if remote_frames!=desired:raise RuntimeError(f'Remote gallery mismatch: desired={len(desired)} remote={len(remote_frames)}')
  # Commit top-level assets in safe order; HTML is always last.
  ftp.cwd(remote)
+ preview=OUT/PREVIEW_NAME
+ if preview.is_file():
+  try:ftp.voidcmd('TYPE I');remote_size=ftp.size(PREVIEW_NAME)
+  except (ftplib.error_perm,ftplib.error_reply,AttributeError):remote_size=None
+  if remote_size!=preview.stat().st_size:atomic_send(preview,PREVIEW_NAME)
  for name in ('latest.jpg','dashboard-data.json','dashboard.html'):
   local=OUT/name
   if local.is_file():atomic_send(local,name)
@@ -307,7 +380,7 @@ def generate(upload=False):
  disk_percent=num(get(last_health,'storage.used_percent'))
  rss_bytes=num(get(last_health,'memory.process_rss_bytes'))
  capture_percent=num(latest_report.get('capture_completeness_percent'))
- camera_state='UNKNOWN' if capture_age is None else 'CRITICAL' if capture_age>120 else 'WARNING' if capture_age>30 else 'HEALTHY'
+ camera_state='UNKNOWN' if capture_age is None else 'CRITICAL' if capture_age>TH['capture_critical_seconds'] else 'WARNING' if capture_age>TH['capture_warning_seconds'] else 'HEALTHY'
  mode=first(status_data.get('camera_mode'),latest.get('camera_mode'),'UNKNOWN')
  metrics={
   'capture_age_seconds':capture_age,'capture_state':camera_state,'upload_age_seconds':upload_age,
@@ -330,42 +403,42 @@ def generate(upload=False):
  }
  reasons=[]
  if camera_state=='UNKNOWN':reasons.append('No camera capture data')
- elif camera_state=='CRITICAL':reasons.append('Camera data is more than 2 minutes old')
+ elif camera_state=='CRITICAL':reasons.append(f"Camera data is more than {duration_text(TH['capture_critical_seconds'])} old")
  elif camera_state=='WARNING':reasons.append('Camera data is delayed')
  if ftp_health=='OUTAGE':reasons.append('FTP upload is unavailable')
  elif ftp_health in ('DEGRADED','RECOVERING'):reasons.append('FTP upload is degraded')
  if control_health in ('UNHEALTHY','FAILED'):reasons.append('Camera control is unhealthy')
  elif control_health=='DEGRADED':reasons.append('Camera control is degraded')
- if disk_free is not None and disk_free<2:reasons.append('Disk space is critically low')
- elif disk_free is not None and disk_free<10:reasons.append('Disk space is low')
- if cpu_temp is not None and cpu_temp>=80:reasons.append('CPU temperature is critical')
- elif cpu_temp is not None and cpu_temp>=70:reasons.append('CPU temperature is elevated')
- if memory_percent is not None and memory_percent>=95:reasons.append('Memory usage is critical')
- elif memory_percent is not None and memory_percent>=85:reasons.append('Memory usage is high')
- if disk_percent is not None and disk_percent>=95 and (disk_free is None or disk_free>=2):reasons.append('Disk usage is critical')
- elif disk_percent is not None and disk_percent>=85 and (disk_free is None or disk_free>=10):reasons.append('Disk usage is high')
+ if disk_free is not None and disk_free<TH['disk_free_critical_gb']:reasons.append('Disk space is critically low')
+ elif disk_free is not None and disk_free<TH['disk_free_warning_gb']:reasons.append('Disk space is low')
+ if cpu_temp is not None and cpu_temp>=TH['cpu_temp_critical_c']:reasons.append('CPU temperature is critical')
+ elif cpu_temp is not None and cpu_temp>=TH['cpu_temp_warning_c']:reasons.append('CPU temperature is elevated')
+ if memory_percent is not None and memory_percent>=TH['memory_critical_percent']:reasons.append('Memory usage is critical')
+ elif memory_percent is not None and memory_percent>=TH['memory_warning_percent']:reasons.append('Memory usage is high')
+ if disk_percent is not None and disk_percent>=TH['disk_used_critical_percent'] and (disk_free is None or disk_free>=TH['disk_free_critical_gb']):reasons.append('Disk usage is critical')
+ elif disk_percent is not None and disk_percent>=TH['disk_used_warning_percent'] and (disk_free is None or disk_free>=TH['disk_free_warning_gb']):reasons.append('Disk usage is high')
  if throttling_active:reasons.append('Raspberry Pi throttling is active')
  health_reasons=get(last_health,'health_reasons',[])
  if isinstance(health_reasons,list):
   for reason in health_reasons:
    if isinstance(reason,str) and reason not in reasons:reasons.append(reason)
- if health_age is None or health_age>7200:reasons.append('Raspberry Pi health data is stale')
+ if health_age is None or health_age>TH['health_stale_seconds']:reasons.append('Raspberry Pi health data is stale')
  elif reported_health=='CRITICAL' and not any('critical' in reason.lower() for reason in reasons):
   reasons.append('Raspberry Pi health snapshot reports a critical condition')
  critical=(camera_state=='CRITICAL' or ftp_health=='OUTAGE'
            or control_health in ('UNHEALTHY','FAILED')
-           or (disk_free is not None and disk_free<2)
-           or (cpu_temp is not None and cpu_temp>=80)
-           or (memory_percent is not None and memory_percent>=95)
-           or (disk_percent is not None and disk_percent>=95)
-           or (reported_health=='CRITICAL' and health_age is not None and health_age<=7200)
+           or (disk_free is not None and disk_free<TH['disk_free_critical_gb'])
+           or (cpu_temp is not None and cpu_temp>=TH['cpu_temp_critical_c'])
+           or (memory_percent is not None and memory_percent>=TH['memory_critical_percent'])
+           or (disk_percent is not None and disk_percent>=TH['disk_used_critical_percent'])
+           or (reported_health=='CRITICAL' and health_age is not None and health_age<=TH['health_stale_seconds'])
            or throttling_active is True)
  warning=bool(reasons)
  state='CRITICAL' if critical else 'NO DATA' if camera_state=='UNKNOWN' else 'WARNING' if warning else 'HEALTHY'
- urgent=('critical','unavailable','unhealthy','more than 2 minutes','throttling')
+ urgent=('critical','unavailable','unhealthy','more than','throttling')
  reasons.sort(key=lambda reason:not any(word in reason.lower() for word in urgent))
  if not reasons:reasons=['All monitored systems are healthy']
- chart_series={};chart_coverage={}
+ chart_series={};chart_coverage={};chart_modes={}
  report_rows=[row for row in report_rows if row.get('_ts') and row['_ts']>=now-timedelta(days=30)]
  report_series=[dict(row,capture_completeness_percent=num(row.get('capture_completeness_percent'))) for row in report_rows]
  series_sources={
@@ -388,6 +461,7 @@ def generate(upload=False):
   sources={'telemetry':recent_telemetry,'health':recent_health,'reports':recent_reports}
   chart_series[period]={}
   chart_coverage[period]={}
+  chart_modes[period]=mode_series(recent_telemetry)
   for key,(source,path,scale) in series_sources.items():
    rows=sources[source]
    chart_series[period][key]=series(rows,path,scale=scale)
@@ -424,6 +498,7 @@ def generate(upload=False):
  } for item in incident_rows if dt(item.get('timestamp'))]
  gap_details=latest_report.get('timelapse_source_gaps',[])
  if not isinstance(gap_details,list):gap_details=[]
+ preview=sync_timelapse_preview(latest_video)
  timelapse={
   'report_date':latest_report.get('date'),
   'capture_count':num(latest_report.get('captures')),
@@ -436,7 +511,7 @@ def generate(upload=False):
   'expected_frames':num(latest_report.get('timelapse_expected_frames')),
   'source_gap_count':len(gap_details),
   'source_gaps':gap_details[:8],
-  'latest_video':latest_video,
+  'latest_video':latest_video,'preview':preview,'preview_max_mb':TIMELAPSE_PREVIEW_MAX_MB,
   'latest_video_age_seconds':seconds_since(latest_video.get('modified'),now) if latest_video else None,
   'latest_video_size_mb':round(latest_video['size_bytes']/1048576,2) if latest_video else None,
  }
@@ -453,11 +528,12 @@ def generate(upload=False):
   'release':'V51.0.1','telemetry_schema':4,'dashboard_refresh_minutes':5,
   'capture_interval_seconds':10,'ftp_configured':bool(os.getenv('DASHBOARD_FTP_HOST')),
   'ftp_tls':os.getenv('DASHBOARD_FTP_TLS','0')!='0',
+  'thresholds':TH,'stale_after_minutes':TH['dashboard_stale_minutes'],
  }
  payload={
   'version':V,'generated':now.isoformat(),'capture_time':capture_text,
   'state':state,'reasons':reasons[:2],'mode':mode,'metrics':metrics,
-  'series':chart_series,'coverage':chart_coverage,'timeline_events':timeline_events,
+  'series':chart_series,'coverage':chart_coverage,'modes':chart_modes,'sun':sun_events(now),'quality_summary':quality_summary(telemetry_rows,now),'timeline_events':timeline_events,
   'mode_performance':mode_effectiveness(telemetry_rows,now),
   'timelapse':timelapse,'recommendations':actions,
   'reports':{'latest':daily_history[-1] if daily_history else None,'history':daily_history},

@@ -17,7 +17,7 @@ for filename in modules:
 
 namespace = {}
 exec((root / 'version.py').read_text(encoding='utf-8'), namespace)
-assert namespace['VERSION'] == 'V50.3.4'
+assert namespace['VERSION'] == 'V50.3.5'
 assert namespace['TELEMETRY_SCHEMA_VERSION'] == 4
 
 publishing = (root / 'publishing.py').read_text(encoding='utf-8')
@@ -31,17 +31,17 @@ assert len(ast.literal_eval(assignment.value)) == 58
 
 core = (root / 'core.py').read_text(encoding='utf-8')
 assert "HWS_FTP_PASSWORD" in core
-assert "SCRIPT_VERSION = '2026-11-19 V50.3.4'" in core
+assert "SCRIPT_VERSION = '2026-11-19 V50.3.5'" in core
 assert 'V50_MAX_CAMERA_RESTARTS_PER_HOUR = 6' in core
 
 dashboard = (root / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
 template = (root / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
-assert "V='50.3.4'" in dashboard
-assert "'release':'V50.3.4'" in dashboard
+assert "V='50.3.5'" in dashboard
+assert "'release':'V50.3.5'" in dashboard
 assert "for period,hours in (('24h',24),('7d',168),('30d',720))" in dashboard
 assert "'process_memory':series(recent_health,'memory.process_rss_bytes',scale=1/1048576)" in dashboard
 assert 'incidents' in dashboard
-assert 'V50.3.4' in template
+assert 'V50.3.5' in template
 assert "'mode_performance':mode_effectiveness(telemetry_rows,now)" in dashboard
 assert 'id="modePerformanceRows"' in template
 assert 'id="modeTransitions"' in template
@@ -71,10 +71,25 @@ for view in ('live', 'trends', 'events', 'advanced'):
 assert template.index('id="view-live"') < template.index('<div class="page">')
 assert "document.querySelectorAll('.view-select')" in template
 assert "'cpu_load_percent'" in dashboard
+monitoring = (root / 'monitoring.py').read_text(encoding='utf-8')
+assert "'throttled_now': bool(value & 0x4)" in monitoring
+assert "'soft_temperature_limit_now': bool(value & 0x8)" in monitoring
+assert "f'daily_health_{day:%Y%m%d}.json'" in monitoring
+state = (root / 'state.py').read_text(encoding='utf-8')
+assert "quality state histories must be lists by mode" in state
+camera = (root / 'camera.py').read_text(encoding='utf-8')
+assert "audit_event('camera_restart_failed'" in camera
+analytics = (root / 'controller_analytics.py').read_text(encoding='utf-8')
+assert "'MAX_TWILIGHT_EXPOSURE_US','MAX_LOW_LIGHT_EXPOSURE_US','MAX_NIGHT_EXPOSURE_US'" in analytics
+service = (root / 'systemd/weathercam.service').read_text(encoding='utf-8')
+assert 'ExecStart=/usr/bin/python3 /mnt/weathercam/app/current/weather_camera.py' in service
+installer = (root / 'install_v50_3_5.sh').read_text(encoding='utf-8')
+assert 'systemctl cat weathercam.service' in installer
 
-print('PASS: V50.3.4 release identity')
+print('PASS: V50.3.5 release identity')
 print('PASS: telemetry-v4 immutable 58-field contract')
 print('PASS: FTP credentials are environment-configured')
 print('PASS: bounded camera recovery and worker cooldown present')
 print('PASS: dashboard view selection and data payload handling')
 print('PASS: descriptive camera mode summaries and transitions')
+print('PASS: runtime recovery and persistence regression guards')

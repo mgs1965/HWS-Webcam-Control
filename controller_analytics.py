@@ -58,7 +58,7 @@ def record_controller_analytics(capture_time,metadata,measurement):
     _trim_controller_files(capture_time)
 
 def _configuration_fingerprint():
-    keys=['DAY_MAX_EXPOSURE_US','TWILIGHT_MAX_EXPOSURE_US','LOW_LIGHT_MAX_EXPOSURE_US','NIGHT_MAX_EXPOSURE_US','MIN_ANALOGUE_GAIN','ABSOLUTE_MAX_GAIN']
+    keys=['MAX_TWILIGHT_EXPOSURE_US','MAX_LOW_LIGHT_EXPOSURE_US','MAX_NIGHT_EXPOSURE_US','MIN_EXPOSURE_US','MIN_ANALOGUE_GAIN','ABSOLUTE_MAX_GAIN']
     raw='|'.join(f'{k}={globals().get(k)}' for k in keys)
     return hashlib.sha256(raw.encode()).hexdigest()[:12]
 

@@ -1,0 +1,20 @@
+[Unit]
+Description=Harpenden Weather Camera capture service
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=3600
+StartLimitBurst=6
+
+[Service]
+Type=simple
+User=mgs
+WorkingDirectory=/mnt/weathercam/app/current
+EnvironmentFile=/etc/weathercam/dashboard.env
+ExecStart=/usr/bin/python3 /mnt/weathercam/app/current/weather_camera.py
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=240
+KillSignal=SIGTERM
+
+[Install]
+WantedBy=multi-user.target

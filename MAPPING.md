@@ -1,6 +1,6 @@
 # Function map
 
-Current release: V50.3.4. The dashboard template is rendered by `weathercam_dashboard/dashboard.py` and is not deployed with its `__DATA__` placeholder intact.
+Current release: V50.3.5. The dashboard template is rendered by `weathercam_dashboard/dashboard.py` and is not deployed with its `__DATA__` placeholder intact.
 
 ## camera.py
 - `CameraAcquisitionError`
@@ -144,8 +144,9 @@ Current release: V50.3.4. The dashboard template is rendered by `weathercam_dash
 - The Gallery view is absent; backend gallery image publishing remains in the dashboard generator.
 
 ## Release and package files
-- `version.py` contains the V50.3.4 release identity and telemetry schema version.
+- `version.py` contains the V50.3.5 release identity and telemetry schema version.
 - `manifest.json` records the release baseline, package filename and release file inventory.
-- `verify_v50_3_4.py` validates release identity, telemetry contract and dashboard structure.
-- `test_v50_3_4.py` contains focused release and dashboard regression checks.
-- `install_v50_3_4.sh` installs the release; `rollback_v50_3_4.sh` restores its recorded previous target.
+- `verify_v50_3_5.py` validates release identity, telemetry contract, dashboard structure and runtime regression guards.
+- `test_v50_3_5.py` contains focused release and runtime regression checks.
+- `install_v50_3_5.sh` installs the release; `rollback_v50_3_5.sh` restores its recorded previous target.
+- `systemd/weathercam.service` provides the camera runtime unit on clean installs; the installer leaves an existing unit untouched.

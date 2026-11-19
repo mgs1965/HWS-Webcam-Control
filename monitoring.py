@@ -174,15 +174,15 @@ def write_daily_health_summary(day):
     return filename
 
 def update_daily_summary_timelapse_status(day):
-    """Update timelapse fields without recalculating daily counters."""
-    filename = os.path.join(LOGS_PATH, f'daily_summary_{day:%Y%m%d}.json')
+    """Update the daily health report without recalculating daily counters."""
+    filename = os.path.join(LOGS_PATH, f'daily_health_{day:%Y%m%d}.json')
     try:
         with open(filename, 'r', encoding='utf-8') as source:
             summary = json.load(source)
     except FileNotFoundError:
         summary = {'date': day.isoformat()}
     except (OSError, ValueError, json.JSONDecodeError):
-        logger.exception('[DAILY SUMMARY] Could not read %s', filename)
+        logger.exception('[DAILY HEALTH] Could not read %s', filename)
         return False
     summary['timelapse_local_complete'] = os.path.exists(os.path.join(TIMELAPSE_PATH, f'timelapse_{day:%Y%m%d}.mp4'))
     summary['timelapse_publish_complete'] = last_timelapse_completed_for == day
@@ -200,7 +200,7 @@ def update_daily_summary_timelapse_status(day):
         os.replace(temporary, filename)
         return True
     except OSError:
-        logger.exception('[DAILY SUMMARY] Could not update timelapse status for %s', day)
+        logger.exception('[DAILY HEALTH] Could not update timelapse status for %s', day)
         return False
 
 def cleanup_old_hourly_segments():
@@ -373,7 +373,7 @@ def _read_pi_throttled():
         text = result.stdout.strip()
         if result.returncode == 0 and '=' in text:
             value = int(text.partition('=')[2], 16)
-            return {'raw': text, 'value': value, 'throttled_now': bool(value & 0x1), 'under_voltage_now': bool(value & 0x1), 'frequency_capped_now': bool(value & 0x2), 'soft_temperature_limit_now': bool(value & 0x4), 'throttling_occurred': bool(value & 0x10000), 'under_voltage_occurred': bool(value & 0x10000), 'frequency_capping_occurred': bool(value & 0x20000), 'soft_temperature_limit_occurred': bool(value & 0x40000)}
+            return {'raw': text, 'value': value, 'throttled_now': bool(value & 0x4), 'under_voltage_now': bool(value & 0x1), 'frequency_capped_now': bool(value & 0x2), 'soft_temperature_limit_now': bool(value & 0x8), 'throttling_occurred': bool(value & 0x40000), 'under_voltage_occurred': bool(value & 0x10000), 'frequency_capping_occurred': bool(value & 0x20000), 'soft_temperature_limit_occurred': bool(value & 0x80000)}
     except (OSError, ValueError, subprocess.TimeoutExpired):
         pass
     return {'raw': None, 'value': None, 'throttled_now': None, 'under_voltage_now': None, 'frequency_capped_now': None, 'soft_temperature_limit_now': None, 'throttling_occurred': None, 'under_voltage_occurred': None, 'frequency_capping_occurred': None, 'soft_temperature_limit_occurred': None}

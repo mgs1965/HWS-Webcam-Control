@@ -50,6 +50,8 @@ def load_quality_state():
     try:
         with open(QUALITY_STATE_FILENAME, 'r', encoding='utf-8') as source:
             state = json.load(source)
+        if not isinstance(state, dict):
+            raise ValueError('quality state root must be an object')
         saved = datetime.fromisoformat(state['saved'])
         if saved.tzinfo is None:
             saved = saved.replace(tzinfo=HARPENDEN_TIMEZONE)
@@ -60,6 +62,8 @@ def load_quality_state():
         restored = 0
         state_schema = int(state.get('schema_version', 1))
         values_by_mode = state.get('sharpness_history', {})
+        if not isinstance(values_by_mode, dict) or any(not isinstance(history, list) for history in values_by_mode.values()):
+            raise ValueError('quality state histories must be lists by mode')
         for mode, history in sharpness_history.items():
             history.clear()
             if mode == 'NIGHT' and state_schema < QUALITY_STATE_SCHEMA_VERSION:

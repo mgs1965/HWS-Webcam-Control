@@ -1,3 +1,9 @@
+#### V50.3.5 - 2026-11-19
+- Corrected Raspberry Pi throttling bit decoding and aligned daily timelapse updates with daily health reports.
+- Validate persisted quality-state structure and isolate camera-restart failures from the capture loop.
+- Corrected controller configuration fingerprint constants.
+- Added a camera systemd unit for clean installs without overwriting an existing unit.
+
 #### V50.3.4 - 2026-11-19
 - Added a Trends panel comparing the last 24 hours of camera-mode time, capture counts, quality, sharpness, brightness, exposure and gain.
 - Added recent mode transitions and sample-count cues; all summaries are observational and do not alter camera control.

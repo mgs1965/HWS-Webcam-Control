@@ -160,15 +160,21 @@ def restart_camera():
     camera_restart_times.append(now)
     logger.warning('[CAMERA] Restarting')
     audit_event('camera_restart', severity='WARNING', restart_count=camera_restart_count)
-    with camera_lock:
-        try:
-            picam2.stop()
-        except Exception:
-            logger.exception('[CAMERA] Error while stopping camera for restart')
-        if shutdown_event.wait(CAMERA_RESTART_DELAY_SECONDS):
-            return
-        picam2.configure(camera_configuration)
-        picam2.start()
-        if shutdown_event.wait(CAMERA_RESTART_SETTLE_SECONDS):
-            return
-    configure_camera_mode(force=True)
+    try:
+        with camera_lock:
+            try:
+                picam2.stop()
+            except Exception:
+                logger.exception('[CAMERA] Error while stopping camera for restart')
+            if shutdown_event.wait(CAMERA_RESTART_DELAY_SECONDS):
+                return False
+            picam2.configure(camera_configuration)
+            picam2.start()
+            if shutdown_event.wait(CAMERA_RESTART_SETTLE_SECONDS):
+                return False
+        configure_camera_mode(force=True)
+        return True
+    except Exception as error:
+        logger.exception('[CAMERA] Restart failed')
+        audit_event('camera_restart_failed', severity='ERROR', restart_count=camera_restart_count, error=str(error))
+        return False

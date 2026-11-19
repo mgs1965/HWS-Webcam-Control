@@ -1,4 +1,4 @@
-# V50.3.2 Architecture
+# V50.3.3 Architecture
 
 ## Runtime assembly
 
@@ -20,4 +20,4 @@ The dashboard exposes Live, Trends, Events and Advanced views. Main-view navigat
 
 ## Release and deployment
 
-`version.py` is the release identity source for V50.3.2 and telemetry schema version 4. `manifest.json` records the release baseline, package filename and file inventory. The V50.3.2 verifier checks the release, telemetry contract, dashboard payload handling and navigation structure; the installer deploys to `/mnt/weathercam/app/releases/HarpendenWeatherCamera-V50.3.2` and records a rollback target.
+`version.py` is the release identity source for V50.3.3 and telemetry schema version 4. `manifest.json` records the release baseline, package filename and file inventory. The V50.3.3 verifier checks the release, telemetry contract, dashboard payload handling and navigation structure; the installer deploys to `/mnt/weathercam/app/releases/HarpendenWeatherCamera-V50.3.3` and records a rollback target.

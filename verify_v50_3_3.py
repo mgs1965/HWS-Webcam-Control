@@ -17,7 +17,7 @@ for filename in modules:
 
 namespace = {}
 exec((root / 'version.py').read_text(encoding='utf-8'), namespace)
-assert namespace['VERSION'] == 'V50.3.2'
+assert namespace['VERSION'] == 'V50.3.3'
 assert namespace['TELEMETRY_SCHEMA_VERSION'] == 4
 
 publishing = (root / 'publishing.py').read_text(encoding='utf-8')
@@ -31,17 +31,17 @@ assert len(ast.literal_eval(assignment.value)) == 58
 
 core = (root / 'core.py').read_text(encoding='utf-8')
 assert "HWS_FTP_PASSWORD" in core
-assert "SCRIPT_VERSION = '2026-11-19 V50.3.2'" in core
+assert "SCRIPT_VERSION = '2026-11-19 V50.3.3'" in core
 assert 'V50_MAX_CAMERA_RESTARTS_PER_HOUR = 6' in core
 
 dashboard = (root / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
 template = (root / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
-assert "V='50.3.2'" in dashboard
-assert "'release':'V50.3.2'" in dashboard
+assert "V='50.3.3'" in dashboard
+assert "'release':'V50.3.3'" in dashboard
 assert "for period,hours in (('24h',24),('7d',168),('30d',720))" in dashboard
 assert "'process_memory':series(recent_health,'memory.process_rss_bytes',scale=1/1048576)" in dashboard
 assert 'incidents' in dashboard
-assert 'V50.3.2' in template
+assert 'V50.3.3' in template
 assert template.count('__DATA__') == 1
 assert "dataText.startsWith('{')?JSON.parse(dataText):{}" in template
 assert "template.replace('__DATA__'" in dashboard
@@ -64,11 +64,12 @@ for view in ('live', 'trends', 'events', 'advanced'):
     assert f'id="view-{view}"' in template
     assert f'for="view-{view}"' in template
     assert f'#view-{view}:checked~.page #{view}' in template
+assert template.index('id="view-live"') < template.index('<div class="page">')
 assert "document.querySelectorAll('.view-select')" in template
 assert "'cpu_load_percent'" in dashboard
 
-print('PASS: V50.3.2 release identity')
+print('PASS: V50.3.3 release identity')
 print('PASS: telemetry-v4 immutable 58-field contract')
 print('PASS: FTP credentials are environment-configured')
 print('PASS: bounded camera recovery and worker cooldown present')
-print('PASS: native dashboard navigation and data payload handling')
+print('PASS: dashboard view selection and data payload handling')

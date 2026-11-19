@@ -1,3 +1,6 @@
+#### V50.3.3 - 2026-11-19
+- Moved native main-view radio controls outside the page container so CSS view selectors reveal the selected dashboard view.
+
 #### V50.3.2 - 2026-11-19
 - Made main dashboard navigation work through native radio controls and CSS, independently of JavaScript.
 - Retained JavaScript updates for dashboard URLs and chart rendering when available.

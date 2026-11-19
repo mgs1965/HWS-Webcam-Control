@@ -1,3 +1,7 @@
+#### V50.3.2 - 2026-11-19
+- Made main dashboard navigation work through native radio controls and CSS, independently of JavaScript.
+- Retained JavaScript updates for dashboard URLs and chart rendering when available.
+
 #### V50.3.1 - 2026-11-19
 - Fixed navigation by isolating main-view handlers from Trends period tabs.
 - Made the dashboard template valid and navigable before data injection; the generator injects its JSON payload once into a non-executable data block.

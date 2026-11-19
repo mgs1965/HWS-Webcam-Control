@@ -1,4 +1,4 @@
-# V50.3.1 Architecture
+# V50.3.2 Architecture
 
 ## Runtime assembly
 
@@ -16,8 +16,8 @@ The capture loop coordinates camera acquisition, camera-mode and exposure contro
 
 The generator prepares brightness, image-quality and exposure series from telemetry and a process-memory series from health snapshots, each for 24-hour, 7-day and 30-day windows. It reduces chart series to a bounded number of points and converts process RSS to megabytes. `publish()` uploads the generated page and assets, including background Gallery images; the Gallery remains absent from the dashboard UI.
 
-The dashboard exposes Live, Trends, Events and Advanced views. Trends period tabs are distinct from main-view navigation. The dashboard publisher is a oneshot systemd service, scheduled by `weathercam-dashboard.timer` every five minutes.
+The dashboard exposes Live, Trends, Events and Advanced views. Main-view navigation uses native radio controls with CSS view selection so navigation still works if JavaScript fails; JavaScript additionally updates the URL and redraws charts. Trends period tabs are separate controls. The dashboard publisher is a oneshot systemd service, scheduled by `weathercam-dashboard.timer` every five minutes.
 
 ## Release and deployment
 
-`version.py` is the release identity source for V50.3.1 and telemetry schema version 4. `manifest.json` records the release baseline, package filename and file inventory. The V50.3.1 verifier checks the release, telemetry contract, dashboard payload handling and navigation structure; the installer deploys to `/mnt/weathercam/app/releases/HarpendenWeatherCamera-V50.3.1` and records a rollback target.
+`version.py` is the release identity source for V50.3.2 and telemetry schema version 4. `manifest.json` records the release baseline, package filename and file inventory. The V50.3.2 verifier checks the release, telemetry contract, dashboard payload handling and navigation structure; the installer deploys to `/mnt/weathercam/app/releases/HarpendenWeatherCamera-V50.3.2` and records a rollback target.

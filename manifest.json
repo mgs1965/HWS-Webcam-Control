@@ -1,8 +1,8 @@
 {
   "edition": "camera-operations-dashboard",
-  "release": "V51.0",
+  "release": "V51.0.1",
   "baseline": "V50.3.5",
-  "package": "HWS-Webcam-Control-51.0.zip",
+  "package": "HWS-Webcam-Control-51.0.1.zip",
   "built": "2026-11-19",
   "telemetry_schema": 4,
   "telemetry_fields": 58,
@@ -19,9 +19,9 @@
   "files": [
     "ARCHITECTURE.md", "CHANGELOG.md", "DEPLOYMENT.md", "MAPPING.md", "README.md",
     "camera.py", "controller_analytics.py", "core.py", "dashboard.env.example",
-    "exposure.py", "image_quality.py", "install_v51_0.sh", "loader.py", "manifest.json",
-    "modes.py", "monitoring.py", "publishing.py", "rollback_v51_0.sh", "runtime.py",
-    "state.py", "systemd", "test_v51_0.py", "timelapse.py", "v47_control.py",
-    "verify_v51_0.py", "version.py", "weather_camera.py", "weathercam_dashboard"
+    "exposure.py", "image_quality.py", "install_v51_0_1.sh", "loader.py", "manifest.json",
+    "modes.py", "monitoring.py", "publishing.py", "rollback_v51_0_1.sh", "runtime.py",
+    "state.py", "systemd", "test_v51_0_1.py", "timelapse.py", "v47_control.py",
+    "verify_v51_0_1.py", "version.py", "weather_camera.py", "weathercam_dashboard"
   ]
 }

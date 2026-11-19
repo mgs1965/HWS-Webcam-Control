@@ -210,7 +210,6 @@ def update_image_quality(measurement):
     elif quality_warning_streak >= QUALITY_WARNING_CONSECUTIVE:
         requested_alert = 'WARNING'
     if requested_alert and requested_alert != quality_alert_level:
-        previous_alert = quality_alert_level
         if quality_alert_started is None:
             quality_alert_started = now
         quality_alert_level = requested_alert

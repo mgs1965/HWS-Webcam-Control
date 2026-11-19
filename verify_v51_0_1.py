@@ -93,6 +93,10 @@ assert 'refusing to overwrite it' in installer
 assert 'v51_0_1-rollback-target' in rollback
 
 print('PASS: V51.0.1 release identity, manifest and telemetry-v4 contract')
+for feature in ('eventFilters', 'staleBanner', 'overlayLegend', 'qualitySummaryRows', 'timelapsePreview'):
+    assert f'id="{feature}"' in template
+for feature in ("'sun':sun_events(now)", "'modes':chart_modes", "DASHBOARD_CAPTURE_CRITICAL_SECONDS", "PREVIEW_NAME"):
+    assert feature in dashboard
 print('PASS: dashboard views, trends, reports, archive and data coverage')
 print('PASS: actionable health checks, timelapse reporting and CSV exports')
 print('PASS: V50.3.5 runtime regression guards and camera service unit')

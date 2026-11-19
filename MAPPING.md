@@ -1,6 +1,6 @@
 # Function map
 
-Current release: V51.0.1. The dashboard template is rendered by `weathercam_dashboard/dashboard.py` and is not deployed with its `__DATA__` placeholder intact.
+Current release: V51.0.2. The dashboard template is rendered by `weathercam_dashboard/dashboard.py` and is not deployed with its `__DATA__` placeholder intact.
 
 ## camera.py
 - `CameraAcquisitionError`
@@ -151,9 +151,9 @@ Current release: V51.0.1. The dashboard template is rendered by `weathercam_dash
 - Reads dashboard data from the `dashboard-data` JSON block; the source template remains navigable before data injection.
 
 ## Release and package files
-- `version.py` contains the V51.0.1 release identity and telemetry schema version.
+- `version.py` contains the V51.0.2 release identity and telemetry schema version.
 - `manifest.json` records the release baseline, package filename and release file inventory.
-- `verify_v51_0_1.py` validates release identity, telemetry contract, dashboard structure and release guards.
-- `test_v51_0_1.py` contains focused dashboard-data and runtime regression checks.
-- `install_v51_0_1.sh` installs the release; `rollback_v51_0_1.sh` restores its recorded previous target.
+- `verify_v51_0_2.py` validates release identity, telemetry contract, dashboard structure and release guards.
+- `test_v51_0_2.py` contains focused dashboard-data and runtime regression checks.
+- `install_v51_0_2.sh` installs the release; `rollback_v51_0_2.sh` restores its recorded previous target.
 - `systemd/weathercam.service` provides the camera runtime unit on clean installs; the installer leaves an existing unit untouched.

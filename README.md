@@ -1,6 +1,6 @@
-# Harpenden Weather Camera V51.0.1
+# Harpenden Weather Camera V51.0.2
 
-V51.0.1 expands the health dashboard into a lightweight camera-operations control room. Camera-control behavior and telemetry-v4 (58 fields) remain unchanged.
+V51.0.2 expands the health dashboard into a lightweight camera-operations control room. Camera-control behavior and telemetry-v4 (58 fields) remain unchanged.
 
 ## Dashboard
 
@@ -18,10 +18,10 @@ Trend history is kept bounded for Raspberry Pi memory: the most recent 24 hours 
 Create `/etc/weathercam/dashboard.env` from `dashboard.env.example` and set `HWS_FTP_PASSWORD` before installing on a new host.
 
 ```bash
-unzip HWS-Webcam-Control-51.0.1.zip
-cd HWS-Webcam-Control-51.0.1
-python3 verify_v51_0_1.py
-sudo bash ./install_v51_0_1.sh
+unzip HWS-Webcam-Control-51.0.2.zip
+cd HWS-Webcam-Control-51.0.2
+python3 verify_v51_0_2.py
+sudo bash ./install_v51_0_2.sh
 ```
 
 The installer preserves an existing `weathercam.service`; on a clean installation it installs the included unit after credential preflight.
@@ -35,5 +35,5 @@ sudo bash -c 'set -a; . /etc/weathercam/dashboard.env; set +a; exec sudo -u mgs 
 ## Rollback
 
 ```bash
-sudo bash /mnt/weathercam/app/current/rollback_v51_0_1.sh
+sudo bash /mnt/weathercam/app/current/rollback_v51_0_2.sh
 ```

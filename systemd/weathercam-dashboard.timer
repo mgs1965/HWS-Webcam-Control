@@ -1,8 +1,9 @@
 [Unit]
-Description=Refresh Harpenden Weather Dashboard every five minutes
+Description=Publish Harpenden Weather Camera dashboard every 5 minutes
 [Timer]
 OnBootSec=2min
 OnUnitActiveSec=5min
 Persistent=true
+Unit=weathercam-dashboard.service
 [Install]
 WantedBy=timers.target

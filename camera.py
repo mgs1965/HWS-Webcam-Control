@@ -109,6 +109,10 @@ def capture_frame():
         audit_event('telemetry_write_failure', severity='ERROR', capture_time=capture_time.isoformat())
     try:
         status_filename = write_status_file(capture_time, metadata, measurement)
+        try:
+            record_controller_analytics(capture_time, metadata, measurement)
+        except Exception:
+            logger.exception('[ANALYTICS] Controller analytics update failed; capture cycle will continue')
     except OSError:
         status_failure_count += 1
         logger.exception('[STATUS] Status file write failed')

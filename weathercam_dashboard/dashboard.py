@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse,csv,ftplib,html,json,os,re,shutil,socket,tempfile
 from datetime import datetime,timedelta,timezone
 from pathlib import Path
-V='49.6.0'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
+V='49.11.2'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
 IMG=Path(os.getenv('WEATHERCAM_LATEST_IMAGE',str(ROOT/'frames/latest.jpg'))); HD=Path(os.getenv('WEATHERCAM_HEALTH_DIR',str(ROOT/'telemetry/health'))); TD=Path(os.getenv('WEATHERCAM_TELEMETRY_DIR',str(ROOT/'logs'))); LD=Path(os.getenv('WEATHERCAM_LOG_DIR',str(ROOT/'logs')))
 def dt(x):
  try:return datetime.fromisoformat(str(x).replace('Z','+00:00')).astimezone(timezone.utc)
@@ -20,6 +20,27 @@ def get(d,path,default=None):
 def jsonfile(p):
  try:return json.loads(p.read_text())
  except:return {}
+def controller_analytics():
+ p=ROOT/'logs/controller_analytics.json'
+ try:return json.loads(p.read_text()) if p.exists() else {}
+ except (OSError,json.JSONDecodeError):return {}
+def controller_history(limit=10080):
+ p=ROOT/'logs/controller_history.jsonl'
+ if not p.exists():return []
+ out=[]
+ for line in p.read_text(errors='ignore').splitlines()[-limit:]:
+  try:out.append(json.loads(line))
+  except json.JSONDecodeError:pass
+ return out
+def controller_events(limit=200):
+ p=ROOT/'logs/controller_events.jsonl'
+ if not p.exists():return []
+ out=[]
+ for line in p.read_text(errors='ignore').splitlines()[-limit:]:
+  try:out.append(json.loads(line))
+  except json.JSONDecodeError:pass
+ return out
+
 def status():
  for p in [ROOT/'logs/camera_status.json',ROOT/'status.json',ROOT/'telemetry/status.json']:
   if p.exists():
@@ -53,8 +74,9 @@ def series(rows,path,maxp=144,scale=1):
   v=num(get(r,path) if '.' in path else r.get(path));t=r.get('_ts')
   if v is not None and t:a.append([int(t.timestamp()*1000),round(v*scale,3)])
  if len(a)>maxp:
-  step=max(1,len(a)//maxp);a=a[::step]
-  if a[-1]!=a[-1:]:a=a[-maxp:]
+  last=a[-1];step=max(1,len(a)//maxp);a=a[::step]
+  if a and a[-1]!=last:a.append(last)
+  a=a[-maxp:]
  return a[-maxp:]
 def mode_series(rows,maxp=720):
  pts=[]
@@ -64,6 +86,38 @@ def mode_series(rows,maxp=720):
  if len(pts)>maxp:
   step=max(1,len(pts)//maxp);pts=pts[::step]
  return pts
+
+def mode_effectiveness(rows,now):
+ cut=now-timedelta(hours=24); samples=[]
+ for r in rows:
+  t=r.get('_ts');m=str(r.get('camera_mode') or r.get('mode') or '').upper()
+  if t and t>=cut and m:
+   samples.append((t,m,r))
+ modes=['DAY','TWILIGHT','LOW LIGHT','NIGHT'];out={m:{'duration_seconds':0,'samples':0} for m in modes}
+ fields={'brightness':'brightness_raw','exposure_ms':'exposure_ms','analogue_gain':'analogue_gain','digital_gain':'digital_gain','quality':'image_quality_score','sharpness':'sharpness_score','solar_elevation':'solar_elevation_deg'}
+ vals={m:{k:[] for k in fields} for m in modes}
+ for i,(t,m,r) in enumerate(samples):
+  if m not in out:continue
+  end=samples[i+1][0] if i+1<len(samples) else now
+  out[m]['duration_seconds']+=max(0,min((end-t).total_seconds(),1800));out[m]['samples']+=1
+  for k,src in fields.items():
+   v=num(r.get(src))
+   if v is not None:vals[m][k].append(v)
+ for m in modes:
+  for k,a in vals[m].items():out[m][k]=round(sum(a)/len(a),2) if a else None
+  out[m]['duration_seconds']=round(out[m]['duration_seconds'])
+ transitions=[]
+ for t,m,r in samples:
+  if not transitions or transitions[-1]['mode']!=m:transitions.append({'timestamp':t.isoformat(),'mode':m})
+ for i,m in enumerate(modes):
+  if out[m]['samples']==0:out[m]['assessment']='NO DATA'
+  elif m in ('DAY','NIGHT'):out[m]['assessment']='DISTINCT'
+  else:
+   peers=[]
+   for pm in modes:
+    if pm!=m and out[pm]['exposure_ms'] is not None:peers.append(abs((out[m]['exposure_ms'] or 0)-out[pm]['exposure_ms']))
+   out[m]['assessment']='DISTINCT' if peers and min(peers)>=5 else 'REVIEW'
+ return {'window_hours':24,'modes':out,'transitions':transitions,'evidence':'COLLECT EVIDENCE' if len(transitions)<6 else 'EVALUATE','note':'Observational only; no camera-control behaviour changed.'}
 
 def events():
  out=[]
@@ -148,7 +202,7 @@ def publish():
  return {'state':'published','gallery_files':len(desired),'obsolete_deleted':deleted,'remote_verified':True}
 
 def generate(upload=False):
- n=datetime.now(timezone.utc);s=status();h=health();t=telemetry(); ev=events(); times=[]
+ n=datetime.now(timezone.utc);s=status();h=health();t=telemetry(); ev=events(); ca=controller_analytics(); ch=controller_history(); ce=controller_events(); times=[]
  if h:times.append(h[-1]['_ts'])
  if t:times.append(t[-1]['_ts'])
  st=dt(s.get('capture_time') or s.get('last_capture_time') or s.get('timestamp') or s.get('_mtime'))
@@ -191,8 +245,10 @@ def generate(upload=False):
    its=datetime.fromtimestamp(im.stat().st_mtime,timezone.utc);nearest=min(telemetry_by_time,key=lambda x:abs((x[0]-its).total_seconds()))[1] if telemetry_by_time else {}
    gallery.append({'name':im.name,'time':its.isoformat(),'mode':nearest.get('camera_mode'),'quality':num(nearest.get('image_quality_score')),'brightness':num(nearest.get('brightness_raw')),'exposure_ms':num(nearest.get('exposure_ms')),'gain':num(nearest.get('analogue_gain'))})
   except (FileNotFoundError,OSError):continue
- safe_config={'release':'V49.6','telemetry_schema':4,'dashboard_refresh_minutes':5,'root':str(ROOT),'latest_image':str(IMG),'telemetry_dir':str(TD),'health_dir':str(HD),'ftp_configured':bool(os.getenv('DASHBOARD_FTP_HOST')),'ftp_tls':os.getenv('DASHBOARD_FTP_TLS','0')!='0','dashboard_output':str(OUT),'camera_status_file':str(ROOT/'logs/camera_status.json'),'gallery_items':len(gallery),'capture_interval_seconds':10,'frame_retention_days':7,'video_retention_days':30,'telemetry_retention_months':24,'image_resolution':'2560 x 1440','jpeg_quality':95}
- payload={'version':V,'generated':n.isoformat(),'state':state,'reasons':reasons,'mode':mode,'ageMinutes':None if age is None else round(age,1),'metrics':metrics,'series':ser,'events':ev,'hostname':socket.gethostname(),'counts':{'health':len(h),'telemetry':len(t)},'gallery':gallery,'config':safe_config}
+ safe_config={'release':'V49.11.2','telemetry_schema':4,'dashboard_refresh_minutes':5,'root':str(ROOT),'latest_image':str(IMG),'telemetry_dir':str(TD),'health_dir':str(HD),'ftp_configured':bool(os.getenv('DASHBOARD_FTP_HOST')),'ftp_tls':os.getenv('DASHBOARD_FTP_TLS','0')!='0','dashboard_output':str(OUT),'camera_status_file':str(ROOT/'logs/camera_status.json'),'gallery_items':len(gallery),'capture_interval_seconds':10,'frame_retention_days':7,'video_retention_days':30,'telemetry_retention_months':24,'image_resolution':'2560 x 1440','jpeg_quality':95}
+ effect=mode_effectiveness(t,n)
+ controller={k:s.get(k) for k in ('control_health','controller_decision','controller_target_brightness','controller_error','controller_deadband','controller_delta_ms','controller_delta_pct','controller_clamped_by','controller_next_exposure_ms','controller_at_exposure_limit','controller_at_gain_limit','learning_state','learning_mode','learning_samples_current','learning_samples_required','learning_progress_pct','software_version','telemetry_schema_version')}
+ payload={'version':V,'generated':n.isoformat(),'state':state,'reasons':reasons,'mode':mode,'ageMinutes':None if age is None else round(age,1),'metrics':metrics,'series':ser,'modeEffectiveness':effect,'controller':controller,'controllerAnalytics':ca,'controllerHistory':ch,'controllerEvents':ce,'events':ev,'hostname':socket.gethostname(),'counts':{'health':len(h),'telemetry':len(t)},'gallery':gallery,'config':safe_config}
  tpl=(Path(__file__).resolve().parent/'templates/dashboard.html').read_text(); tpl=tpl.replace('__DATA__',json.dumps(payload,separators=(',',':')).replace('</','<\\/'))
  atomic(OUT/'dashboard.html',tpl);atomic(OUT/'dashboard-data.json',json.dumps(payload,indent=2)); result=publish() if upload else 'generated';print(json.dumps({'result':result,'state':state,'mode':mode,'age_minutes':payload['ageMinutes'],'health_records':len(h),'telemetry_records':len(t),'graph_points':{k:len(v) for k,v in ser.items()}}))
 def main():

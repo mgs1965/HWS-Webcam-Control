@@ -8,6 +8,7 @@ logging. The source is canonicalised to remove repetitive formatting and
 comments without intentionally changing runtime behaviour.
 """
 
+import hashlib
 import platform
 import socket
 import csv
@@ -32,7 +33,7 @@ import numpy as np
 from libcamera import controls
 from picamera2 import Picamera2
 from PIL import Image, ImageDraw, ImageFont
-SCRIPT_VERSION = '2026-11-17 V49.6'
+SCRIPT_VERSION = '2026-11-18 V49.11.2'
 LOCAL_SAVE_PATH = '/mnt/weathercam'
 LOGS_PATH = os.path.join(LOCAL_SAVE_PATH, 'logs')
 FRAMES_PATH = os.path.join(LOCAL_SAVE_PATH, 'frames')
@@ -177,6 +178,9 @@ QUALITY_CRITICAL_CONSECUTIVE = 12
 QUALITY_RECOVERY_RATIO = 0.8
 QUALITY_RECOVERY_CONSECUTIVE = 6
 QUALITY_MODE_SETTLE_CAPTURES = 6
+QUALITY_FRESH_VALIDATION_SAMPLES = 12
+QUALITY_STORED_BASELINE_MAX_ABOVE_FRESH = 1.35
+QUALITY_BASELINE_MAX_ADAPT_FRACTION = 0.05
 CONTROL_ACK_EXPOSURE_TOLERANCE_US = 50000
 CONTROL_ACK_GAIN_TOLERANCE = 0.05
 CONTROL_ACK_MAX_CAPTURES = 4
@@ -295,6 +299,10 @@ quality_recovery_streak = 0
 quality_alert_level = None
 quality_alert_started = None
 quality_tracking_mode = None
+day_fresh_sharpness_samples = []
+day_baseline_validated = False
+day_baseline_source = 'validating'
+day_baseline_candidate = None
 quality_mode_capture_count = 0
 night_observability_open = False
 night_observability_recovery_streak = 0

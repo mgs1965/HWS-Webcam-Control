@@ -1,7 +1,6 @@
 [Unit]
-Description=Harpenden Weather Camera V49.6 Dashboard
+Description=Harpenden Weather Camera dashboard publisher
 After=network-online.target weathercam.service
-Wants=network-online.target
 [Service]
 Type=oneshot
 User=mgs

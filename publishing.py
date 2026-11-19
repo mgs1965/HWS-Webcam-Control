@@ -225,6 +225,42 @@ def write_status_file(capture_time, metadata, measurement):
             ),
     }
 
+    # V49.9: publish additional controller observability while preserving telemetry-v4.
+    midpoint = measurement.get('controller_target_brightness')
+    current_samples = int(measurement.get('quality_learning_samples') or 0)
+    required_samples = int(measurement.get('quality_learning_required') or 0)
+    progress = 100.0 if required_samples <= 0 and measurement.get('image_quality_status') not in ('LEARNING','SETTLING') else (min(100.0, current_samples * 100.0 / required_samples) if required_samples else 0.0)
+    learning_state = 'LEARNING' if measurement.get('image_quality_status') in ('LEARNING','SETTLING') else 'STABLE'
+    status.update({
+        'controller_decision': measurement.get('controller_decision', 'HOLD_STABLE'),
+        'controller_target_brightness': round(midpoint, 2) if midpoint is not None else None,
+        'controller_error': round(measurement.get('controller_error'), 2) if measurement.get('controller_error') is not None else None,
+        'controller_deadband': measurement.get('controller_deadband'),
+        'controller_delta_ms': round(measurement.get('controller_delta_ms'), 3) if measurement.get('controller_delta_ms') is not None else None,
+        'controller_delta_pct': round(measurement.get('controller_delta_pct'), 2) if measurement.get('controller_delta_pct') is not None else None,
+        'controller_clamped_by': measurement.get('controller_clamped_by'),
+        'controller_next_exposure_ms': round(measurement.get('controller_next_exposure_ms'), 3) if measurement.get('controller_next_exposure_ms') is not None else None,
+        'learning_state': learning_state, 'learning_mode': current_camera_mode,
+        'learning_samples_current': current_samples, 'learning_samples_required': required_samples,
+        'learning_progress_pct': round(progress, 1),
+        'software_version': VERSION, 'telemetry_schema_version': TELEMETRY_SCHEMA_VERSION,
+    })
+    # Existing V47/V49.8.1 control-health fields remain authoritative.
+    status.update(control_status_fields(capture_time))
+    try:
+        obs = {k: status.get(k) for k in (
+            'capture_time','software_version','telemetry_schema_version','camera_mode','control_health',
+            'controller_decision','controller_target_brightness','controller_error','controller_deadband',
+            'controller_delta_ms','controller_delta_pct','controller_clamped_by','controller_next_exposure_ms',
+            'controller_at_exposure_limit','controller_at_gain_limit','learning_state','learning_mode',
+            'learning_samples_current','learning_samples_required','learning_progress_pct')}
+        obs_file=os.path.join(LOGS_PATH,'controller_observability.json')
+        tmp=obs_file+'.tmp'
+        with open(tmp,'w',encoding='utf-8') as f: json.dump(obs,f,indent=2,sort_keys=True)
+        os.replace(tmp,obs_file)
+    except OSError:
+        logger.exception('[V49.9] Could not write controller observability')
+
     filename = os.path.join(
         LOGS_PATH,
         'camera_status.json',

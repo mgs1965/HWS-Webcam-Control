@@ -237,6 +237,28 @@ def update_manual_exposure(measurement, metadata):
         else:
             requested_gain = MIN_ANALOGUE_GAIN
             requested_exposure = max(MIN_EXPOSURE_US, controller_exposure * ratio)
+    # V49.9 observability only: expose controller reasoning without changing control values.
+    midpoint = (target_low + target_high) / 2.0
+    reason_map = {
+        'BRIGHTEN': 'INCREASE_DARK', 'DARKEN': 'DECREASE_BRIGHT',
+        'HIGHLIGHT PROTECTION': 'DECREASE_BRIGHT', 'MODE TRANSITION': 'MODE_TRANSITION',
+        'WAITING FOR CAMERA': 'CONTROL_RECOVERY', 'ACK TIMEOUT': 'CONTROL_RECOVERY',
+        'MODE SETTLING': 'LEARNING', 'HOLD': 'HOLD_DEADBAND',
+    }
+    decision = reason_map.get(action, action.replace(' ', '_'))
+    clamp_reason = 'EXPOSURE' if at_exposure_limit else ('GAIN' if at_gain_limit else None)
+    measurement.update({
+        'controller_target_brightness': midpoint,
+        'controller_error': brightness - midpoint,
+        'controller_deadband': deadband,
+        'controller_decision': decision,
+        'controller_delta_ms': (requested_exposure - controller_exposure) / 1000.0,
+        'controller_delta_pct': ((requested_exposure - controller_exposure) / max(controller_exposure, 1.0)) * 100.0,
+        'controller_clamped_by': clamp_reason,
+        'controller_at_exposure_limit_v499': bool(at_exposure_limit),
+        'controller_at_gain_limit_v499': bool(at_gain_limit),
+        'controller_next_exposure_ms': requested_exposure / 1000.0,
+    })
     logger.debug('[EXPOSURE DECISION] Mode=%s Bright=%.1f Target=%.1f-%.1f Exp=%d MaxExp=%d ReqExp=%.0f ReqGain=%.2f', current_camera_mode, brightness, target_low, target_high, actual_exposure, max_exposure, requested_exposure, requested_gain)
     logger.debug('[CTRL RAW] Action=%s Bright=%.1f TargetLow=%.1f TargetHigh=%.1f ReqExp=%.0f ReqGain=%.2f', action, brightness, target_low, target_high, requested_exposure, requested_gain)
     pre_limit_exposure = requested_exposure

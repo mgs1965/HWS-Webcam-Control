@@ -94,6 +94,7 @@ def update_image_quality(measurement):
     global quality_warning_streak, quality_critical_streak
     global quality_recovery_streak, quality_alert_level, quality_alert_started
     global quality_tracking_mode, quality_mode_capture_count
+    global day_fresh_sharpness_samples, day_baseline_validated, day_baseline_source, day_baseline_candidate
     if quality_tracking_mode != current_camera_mode:
         if quality_alert_level is not None:
             now = local_now()
@@ -102,6 +103,10 @@ def update_image_quality(measurement):
             audit_event('image_quality_alert_closed_on_mode_change', previous_mode=quality_tracking_mode, new_mode=current_camera_mode, previous_alert=quality_alert_level, duration_seconds=round(duration, 1) if duration is not None else None)
         quality_tracking_mode = current_camera_mode
         quality_mode_capture_count = 0
+        day_fresh_sharpness_samples = []
+        day_baseline_validated = current_camera_mode != 'DAY'
+        day_baseline_source = 'validating' if current_camera_mode == 'DAY' else 'history'
+        day_baseline_candidate = None
         quality_warning_streak = 0
         quality_critical_streak = 0
         quality_recovery_streak = 0
@@ -147,6 +152,18 @@ def update_image_quality(measurement):
         })
         return
     baseline = float(np.median(history)) if len(history) >= QUALITY_BASELINE_MINIMUM_SAMPLES else None
+    if current_camera_mode == 'DAY' and not day_baseline_validated:
+        day_fresh_sharpness_samples.append(sharpness)
+        if len(day_fresh_sharpness_samples) < QUALITY_FRESH_VALIDATION_SAMPLES:
+            measurement.update({'sharpness_baseline': None,'sharpness_ratio': None,'image_quality_score': None,'image_quality_status': 'LEARNING','quality_learning_samples': len(day_fresh_sharpness_samples),'quality_learning_required': QUALITY_FRESH_VALIDATION_SAMPLES,'lens_status': 'LEARNING'})
+            return
+        day_baseline_candidate=float(np.median(day_fresh_sharpness_samples[-QUALITY_FRESH_VALIDATION_SAMPLES:]))
+        if baseline is None or baseline > day_baseline_candidate*QUALITY_STORED_BASELINE_MAX_ABOVE_FRESH:
+            history.clear(); history.extend(day_fresh_sharpness_samples[-QUALITY_FRESH_VALIDATION_SAMPLES:]); baseline=day_baseline_candidate; save_quality_state(); day_baseline_source='fresh-replacement'
+            logger.warning('[IMAGE QUALITY] DAY stored baseline rejected | Fresh=%.2f',day_baseline_candidate)
+        else: day_baseline_source='stored-validated'
+        day_baseline_validated=True
+        logger.info('[IMAGE QUALITY] DAY baseline validated | Source=%s | Baseline=%.2f',day_baseline_source,baseline)
     if baseline is None:
         history.append(sharpness)
         if len(history) == QUALITY_BASELINE_MINIMUM_SAMPLES:

@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse,csv,ftplib,json,math,os,re,shutil,socket,tempfile
 from datetime import datetime,timedelta,timezone
 from pathlib import Path
-V='51.0.2'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
+V='52.0'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
 IMG=Path(os.getenv('WEATHERCAM_LATEST_IMAGE',str(ROOT/'frames/latest.jpg'))); HD=Path(os.getenv('WEATHERCAM_HEALTH_DIR',str(ROOT/'telemetry/health'))); TD=Path(os.getenv('WEATHERCAM_TELEMETRY_DIR',str(ROOT/'logs'))); LD=Path(os.getenv('WEATHERCAM_LOG_DIR',str(ROOT/'logs')))
 def envnum(name,default):
  try:
@@ -27,6 +27,8 @@ TH={
 LATITUDE=envnum('DASHBOARD_LATITUDE',51.8175);LONGITUDE=envnum('DASHBOARD_LONGITUDE',-0.352)
 TIMELAPSE_PREVIEW_MAX_MB=envnum('DASHBOARD_TIMELAPSE_MAX_MB',150)
 PREVIEW_NAME='latest_timelapse.mp4'
+KEOGRAM_NAME='latest_keogram.png'
+KEOGRAM_MAX_MB=2
 def dt(x):
  try:return datetime.fromisoformat(str(x).replace('Z','+00:00')).astimezone(timezone.utc)
  except:return None
@@ -105,7 +107,7 @@ def latest_timelapse():
  if not found:return None
  modified,path,size=max(found,key=lambda item:item[0])
  return {'filename':path.name,'modified':datetime.fromtimestamp(modified,timezone.utc).isoformat(),'size_bytes':size}
-def recommended_checks(metrics,timelapse):
+def recommended_checks(metrics,timelapse,scene=None):
  checks=[]
  if metrics['capture_state'] in ('WARNING','CRITICAL','UNKNOWN'):
   checks.append({'issue':'Capture stream','action':'Check the camera service and the timestamp of the latest capture.'})
@@ -125,6 +127,9 @@ def recommended_checks(metrics,timelapse):
   checks.append({'issue':'Health data','action':'Confirm the camera service is recording system-health snapshots.'})
  if timelapse and timelapse['source_gap_count']:
   checks.append({'issue':'Timelapse gaps','action':'Review the missing-hour details in the latest daily report.'})
+ alerts=set((scene or {}).get('alerts') or [])
+ for name,issue,action in (('FROZEN_IMAGE','Frozen image','Frames are not changing; check the camera, cable and service.'),('BLOCKED_VIEW','Blocked view','The view looks obstructed; inspect the lens and housing.'),('LENS_DROPLETS','Lens droplets','Droplets suspected on the lens or dome; clean it when safe.'),('FOG','Fog or haze','Persistent fog reduces image clarity; check the lens for condensation.'),('FOCUS_DRIFT','Focus drift','Sharpness is declining; check lens focus and cleanliness.')):
+  if name in alerts:checks.append({'issue':issue,'action':action})
  return checks
 def telemetry(hours=720):
  now=datetime.now(timezone.utc); cut=now-timedelta(hours=hours); recent_cut=now-timedelta(hours=min(hours,24)); out=[];older_index=0
@@ -283,6 +288,18 @@ def sync_timelapse_preview(video):
   if target.exists() and target.stat().st_size==video['size_bytes'] and int(target.stat().st_mtime)==int(src.stat().st_mtime):return PREVIEW_NAME
  except OSError:pass
  return PREVIEW_NAME if copy(src,target) else None
+def sync_keogram():
+ target=OUT/KEOGRAM_NAME
+ files=sorted((ROOT/'keogram').glob('keogram_*.png'),key=lambda p:p.name)
+ if not files or files[-1].stat().st_size>KEOGRAM_MAX_MB*1048576:
+  try:target.unlink()
+  except OSError:pass
+  return None
+ src=files[-1]
+ try:
+  if target.exists() and target.stat().st_size==src.stat().st_size and int(target.stat().st_mtime)==int(src.stat().st_mtime):return {'filename':KEOGRAM_NAME,'date':src.stem[8:]}
+ except OSError:pass
+ return {'filename':KEOGRAM_NAME,'date':src.stem[8:]} if copy(src,target) else None
 def seconds_since(value,now):
  stamp=dt(value);return None if stamp is None else max(0,int((now-stamp).total_seconds()))
 def publish():
@@ -338,6 +355,11 @@ def publish_with(ftp,host,user,pw,remote,desired):
   try:ftp.voidcmd('TYPE I');remote_size=ftp.size(PREVIEW_NAME)
   except (ftplib.error_perm,ftplib.error_reply,AttributeError):remote_size=None
   if remote_size!=preview.stat().st_size:atomic_send(preview,PREVIEW_NAME)
+ keogram=OUT/KEOGRAM_NAME
+ if keogram.is_file():
+  try:ftp.voidcmd('TYPE I');remote_size=ftp.size(KEOGRAM_NAME)
+  except (ftplib.error_perm,ftplib.error_reply,AttributeError):remote_size=None
+  if remote_size!=keogram.stat().st_size:atomic_send(keogram,KEOGRAM_NAME)
  for name in ('latest.jpg','dashboard-data.json','dashboard.html'):
   local=OUT/name
   if local.is_file():atomic_send(local,name)
@@ -523,9 +545,11 @@ def generate(upload=False):
   'health':row.get('overall'),
   'timelapse_local_complete':bool(row.get('timelapse_local_complete')),
  } for row in report_rows[-30:]]
- actions=recommended_checks(metrics,timelapse)
+ scene=status_data.get('scene') if isinstance(status_data.get('scene'),dict) else None
+ weather=status_data.get('weather') if isinstance(status_data.get('weather'),dict) else None
+ actions=recommended_checks(metrics,timelapse,scene)
  safe_config={
-  'release':'V51.0.2','telemetry_schema':4,'dashboard_refresh_minutes':5,
+  'release':'V52.0','telemetry_schema':4,'dashboard_refresh_minutes':5,
   'capture_interval_seconds':10,'ftp_configured':bool(os.getenv('DASHBOARD_FTP_HOST')),
   'ftp_tls':os.getenv('DASHBOARD_FTP_TLS','0')!='0',
   'thresholds':TH,'stale_after_minutes':TH['dashboard_stale_minutes'],
@@ -535,7 +559,7 @@ def generate(upload=False):
   'state':state,'reasons':reasons[:2],'mode':mode,'metrics':metrics,
   'series':chart_series,'coverage':chart_coverage,'modes':chart_modes,'sun':sun_events(now),'quality_summary':quality_summary(telemetry_rows,now),'timeline_events':timeline_events,
   'mode_performance':mode_effectiveness(telemetry_rows,now),
-  'timelapse':timelapse,'recommendations':actions,
+  'timelapse':timelapse,'recommendations':actions,'scene':scene,'weather':weather,'keogram':sync_keogram(),
   'reports':{'latest':daily_history[-1] if daily_history else None,'history':daily_history},
   'gallery':gallery_items,
   'events':events_payload,'hostname':socket.gethostname(),

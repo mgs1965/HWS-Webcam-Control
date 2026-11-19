@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parent
 def test_release_identity():
     namespace = {}
     exec((ROOT / 'version.py').read_text(encoding='utf-8'), namespace)
-    assert namespace['VERSION'] == 'V51.0.2'
+    assert namespace['VERSION'] == 'V52.0'
     assert namespace['TELEMETRY_SCHEMA_VERSION'] == 4
 
 def test_telemetry_schema():
@@ -32,11 +32,11 @@ def test_credentials_are_not_embedded():
     assert "FTP_PASSWORD = os.getenv('HWS_FTP_PASSWORD', '')" in core
     assert 'cGnRUCGhc' not in core
 
-def test_dashboard_v51_0_2_payload():
+def test_dashboard_v52_0_payload():
     dashboard = (ROOT / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
     template = (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
-    assert "V='51.0.2'" in dashboard
-    assert "'release':'V51.0.2'" in dashboard
+    assert "V='52.0'" in dashboard
+    assert "'release':'V52.0'" in dashboard
     assert "for period,hours in (('24h',24),('7d',168),('30d',720))" in dashboard
     assert 'incidents' in dashboard
     assert "'process_memory':('health','memory.process_rss_bytes',1/1048576)" in dashboard
@@ -232,7 +232,7 @@ def test_controller_configuration_fingerprint_tracks_real_limits():
 
 def test_camera_service_unit_and_install_preserve_existing_unit():
     service = (ROOT / 'systemd/weathercam.service').read_text(encoding='utf-8')
-    installer = (ROOT / 'install_v51_0_2.sh').read_text(encoding='utf-8')
+    installer = (ROOT / 'install_v52_0.sh').read_text(encoding='utf-8')
     assert 'EnvironmentFile=/etc/weathercam/dashboard.env' in service
     assert 'Restart=on-failure' in service
     assert 'TimeoutStopSec=240' in service
@@ -312,3 +312,109 @@ def test_dashboard_telemetry_sampling_preserves_30_day_span(tmp_path):
     assert rows
     assert rows[-1]['_ts'] - rows[0]['_ts'] > timedelta(days=28)
     assert len(rows) < 121
+
+
+def load_v52_namespace(tmp_path, *filenames):
+    import glob, math, threading, time
+    from collections import deque
+    import numpy as np
+    from PIL import Image, ImageDraw
+    namespace = {
+        'np': np, 'os': os, 'json': json, 'glob': glob, 'math': math, 'time': time,
+        'threading': threading, 'deque': deque, 'datetime': datetime, 'timedelta': timedelta,
+        'Image': Image, 'ImageDraw': ImageDraw, 'logger': logging.getLogger('v52-test'),
+        'local_now': lambda: datetime.now().astimezone(), 'audit_event': lambda *a, **k: None,
+        'clamp': lambda value, low, high: max(low, min(high, value)),
+        'LOGS_PATH': str(tmp_path / 'logs'), 'LOCAL_SAVE_PATH': str(tmp_path),
+        'WEB_WIDTH': 1920, 'WEB_HEIGHT': 1080, 'current_camera_mode': 'DAY',
+        'upload_to_ftp': lambda *a, **k: True,
+    }
+    os.makedirs(namespace['LOGS_PATH'], exist_ok=True)
+    for filename in filenames:
+        exec(compile((ROOT / filename).read_text(encoding='utf-8'), filename, 'exec'), namespace)
+    return namespace
+
+def test_scene_cloud_cover_and_frozen_detection(tmp_path):
+    import numpy as np
+    scene = load_v52_namespace(tmp_path, 'scene_analysis.py')
+    height, width = 100, 100
+    clear = np.zeros((height, width, 3), dtype=np.float32)
+    clear[:] = (60, 120, 220)
+    cloudy = np.zeros((height, width, 3), dtype=np.float32)
+    cloudy[:] = (200, 200, 200)
+    assert scene['estimate_cloud_cover'](clear) < 10
+    assert scene['estimate_cloud_cover'](cloudy) > 90
+    assert scene['classify_cloud_cover'](5) == 'CLEAR' and scene['classify_cloud_cover'](95) == 'OVERCAST'
+    frame = np.random.default_rng(1).integers(0, 255, (640, 640, 3), dtype=np.uint8)
+    results = [scene['update_frozen_detection'](frame) for _ in range(scene['SCENE_FROZEN_CONSECUTIVE'] + 2)]
+    assert results[-1] and not results[0]
+    assert not scene['update_frozen_detection'](255 - frame)
+
+def test_scene_blocked_view_and_weather_parsing(tmp_path):
+    scene = load_v52_namespace(tmp_path, 'scene_analysis.py')
+    uniform = {'contrast': 1.0, 'sharpness_score': 0.2}
+    flags = [scene['update_blocked_detection'](uniform) for _ in range(scene['SCENE_BLOCKED_CONSECUTIVE'])]
+    assert flags[-1] and not flags[0]
+    scene['current_camera_mode'] = 'NIGHT'
+    assert not scene['update_blocked_detection'](uniform)
+    now = datetime.now(timezone.utc)
+    fresh = {'updated': now.isoformat(), 'temperature_c': 12.5, 'humidity_percent': 140, 'wind_speed_mph': 8}
+    parsed = scene['parse_weather_data'](fresh, now)
+    assert parsed['temperature_c'] == 12.5 and 'humidity_percent' not in parsed
+    stale = dict(fresh, updated=(now - timedelta(hours=2)).isoformat())
+    assert scene['parse_weather_data'](stale, now) is None
+    assert scene['parse_weather_data']('bad', now) is None
+
+def test_keogram_slice_render_and_finalise(tmp_path):
+    import numpy as np
+    keogram = load_v52_namespace(tmp_path, 'keogram.py')
+    image = np.zeros((3040, 4056, 3), dtype=np.uint8)
+    image[:, :, 2] = 200
+    start = datetime(2026, 11, 18, 6, 0, 0)
+    for minute in range(60):
+        assert keogram['record_keogram_slice'](image, start + timedelta(minutes=minute))
+    assert not keogram['record_keogram_slice'](image, start + timedelta(minutes=59, seconds=10))
+    raw = keogram['keogram_raw_filename'](start.date())
+    assert os.path.getsize(raw) == 1440 * 360 * 3
+    rendered = keogram['render_keogram_image'](raw)
+    assert rendered.size == (1440, 360 + keogram['KEOGRAM_LABEL_HEIGHT'])
+    uploads = []
+    keogram['upload_to_ftp'] = lambda path, remote: uploads.append(remote) or True
+    keogram['process_pending_keograms'](start.date() + timedelta(days=1))
+    assert not os.path.exists(raw)
+    assert os.path.exists(keogram['keogram_png_filename'](start.date()))
+    assert uploads == ['keogram_20261118.png', 'latest_keogram.png']
+    assert keogram['pending_keogram_days'](start.date() + timedelta(days=1)) == []
+
+def test_periodic_timelapse_period_selection():
+    source = (ROOT / 'timelapse.py').read_text(encoding='utf-8')
+    tree = ast.parse(source)
+    function = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'periodic_period')
+    namespace = {'timedelta': timedelta, 'os': os, 'TIMELAPSE_PATH': '/t'}
+    exec(compile(ast.Module(body=[function], type_ignores=[]), '<periodic>', 'exec'), namespace)
+    first, last, name = namespace['periodic_period']('weekly', datetime(2026, 11, 19).date())
+    assert (first.isoformat(), last.isoformat()) == ('2026-11-09', '2026-11-15')
+    assert name.endswith('weekly_timelapse_20261109.mp4')
+    first, last, name = namespace['periodic_period']('monthly', datetime(2026, 11, 19).date())
+    assert (first.isoformat(), last.isoformat()) == ('2026-10-01', '2026-10-31')
+    assert name.endswith('monthly_timelapse_202610.mp4')
+
+def test_dashboard_scene_recommendations():
+    dashboard = load_source_module('dashboard_scene_source', ROOT / 'weathercam_dashboard/dashboard.py')
+    metrics = {
+        'capture_state': 'OK', 'ftp_health': 'OK', 'control_health': 'OK', 'disk_free_gb': 50,
+        'cpu_temp_c': 40, 'memory_percent': 20, 'throttling_active': False, 'health_age_seconds': 10,
+    }
+    checks = dashboard.recommended_checks(metrics, None, {'alerts': ['FROZEN_IMAGE', 'LENS_DROPLETS']})
+    assert [item['issue'] for item in checks] == ['Frozen image', 'Lens droplets']
+    assert dashboard.recommended_checks(metrics, None) == []
+
+def test_release_zip_extracts_to_matching_directory(tmp_path):
+    subprocess.run(['python3', str(ROOT / 'build_release.py'), str(tmp_path)], check=True, capture_output=True)
+    import zipfile
+    manifest = json.loads((ROOT / 'manifest.json').read_text(encoding='utf-8'))
+    with zipfile.ZipFile(tmp_path / manifest['package']) as archive:
+        names = archive.namelist()
+    assert manifest['package'] == 'HWS-Webcam-Control-52.0.zip'
+    assert all(name.startswith('HWS-Webcam-Control-52.0/') for name in names)
+    assert 'HWS-Webcam-Control-52.0/manifest.json' in names

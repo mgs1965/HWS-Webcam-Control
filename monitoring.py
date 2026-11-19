@@ -317,7 +317,9 @@ def cleanup_old_files():
     frame_cutoff = (local_now() - timedelta(days=WEB_FRAME_RETENTION_DAYS)).timestamp()
     video_cutoff = (local_now() - timedelta(days=VIDEO_RETENTION_DAYS)).timestamp()
     summary_cutoff = (local_now() - timedelta(days=DAILY_SUMMARY_RETENTION_DAYS)).timestamp()
-    for pattern, cutoff in ((os.path.join(FRAMES_PATH, 'frame_*.jpg'), frame_cutoff), (os.path.join(TIMELAPSE_PATH, 'timelapse_*.mp4'), video_cutoff), (os.path.join(LOGS_PATH, 'daily_summary_*.json'), summary_cutoff), (os.path.join(LOGS_PATH, 'daily_health_*.json'), summary_cutoff)):
+    weekly_cutoff = (local_now() - timedelta(days=PERIODIC_WEEKLY_RETENTION_DAYS)).timestamp()
+    monthly_cutoff = (local_now() - timedelta(days=PERIODIC_MONTHLY_RETENTION_DAYS)).timestamp()
+    for pattern, cutoff in ((os.path.join(FRAMES_PATH, 'frame_*.jpg'), frame_cutoff), (os.path.join(TIMELAPSE_PATH, 'timelapse_*.mp4'), video_cutoff), (os.path.join(TIMELAPSE_PATH, 'weekly_timelapse_*.mp4*'), weekly_cutoff), (os.path.join(TIMELAPSE_PATH, 'monthly_timelapse_*.mp4*'), monthly_cutoff), (os.path.join(LOGS_PATH, 'daily_summary_*.json'), summary_cutoff), (os.path.join(LOGS_PATH, 'daily_health_*.json'), summary_cutoff)):
         for filename in glob.glob(pattern):
             try:
                 if os.path.getmtime(filename) < cutoff:
@@ -328,6 +330,8 @@ def cleanup_old_files():
     cleanup_expired_telemetry()
     cleanup_old_audit_logs()
     cleanup_old_ftp_snapshots()
+    cleanup_old_keograms()
+    cleanup_old_scene_history()
     cleanup_incomplete_timelapse_files()
     cleanup_old_hourly_segments()
     emergency_storage_cleanup()

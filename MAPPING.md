@@ -1,6 +1,6 @@
 # Function map
 
-Current release: V51.0.2. The dashboard template is rendered by `weathercam_dashboard/dashboard.py` and is not deployed with its `__DATA__` placeholder intact.
+Current release: V52.0. The dashboard template is rendered by `weathercam_dashboard/dashboard.py` and is not deployed with its `__DATA__` placeholder intact.
 
 ## camera.py
 - `CameraAcquisitionError`
@@ -13,6 +13,12 @@ Current release: V51.0.2. The dashboard template is rendered by `weathercam_dash
 - `replace_latest_image`
 - `capture_frame`
 - `restart_camera`
+
+## scene_analysis.py
+- Observational scene intelligence: `estimate_cloud_cover`, `estimate_fog_index`, `estimate_droplet_score`, `update_frozen_detection`, `update_blocked_detection`, `update_focus_drift`, `parse_weather_data`/`read_weather_data`, `update_scene_analysis`, `scene_overlay_texts`, `record_scene_history`, `cleanup_old_scene_history`.
+
+## keogram.py
+- Daily keogram: `record_keogram_slice` (called per capture), `render_keogram_image`, `finalise_keogram`, `process_pending_keograms`, `schedule_keogram_finalise`, `cleanup_old_keograms`.
 
 ## modes.py
 - `local_now`
@@ -87,6 +93,8 @@ Current release: V51.0.2. The dashboard template is rendered by `weathercam_dash
 - `process_timelapse`
 - `schedule_timelapse`
 
+- Weekly/monthly summary videos: `periodic_period`, `build_periodic_timelapse`, `process_periodic_timelapses`, `schedule_periodic_timelapses`.
+
 ## monitoring.py
 - `validate_storage_paths`
 - `get_free_space_gb`
@@ -151,9 +159,10 @@ Current release: V51.0.2. The dashboard template is rendered by `weathercam_dash
 - Reads dashboard data from the `dashboard-data` JSON block; the source template remains navigable before data injection.
 
 ## Release and package files
-- `version.py` contains the V51.0.2 release identity and telemetry schema version.
+- `version.py` contains the V52.0 release identity and telemetry schema version.
 - `manifest.json` records the release baseline, package filename and release file inventory.
-- `verify_v51_0_2.py` validates release identity, telemetry contract, dashboard structure and release guards.
-- `test_v51_0_2.py` contains focused dashboard-data and runtime regression checks.
-- `install_v51_0_2.sh` installs the release; `rollback_v51_0_2.sh` restores its recorded previous target.
+- `verify_v52_0.py` validates release identity, telemetry contract, dashboard structure and release guards.
+- `test_v52_0.py` contains focused dashboard-data and runtime regression checks.
+- `install_v52_0.sh` installs the release; `rollback_v52_0.sh` restores its recorded previous target.
+- `build_release.py` builds `HWS-Webcam-Control-<version>.zip` (top-level directory `HWS-Webcam-Control-<version>/`) from `manifest.json`.
 - `systemd/weathercam.service` provides the camera runtime unit on clean installs; the installer leaves an existing unit untouched.

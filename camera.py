@@ -51,6 +51,19 @@ def add_overlay(image, capture_time, metadata, measurement):
     draw.text((padding, y), left_text, font=OVERLAY_FONT, fill='white')
     right_width = right_box[2] - right_box[0]
     draw.text((image.width - right_width - padding, y), right_text, font=OVERLAY_FONT, fill='white')
+    top_left, top_right = scene_overlay_texts(measurement)
+    if top_left or top_right:
+        top_text = [text for text in (top_left, top_right) if text]
+        top_height = max(draw.textbbox((0, 0), text, font=OVERLAY_FONT)[3] for text in top_text) + overlay_margin
+        top_overlay = Image.new('RGBA', image.size, (0, 0, 0, 0))
+        ImageDraw.Draw(top_overlay).rectangle((0, 0, image.width, top_height), fill=(0, 0, 0, 145))
+        image = Image.alpha_composite(image.convert('RGBA'), top_overlay).convert('RGB')
+        draw = ImageDraw.Draw(image)
+        if top_left:
+            draw.text((padding, overlay_margin // 2), top_left, font=OVERLAY_FONT, fill='white')
+        if top_right:
+            width = draw.textbbox((0, 0), top_right, font=OVERLAY_FONT)
+            draw.text((image.width - (width[2] - width[0]) - padding, overlay_margin // 2), top_right, font=OVERLAY_FONT, fill='white')
     return image
 
 def save_jpeg_atomic(image, filename):
@@ -84,6 +97,12 @@ def capture_frame():
     update_awb_learning(metadata)
     update_manual_exposure(measurement, metadata)
     update_image_quality(measurement)
+    try:
+        update_scene_analysis(image_array, measurement)
+        record_scene_history(capture_time, measurement)
+        record_keogram_slice(image_array, capture_time)
+    except Exception:
+        logger.exception('[SCENE] Scene analysis or keogram failed; capture continues')
     contrast_limit = {'DAY': DAY_CONTRAST_WARNING, 'TWILIGHT': TWILIGHT_CONTRAST_WARNING, 'LOW LIGHT': LOW_LIGHT_CONTRAST_WARNING}.get(current_camera_mode, NIGHT_CONTRAST_WARNING)
     if measurement['contrast'] < contrast_limit and measurement.get('night_observability') != 'GATED':
         logger.warning('[LOW CONTRAST] Mode=%s Contrast=%.1f Limit=%.1f', current_camera_mode, measurement['contrast'], contrast_limit)

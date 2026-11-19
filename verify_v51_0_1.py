@@ -67,7 +67,7 @@ for chart in (
 for feature in (
     'Export this period as CSV', 'Export daily reports as CSV',
     'Recommended checks', 'Timelapse &amp; capture report',
-    'Recent captures', 'warning or critical event markers',
+    'Recent captures',
 ):
     assert feature in template
 

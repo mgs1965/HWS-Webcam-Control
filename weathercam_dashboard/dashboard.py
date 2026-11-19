@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse,csv,ftplib,html,json,os,re,shutil,socket,tempfile
 from datetime import datetime,timedelta,timezone
 from pathlib import Path
-V='50'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
+V='50.1'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
 IMG=Path(os.getenv('WEATHERCAM_LATEST_IMAGE',str(ROOT/'frames/latest.jpg'))); HD=Path(os.getenv('WEATHERCAM_HEALTH_DIR',str(ROOT/'telemetry/health'))); TD=Path(os.getenv('WEATHERCAM_TELEMETRY_DIR',str(ROOT/'logs'))); LD=Path(os.getenv('WEATHERCAM_LOG_DIR',str(ROOT/'logs')))
 def dt(x):
  try:return datetime.fromisoformat(str(x).replace('Z','+00:00')).astimezone(timezone.utc)
@@ -213,55 +213,102 @@ def publish():
  return {'state':'published','gallery_files':len(desired),'obsolete_deleted':deleted,'remote_verified':True}
 
 def generate(upload=False):
- n=datetime.now(timezone.utc);s=status();h=health();t=telemetry(); ev=events(); incident_rows=incidents(); ca=controller_analytics(); ch=controller_history(); ce=controller_events(); times=[]
- if h:times.append(h[-1]['_ts'])
- if t:times.append(t[-1]['_ts'])
- st=dt(s.get('capture_time') or s.get('last_capture_time') or s.get('timestamp') or s.get('_mtime'))
- if st:times.append(st)
- if IMG.exists():times.append(datetime.fromtimestamp(IMG.stat().st_mtime,timezone.utc))
- newest=max(times) if times else None; age=(n-newest).total_seconds()/60 if newest else None
- last=h[-1] if h else {}; metrics={'cpu_temp_c':num(get(last,'system.cpu_temperature_c')),'cpu_percent':num(get(last,'system.cpu_load_percent')),'memory_percent':num(get(last,'memory.used_percent')),'rss_mb':None,'disk_percent':num(get(last,'storage.used_percent'))}
- rb=num(get(last,'memory.process_rss_bytes')); metrics['rss_mb']=rb/1048576 if rb is not None else None
- mode=s.get('camera_mode') or s.get('mode') or (t[-1].get('camera_mode') if t else None) or get(last,'service.camera_mode') or 'UNKNOWN'
+ now=datetime.now(timezone.utc)
+ status_data=status()
+ health_rows=health()
+ telemetry_rows=telemetry()
+ incident_rows=incidents(50)
+ log_events=events()
+ latest=telemetry_rows[-1] if telemetry_rows else {}
+ last_health=health_rows[-1] if health_rows else {}
+ def first(*values):
+  return next((value for value in values if value not in (None,'')),None)
+ capture_text=first(status_data.get('capture_time'),status_data.get('last_capture_time'),latest.get('capture_time'))
+ capture_time=dt(capture_text)
+ capture_age=max(0,int((now-capture_time).total_seconds())) if capture_time else None
+ upload_time=dt(status_data.get('ftp_last_success_time'))
+ upload_age=max(0,int((now-upload_time).total_seconds())) if upload_time else None
+ ftp_health=str(status_data.get('ftp_health_state') or 'UNKNOWN').upper()
+ control_health=str(first(status_data.get('control_health'),latest.get('control_health'),'UNKNOWN')).upper()
+ disk_free=num(first(get(last_health,'storage.free_space_gb'),status_data.get('free_space_gb')))
+ cpu_temp=num(get(last_health,'system.cpu_temperature_c'))
+ memory_percent=num(get(last_health,'memory.used_percent'))
+ disk_percent=num(get(last_health,'storage.used_percent'))
+ camera_state='UNKNOWN' if capture_age is None else 'CRITICAL' if capture_age>120 else 'WARNING' if capture_age>30 else 'HEALTHY'
+ mode=first(status_data.get('camera_mode'),latest.get('camera_mode'),'UNKNOWN')
+ metrics={
+  'capture_age_seconds':capture_age,'capture_state':camera_state,'upload_age_seconds':upload_age,
+  'ftp_health':ftp_health,'ftp_consecutive_failures':int(num(status_data.get('ftp_consecutive_failures')) or 0),
+  'ftp_worker_alive':status_data.get('ftp_worker_alive'),'control_health':control_health,
+  'exposure_ms':num(first(latest.get('exposure_ms'),num(status_data.get('exposure_seconds'))*1000 if num(status_data.get('exposure_seconds')) is not None else None)),
+  'gain':num(first(latest.get('analogue_gain'),status_data.get('analogue_gain'))),
+  'quality':num(first(latest.get('image_quality_score'),status_data.get('image_quality_score'))),
+  'disk_free_gb':disk_free,'disk_percent':disk_percent,'cpu_temp_c':cpu_temp,
+  'memory_percent':memory_percent,'restart_count':num(status_data.get('camera_restart_count')),
+  'process_uptime_seconds':num(status_data.get('uptime_seconds')),
+ }
  reasons=[]
- if age is None or age>30:state='CRITICAL';reasons=['No fresh camera/status/telemetry data' if age is None else 'Data older than 30 minutes']
- elif age>10:state='WARNING';reasons=['Data older than 10 minutes']
- elif metrics['cpu_temp_c'] is not None and metrics['cpu_temp_c']>=80:state='CRITICAL';reasons=['CPU temperature critical']
- elif metrics['cpu_temp_c'] is not None and metrics['cpu_temp_c']>=70:state='WARNING';reasons=['CPU temperature elevated']
- else:state='HEALTHY';reasons=['All monitored systems nominal']
- ser={'cpuTemp':series(h,'system.cpu_temperature_c'),'cpu':series(h,'system.cpu_load_percent'),'memory':series(h,'memory.used_percent'),'rss':series(h,'memory.process_rss_bytes',scale=1/1048576),'quality':series(t,'image_quality_score'),'exposure':series(t,'exposure_ms'),'gain':series(t,'analogue_gain'),'digitalGain':series(t,'digital_gain'),'brightness':series(t,'brightness_raw'),'contrast':series(t,'contrast'),'highlights':series(t,'highlights_percent'),'sharpness':series(t,'sharpness_score'),'edgeDensity':series(t,'edge_density'),'processing':series(t,'capture_processing_ms'),'solarElevation':series(t,'solar_elevation_deg'),'modes':mode_series(t)}
- copy(IMG,OUT/'latest.jpg'); gallery_dir=OUT/'gallery';gallery_dir.mkdir(parents=True,exist_ok=True)
- desired_names={p.name for p in recent_gallery_images()}
+ if camera_state=='UNKNOWN':reasons.append('No camera capture data')
+ elif camera_state=='CRITICAL':reasons.append('Camera data is more than 2 minutes old')
+ elif camera_state=='WARNING':reasons.append('Camera data is delayed')
+ if ftp_health=='OUTAGE':reasons.append('FTP upload is unavailable')
+ elif ftp_health in ('DEGRADED','RECOVERING'):reasons.append('FTP upload is degraded')
+ if control_health in ('UNHEALTHY','FAILED'):reasons.append('Camera control is unhealthy')
+ elif control_health=='DEGRADED':reasons.append('Camera control is degraded')
+ if disk_free is not None and disk_free<2:reasons.append('Disk space is critically low')
+ elif disk_free is not None and disk_free<5:reasons.append('Disk space is low')
+ if cpu_temp is not None and cpu_temp>=80:reasons.append('CPU temperature is critical')
+ elif cpu_temp is not None and cpu_temp>=70:reasons.append('CPU temperature is elevated')
+ critical=(camera_state=='CRITICAL' or ftp_health=='OUTAGE'
+           or control_health in ('UNHEALTHY','FAILED')
+           or (disk_free is not None and disk_free<2)
+           or (cpu_temp is not None and cpu_temp>=80))
+ warning=bool(reasons)
+ state='CRITICAL' if critical else 'NO DATA' if camera_state=='UNKNOWN' else 'WARNING' if warning else 'HEALTHY'
+ if not reasons:reasons=['All monitored systems are healthy']
+ trend_cutoff=now-timedelta(hours=24)
+ recent_telemetry=[row for row in telemetry_rows if row.get('_ts') and row['_ts']>=trend_cutoff]
+ chart_series={
+  'brightness':series(recent_telemetry,'brightness_raw'),
+  'quality':series(recent_telemetry,'image_quality_score'),
+  'exposure':series(recent_telemetry,'exposure_ms'),
+ }
+ copy(IMG,OUT/'latest.jpg')
+ gallery_dir=OUT/'gallery'
+ gallery_dir.mkdir(parents=True,exist_ok=True)
+ desired_names={image.name for image in recent_gallery_images()}
  for old_file in gallery_dir.glob('frame_*.jpg'):
   if old_file.name not in desired_names:
    try:old_file.unlink()
    except OSError:pass
- published_local=[]
- for im in recent_gallery_images():
-  if copy(im,OUT/'gallery'/im.name):published_local.append(im) 
- latest=t[-1] if t else {}
- def first(*vals): return next((v for v in vals if v not in (None,'')),None)
- def age_seconds(x):
-  q=dt(x); return None if not q else max(0,int((n-q).total_seconds()))
- capture_age=age_seconds(first(s.get('capture_time'),s.get('last_capture_time'),latest.get('capture_time')))
- if capture_age is None and age is not None:capture_age=max(0,int(age*60))
- upload_age=age_seconds(first(s.get('ftp_last_success_time'),get(last,'ftp.last_success_time')))
- ftp_health=str(first(s.get('ftp_health_state'),get(last,'service.ftp_health'),'UNKNOWN')).upper()
- control_health=str(first(s.get('control_health'),latest.get('control_health'),get(last,'service.control_health'),'UNKNOWN')).upper()
- metrics.update({'capture_age_seconds':capture_age,'upload_age_seconds':upload_age,'exposure_ms':num(first(latest.get('exposure_ms'),num(s.get('exposure_seconds'))*1000 if num(s.get('exposure_seconds')) is not None else None)),'gain':num(first(latest.get('analogue_gain'),s.get('analogue_gain'))),'brightness':num(first(latest.get('brightness_filtered'),latest.get('brightness_raw'),s.get('filtered_brightness'))),'quality':num(first(latest.get('image_quality_score'),s.get('image_quality_score'))),'sharpness':num(first(latest.get('sharpness_score'),s.get('sharpness_score'))),'disk_free_gb':num(first(get(last,'storage.free_space_gb'),s.get('free_space_gb'))),'host_uptime_seconds':num(get(last,'system.host_uptime_seconds')),'process_uptime_seconds':num(first(get(last,'service.process_uptime_seconds'),s.get('uptime_seconds'))),'restart_count':num(first(get(last,'service.camera_restarts'),s.get('camera_restart_count'),0)),'ftp_health':ftp_health,'ftp_consecutive_failures':int(num(s.get('ftp_consecutive_failures')) or 0),'ftp_worker_alive':s.get('ftp_worker_alive'),'control_health':control_health})
- gallery=[]
- telemetry_by_time=[(r.get('_ts'),r) for r in t if r.get('_ts')]
- for im in published_local:
-  try:
-   its=datetime.fromtimestamp(im.stat().st_mtime,timezone.utc);nearest=min(telemetry_by_time,key=lambda x:abs((x[0]-its).total_seconds()))[1] if telemetry_by_time else {}
-   gallery.append({'name':im.name,'time':its.isoformat(),'mode':nearest.get('camera_mode'),'quality':num(nearest.get('image_quality_score')),'brightness':num(nearest.get('brightness_raw')),'exposure_ms':num(nearest.get('exposure_ms')),'gain':num(nearest.get('analogue_gain'))})
-  except (FileNotFoundError,OSError):continue
- safe_config={'release':'V50','telemetry_schema':4,'dashboard_refresh_minutes':5,'root':str(ROOT),'latest_image':str(IMG),'telemetry_dir':str(TD),'health_dir':str(HD),'ftp_configured':bool(os.getenv('DASHBOARD_FTP_HOST')),'ftp_tls':os.getenv('DASHBOARD_FTP_TLS','0')!='0','dashboard_output':str(OUT),'camera_status_file':str(ROOT/'logs/camera_status.json'),'gallery_items':len(gallery),'capture_interval_seconds':10,'frame_retention_days':7,'video_retention_days':30,'telemetry_retention_months':24,'image_resolution':'2560 x 1440','jpeg_quality':95}
- effect=mode_effectiveness(t,n)
- controller={k:s.get(k) for k in ('control_health','controller_decision','controller_target_brightness','controller_error','controller_deadband','controller_delta_ms','controller_delta_pct','controller_clamped_by','controller_next_exposure_ms','controller_at_exposure_limit','controller_at_gain_limit','learning_state','learning_mode','learning_samples_current','learning_samples_required','learning_progress_pct','software_version','telemetry_schema_version')}
- payload={'version':V,'generated':n.isoformat(),'state':state,'reasons':reasons,'mode':mode,'ageMinutes':None if age is None else round(age,1),'metrics':metrics,'series':ser,'modeEffectiveness':effect,'controller':controller,'controllerAnalytics':ca,'controllerHistory':ch,'controllerEvents':ce,'events':ev,'incidents':incident_rows,'hostname':socket.gethostname(),'counts':{'health':len(h),'telemetry':len(t),'incidents':len(incident_rows)},'gallery':gallery,'config':safe_config}
- tpl=(Path(__file__).resolve().parent/'templates/dashboard.html').read_text(); tpl=tpl.replace('__DATA__',json.dumps(payload,separators=(',',':')).replace('</','<\\/'))
- atomic(OUT/'dashboard.html',tpl);atomic(OUT/'dashboard-data.json',json.dumps(payload,indent=2)); result=publish() if upload else 'generated';print(json.dumps({'result':result,'state':state,'mode':mode,'age_minutes':payload['ageMinutes'],'health_records':len(h),'telemetry_records':len(t),'graph_points':{k:len(v) for k,v in ser.items()}}))
+ for image in recent_gallery_images():
+  copy(image,gallery_dir/image.name)
+ events_payload=[]
+ for item in incident_rows:
+  events_payload.append({
+   'time':item.get('timestamp'),'severity':item.get('severity','INFO'),
+   'message':str(item.get('event_type') or item.get('message') or 'Operational event').replace('_',' '),
+  })
+ for item in log_events:
+  events_payload.append({'time':item.get('time'),'severity':item.get('level','INFO'),'message':item.get('message','Operational event')})
+ safe_config={
+  'release':'V50.1','telemetry_schema':4,'dashboard_refresh_minutes':5,
+  'capture_interval_seconds':10,'ftp_configured':bool(os.getenv('DASHBOARD_FTP_HOST')),
+  'ftp_tls':os.getenv('DASHBOARD_FTP_TLS','0')!='0',
+ }
+ payload={
+  'version':V,'generated':now.isoformat(),'capture_time':capture_text,
+  'state':state,'reasons':reasons[:2],'mode':mode,'metrics':metrics,
+  'series':chart_series,'events':events_payload,'hostname':socket.gethostname(),
+  'counts':{'health':len(health_rows),'telemetry':len(telemetry_rows)},
+  'config':safe_config,
+ }
+ template=(Path(__file__).resolve().parent/'templates/dashboard.html').read_text()
+ template=template.replace('__DATA__',json.dumps(payload,separators=(',',':')).replace('</','<\\/'))
+ atomic(OUT/'dashboard.html',template)
+ atomic(OUT/'dashboard-data.json',json.dumps(payload,indent=2))
+ result=publish() if upload else 'generated'
+ print(json.dumps({'result':result,'state':state,'mode':mode,'capture_age_seconds':capture_age,'health_records':len(health_rows),'telemetry_records':len(telemetry_rows)}))
 def main():
  p=argparse.ArgumentParser();p.add_argument('--upload',action='store_true');p.add_argument('--version',action='version',version=V);a=p.parse_args();generate(a.upload)
 if __name__=='__main__':main()

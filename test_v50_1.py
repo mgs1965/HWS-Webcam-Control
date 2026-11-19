@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parent
 def test_release_identity():
     namespace = {}
     exec((ROOT / 'version.py').read_text(encoding='utf-8'), namespace)
-    assert namespace['VERSION'] == 'V50'
+    assert namespace['VERSION'] == 'V50.1'
     assert namespace['TELEMETRY_SCHEMA_VERSION'] == 4
 
 def test_telemetry_schema():
@@ -24,10 +24,20 @@ def test_credentials_are_not_embedded():
     assert "FTP_PASSWORD = os.getenv('HWS_FTP_PASSWORD', '')" in core
     assert 'cGnRUCGhc' not in core
 
-def test_dashboard_v50_payload():
+def test_dashboard_v50_1_payload():
     dashboard = (ROOT / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
     template = (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
-    assert "V='50'" in dashboard
-    assert "'release':'V50'" in dashboard
+    assert "V='50.1'" in dashboard
+    assert "'release':'V50.1'" in dashboard
     assert 'incidents' in dashboard
     assert 'V49.11.2' not in template
+    assert 'data-view="gallery"' not in template
+    assert 'id="gallery"' not in template
+    for view in ('live', 'trends', 'events', 'diagnostics'):
+        assert f'data-view="{view}"' in template
+        assert f'id="{view}"' in template
+    assert 'data-view="controller"' not in template
+    assert 'data-view="7d"' not in template
+    assert 'data-view="30d"' not in template
+    assert 'Last 24 hours' in template
+    assert 'Recent events' in template

@@ -1,8 +1,15 @@
+#### V50.1 - 2026-11-19
+- Simplified the dashboard to Live, 24-hour Trends, Events and Diagnostics.
+- Removed Gallery, 7/30-day and detailed Controller views without changing background image publication.
+- Added clear capture/FTP/control/storage states, concise alerts and no-data handling.
+- Preserved camera-control behaviour and the telemetry-v4 58-field schema.
+
 #### V50 - 2026-11-19
 - Added explicit release configuration validation and removed embedded FTP credentials.
 - Added telemetry row validation and a structured incident/audit history.
 - Added bounded camera and FTP worker recovery safeguards.
 - Added dashboard incident visibility and package integrity verification.
+- Simplified the dashboard to Live, 24-hour Trends, Events and Diagnostics; removed Gallery and long-range/controller panels from the UI while retaining background image publishing.
 - Preserved camera-control behaviour and the telemetry-v4 58-field schema.
 
 #### V49.11.2 - 2026-11-18

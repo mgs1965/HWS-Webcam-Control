@@ -1,3 +1,8 @@
+#### V50.3 - 2026-11-19
+- Added camera process RSS memory history to Trends.
+- Restored trend graphs for 7-day and 30-day periods as Trends subtabs, alongside 24 hours.
+- Preserved camera-control behavior and telemetry-v4 58-field schema.
+
 #### V50.2 - 2026-11-19
 - Made Advanced a clearly named, visible dashboard view.
 - Restored Raspberry Pi CPU, memory, process, storage and uptime statistics on Live.

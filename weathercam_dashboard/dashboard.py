@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse,csv,ftplib,html,json,os,re,shutil,socket,tempfile
 from datetime import datetime,timedelta,timezone
 from pathlib import Path
-V='50.2'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
+V='50.3'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
 IMG=Path(os.getenv('WEATHERCAM_LATEST_IMAGE',str(ROOT/'frames/latest.jpg'))); HD=Path(os.getenv('WEATHERCAM_HEALTH_DIR',str(ROOT/'telemetry/health'))); TD=Path(os.getenv('WEATHERCAM_TELEMETRY_DIR',str(ROOT/'logs'))); LD=Path(os.getenv('WEATHERCAM_LOG_DIR',str(ROOT/'logs')))
 def dt(x):
  try:return datetime.fromisoformat(str(x).replace('Z','+00:00')).astimezone(timezone.utc)
@@ -271,13 +271,17 @@ def generate(upload=False):
  warning=bool(reasons)
  state='CRITICAL' if critical else 'NO DATA' if camera_state=='UNKNOWN' else 'WARNING' if warning else 'HEALTHY'
  if not reasons:reasons=['All monitored systems are healthy']
- trend_cutoff=now-timedelta(hours=24)
- recent_telemetry=[row for row in telemetry_rows if row.get('_ts') and row['_ts']>=trend_cutoff]
- chart_series={
-  'brightness':series(recent_telemetry,'brightness_raw'),
-  'quality':series(recent_telemetry,'image_quality_score'),
-  'exposure':series(recent_telemetry,'exposure_ms'),
- }
+ chart_series={}
+ for period,hours in (('24h',24),('7d',168),('30d',720)):
+  trend_cutoff=now-timedelta(hours=hours)
+  recent_telemetry=[row for row in telemetry_rows if row.get('_ts') and row['_ts']>=trend_cutoff]
+  recent_health=[row for row in health_rows if row.get('_ts') and row['_ts']>=trend_cutoff]
+  chart_series[period]={
+   'brightness':series(recent_telemetry,'brightness_raw'),
+   'quality':series(recent_telemetry,'image_quality_score'),
+   'exposure':series(recent_telemetry,'exposure_ms'),
+   'process_memory':series(recent_health,'memory.process_rss_bytes',scale=1/1048576),
+  }
  copy(IMG,OUT/'latest.jpg')
  gallery_dir=OUT/'gallery'
  gallery_dir.mkdir(parents=True,exist_ok=True)
@@ -297,7 +301,7 @@ def generate(upload=False):
  for item in log_events:
   events_payload.append({'time':item.get('time'),'severity':item.get('level','INFO'),'message':item.get('message','Operational event')})
  safe_config={
-  'release':'V50.2','telemetry_schema':4,'dashboard_refresh_minutes':5,
+  'release':'V50.3','telemetry_schema':4,'dashboard_refresh_minutes':5,
   'capture_interval_seconds':10,'ftp_configured':bool(os.getenv('DASHBOARD_FTP_HOST')),
   'ftp_tls':os.getenv('DASHBOARD_FTP_TLS','0')!='0',
  }

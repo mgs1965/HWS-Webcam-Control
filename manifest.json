@@ -1,8 +1,8 @@
 {
-  "edition": "dashboard-usability-update",
-  "release": "V50.2",
-  "baseline": "V50.1",
-  "package": "HWS-Webcam-Control-50.2.zip",
+  "edition": "dashboard-trend-history-update",
+  "release": "V50.3",
+  "baseline": "V50.2",
+  "package": "HWS-Webcam-Control-50.3.zip",
   "built": "2026-11-19",
   "telemetry_schema": 4,
   "telemetry_fields": 58,
@@ -11,17 +11,17 @@
     "V50 runtime and telemetry safety validation",
     "bounded camera restart and FTP worker cooldown",
     "simplified Live, Trends, Events and Advanced dashboard",
-    "removed dashboard Gallery and long-range/controller panels",
-    "24-hour brightness, quality and exposure trends",
+    "removed dashboard Gallery and detailed Controller panel",
+    "24-hour, 7-day and 30-day brightness, quality, exposure and process-memory trends",
     "Advanced view and Raspberry Pi statistics on Live",
-    "V50.2 release verification and rollback scripts"
+    "V50.3 release verification and rollback scripts"
   ],
   "files": [
     "ARCHITECTURE.md", "CHANGELOG.md", "DEPLOYMENT.md", "MAPPING.md", "README.md",
     "camera.py", "controller_analytics.py", "core.py", "dashboard.env.example",
-    "exposure.py", "image_quality.py", "install_v50_2.sh", "loader.py", "manifest.json",
-    "modes.py", "monitoring.py", "publishing.py", "rollback_v50_2.sh", "runtime.py",
-    "state.py", "systemd", "test_v50_2.py", "timelapse.py", "v47_control.py", "verify_v50_2.py",
+    "exposure.py", "image_quality.py", "install_v50_3.sh", "loader.py", "manifest.json",
+    "modes.py", "monitoring.py", "publishing.py", "rollback_v50_3.sh", "runtime.py",
+    "state.py", "systemd", "test_v50_3.py", "timelapse.py", "v47_control.py", "verify_v50_3.py",
     "version.py", "weather_camera.py", "weathercam_dashboard"
   ]
 }

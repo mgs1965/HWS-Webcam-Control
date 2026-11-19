@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parent
 def test_release_identity():
     namespace = {}
     exec((ROOT / 'version.py').read_text(encoding='utf-8'), namespace)
-    assert namespace['VERSION'] == 'V50.2'
+    assert namespace['VERSION'] == 'V50.3'
     assert namespace['TELEMETRY_SCHEMA_VERSION'] == 4
 
 def test_telemetry_schema():
@@ -24,12 +24,14 @@ def test_credentials_are_not_embedded():
     assert "FTP_PASSWORD = os.getenv('HWS_FTP_PASSWORD', '')" in core
     assert 'cGnRUCGhc' not in core
 
-def test_dashboard_v50_2_payload():
+def test_dashboard_v50_3_payload():
     dashboard = (ROOT / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
     template = (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
-    assert "V='50.2'" in dashboard
-    assert "'release':'V50.2'" in dashboard
+    assert "V='50.3'" in dashboard
+    assert "'release':'V50.3'" in dashboard
+    assert "for period,hours in (('24h',24),('7d',168),('30d',720))" in dashboard
     assert 'incidents' in dashboard
+    assert "'process_memory':series(recent_health,'memory.process_rss_bytes',scale=1/1048576)" in dashboard
     assert 'V49.11.2' not in template
     assert 'data-view="gallery"' not in template
     assert 'id="gallery"' not in template
@@ -39,9 +41,14 @@ def test_dashboard_v50_2_payload():
     assert 'Diagnostics</button>' not in template
     assert 'data-view="diagnostics"' not in template
     assert 'data-view="controller"' not in template
-    assert 'data-view="7d"' not in template
-    assert 'data-view="30d"' not in template
+    for period in ('24h', '7d', '30d'):
+        assert f'data-period="{period}"' in template
+    assert 'id="processMemoryChart"' in template
+    assert 'id="trendCharts"' in template
+    assert "D.series?.[activePeriod]?.[key]" in template
     assert 'Last 24 hours' in template
+    assert 'Last 7 days' in template
+    assert 'Last 30 days' in template
     assert 'Recent events' in template
     assert 'Raspberry Pi status' in template
     assert 'id="piStats"' in template

@@ -33,7 +33,7 @@ import numpy as np
 from libcamera import controls
 from picamera2 import Picamera2
 from PIL import Image, ImageDraw, ImageFont
-SCRIPT_VERSION = '2026-11-18 V49.11.2'
+SCRIPT_VERSION = '2026-11-19 V50'
 LOCAL_SAVE_PATH = '/mnt/weathercam'
 LOGS_PATH = os.path.join(LOCAL_SAVE_PATH, 'logs')
 FRAMES_PATH = os.path.join(LOCAL_SAVE_PATH, 'frames')
@@ -88,7 +88,7 @@ BASE_PADDING = 15
 BASE_OVERLAY_MARGIN = 20
 FTP_SERVER = 'ftp.harpendenweatherstation.co.uk'
 FTP_USERNAME = 'harpendenweatherstation.co.uk'
-FTP_PASSWORD = "cGnRUCGhc"
+FTP_PASSWORD = os.getenv('HWS_FTP_PASSWORD', '')
 if not FTP_PASSWORD:
     raise RuntimeError('HWS_FTP_PASSWORD is not configured. Set it in the service environment.')
 FTP_UPLOAD_PATH = '/public_html'
@@ -210,6 +210,11 @@ LOG_ANOMALY_SUMMARY_INTERVAL_MINUTES = 60
 LOG_ANOMALY_CPU_WARNING_C = 70.0
 LOG_ANOMALY_CAPTURE_WARNING_MS = 1500.0
 LOG_ANOMALY_FTP_FAILURE_WARNING = 1
+V50_RELEASE = 'V50'
+V50_FTP_WORKER_RESTART_COOLDOWN_SECONDS = 60
+V50_MAX_CAMERA_RESTARTS_PER_HOUR = 6
+V50_TELEMETRY_MAX_CLOCK_SKEW_SECONDS = 300
+V50_ALERT_ACKNOWLEDGED_FILE = os.path.join(LOGS_PATH, 'incident_acknowledgements.json')
 TIMELAPSE_MIN_FRAME_COMPLETENESS = 0.95
 TIMELAPSE_SEGMENT_MANIFEST_SCHEMA = 1
 TIMELAPSE_SEGMENT_MANIFEST_FILENAME = 'manifest.json'
@@ -269,6 +274,7 @@ hourly_today_timelapse_attempts = {}
 timelapse_attempts = {}
 consecutive_camera_acquisition_failures = 0
 capture_count = camera_acquisition_failure_count = camera_restart_count = 0
+camera_restart_times = deque(maxlen=V50_MAX_CAMERA_RESTARTS_PER_HOUR)
 image_processing_failure_count = storage_failure_count = 0
 telemetry_failure_count = status_failure_count = 0
 ftp_image_success_count = ftp_status_success_count = ftp_failure_count = 0

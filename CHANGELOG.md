@@ -1,3 +1,10 @@
+#### V50 - 2026-11-19
+- Added explicit release configuration validation and removed embedded FTP credentials.
+- Added telemetry row validation and a structured incident/audit history.
+- Added bounded camera and FTP worker recovery safeguards.
+- Added dashboard incident visibility and package integrity verification.
+- Preserved camera-control behaviour and the telemetry-v4 58-field schema.
+
 #### V49.11.2 - 2026-11-18
 - Removed the undeclared pathlib.Path dependency from controller analytics retention.
 - Added a defined, defensive dashboard fmtTime() formatter.

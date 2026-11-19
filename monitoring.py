@@ -18,6 +18,24 @@ def validate_storage_paths():
             raise RuntimeError(f'Storage directory is not writable: {directory}: {error}') from error
     logger.info('[STORAGE] Validated writable storage paths under %s', LOCAL_SAVE_PATH)
 
+def validate_v50_configuration():
+    """Fail closed on unsafe runtime configuration before workers start."""
+    checks = (
+        (CAPTURE_INTERVAL_SECONDS >= 1, 'CAPTURE_INTERVAL_SECONDS must be at least 1'),
+        (MIN_EXPOSURE_US > 0, 'MIN_EXPOSURE_US must be positive'),
+        (0 < MAX_GAIN_CHANGE_FRACTION <= 1, 'MAX_GAIN_CHANGE_FRACTION must be in (0, 1]'),
+        (0 < MAX_EXPOSURE_CHANGE_FRACTION <= 1, 'MAX_EXPOSURE_CHANGE_FRACTION must be in (0, 1]'),
+        (MIN_ANALOGUE_GAIN >= 1.0, 'MIN_ANALOGUE_GAIN must be at least 1.0'),
+        (ABSOLUTE_MAX_GAIN >= MIN_ANALOGUE_GAIN, 'ABSOLUTE_MAX_GAIN is below MIN_ANALOGUE_GAIN'),
+        (FTP_MAX_RETRIES >= 1, 'FTP_MAX_RETRIES must be at least 1'),
+        (MAX_CONSECUTIVE_CAPTURE_FAILURES >= 1, 'MAX_CONSECUTIVE_CAPTURE_FAILURES must be at least 1'),
+        (len(TELEMETRY_FIELDS) == 58, 'telemetry-v4 contract must contain 58 fields'),
+    )
+    for valid, message in checks:
+        if not valid:
+            raise RuntimeError(f'V50 configuration validation failed: {message}')
+    logger.info('[V50 CONFIG] Runtime and telemetry-v4 safety checks passed')
+
 def get_free_space_gb():
     return shutil.disk_usage(LOCAL_SAVE_PATH).free / 1024 ** 3
 

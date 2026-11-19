@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse,csv,ftplib,html,json,os,re,shutil,socket,tempfile
 from datetime import datetime,timedelta,timezone
 from pathlib import Path
-V='49.11.2'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
+V='50'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
 IMG=Path(os.getenv('WEATHERCAM_LATEST_IMAGE',str(ROOT/'frames/latest.jpg'))); HD=Path(os.getenv('WEATHERCAM_HEALTH_DIR',str(ROOT/'telemetry/health'))); TD=Path(os.getenv('WEATHERCAM_TELEMETRY_DIR',str(ROOT/'logs'))); LD=Path(os.getenv('WEATHERCAM_LOG_DIR',str(ROOT/'logs')))
 def dt(x):
  try:return datetime.fromisoformat(str(x).replace('Z','+00:00')).astimezone(timezone.utc)
@@ -129,6 +129,17 @@ def events():
   if any(x in line for x in (' WARNING ',' ERROR ',' CRITICAL ','[FTP FAILURE]','[MODE CHANGE]','[DAILY HEALTH]')):
    level='CRITICAL' if (' ERROR ' in line or ' CRITICAL ' in line) else 'WARNING' if ' WARNING ' in line else 'INFO';out.append({'level':level,'message':line[-200:]})
  return out[-12:][::-1]
+def incidents(limit=100):
+ out=[]
+ for p in sorted(LD.glob('camera_audit_*.jsonl'))[-7:]:
+  try:
+   for line in p.read_text(errors='replace').splitlines():
+    try:r=json.loads(line)
+    except json.JSONDecodeError:continue
+    if r.get('severity') in ('WARNING','ERROR','CRITICAL'):
+     out.append(r)
+  except OSError:pass
+ return sorted(out,key=lambda r:r.get('timestamp',''),reverse=True)[:limit]
 def atomic(p,text):
  p.parent.mkdir(parents=True,exist_ok=True);fd,tmp=tempfile.mkstemp(prefix=p.name+'.',dir=p.parent)
  try:
@@ -202,7 +213,7 @@ def publish():
  return {'state':'published','gallery_files':len(desired),'obsolete_deleted':deleted,'remote_verified':True}
 
 def generate(upload=False):
- n=datetime.now(timezone.utc);s=status();h=health();t=telemetry(); ev=events(); ca=controller_analytics(); ch=controller_history(); ce=controller_events(); times=[]
+ n=datetime.now(timezone.utc);s=status();h=health();t=telemetry(); ev=events(); incident_rows=incidents(); ca=controller_analytics(); ch=controller_history(); ce=controller_events(); times=[]
  if h:times.append(h[-1]['_ts'])
  if t:times.append(t[-1]['_ts'])
  st=dt(s.get('capture_time') or s.get('last_capture_time') or s.get('timestamp') or s.get('_mtime'))
@@ -245,10 +256,10 @@ def generate(upload=False):
    its=datetime.fromtimestamp(im.stat().st_mtime,timezone.utc);nearest=min(telemetry_by_time,key=lambda x:abs((x[0]-its).total_seconds()))[1] if telemetry_by_time else {}
    gallery.append({'name':im.name,'time':its.isoformat(),'mode':nearest.get('camera_mode'),'quality':num(nearest.get('image_quality_score')),'brightness':num(nearest.get('brightness_raw')),'exposure_ms':num(nearest.get('exposure_ms')),'gain':num(nearest.get('analogue_gain'))})
   except (FileNotFoundError,OSError):continue
- safe_config={'release':'V49.11.2','telemetry_schema':4,'dashboard_refresh_minutes':5,'root':str(ROOT),'latest_image':str(IMG),'telemetry_dir':str(TD),'health_dir':str(HD),'ftp_configured':bool(os.getenv('DASHBOARD_FTP_HOST')),'ftp_tls':os.getenv('DASHBOARD_FTP_TLS','0')!='0','dashboard_output':str(OUT),'camera_status_file':str(ROOT/'logs/camera_status.json'),'gallery_items':len(gallery),'capture_interval_seconds':10,'frame_retention_days':7,'video_retention_days':30,'telemetry_retention_months':24,'image_resolution':'2560 x 1440','jpeg_quality':95}
+ safe_config={'release':'V50','telemetry_schema':4,'dashboard_refresh_minutes':5,'root':str(ROOT),'latest_image':str(IMG),'telemetry_dir':str(TD),'health_dir':str(HD),'ftp_configured':bool(os.getenv('DASHBOARD_FTP_HOST')),'ftp_tls':os.getenv('DASHBOARD_FTP_TLS','0')!='0','dashboard_output':str(OUT),'camera_status_file':str(ROOT/'logs/camera_status.json'),'gallery_items':len(gallery),'capture_interval_seconds':10,'frame_retention_days':7,'video_retention_days':30,'telemetry_retention_months':24,'image_resolution':'2560 x 1440','jpeg_quality':95}
  effect=mode_effectiveness(t,n)
  controller={k:s.get(k) for k in ('control_health','controller_decision','controller_target_brightness','controller_error','controller_deadband','controller_delta_ms','controller_delta_pct','controller_clamped_by','controller_next_exposure_ms','controller_at_exposure_limit','controller_at_gain_limit','learning_state','learning_mode','learning_samples_current','learning_samples_required','learning_progress_pct','software_version','telemetry_schema_version')}
- payload={'version':V,'generated':n.isoformat(),'state':state,'reasons':reasons,'mode':mode,'ageMinutes':None if age is None else round(age,1),'metrics':metrics,'series':ser,'modeEffectiveness':effect,'controller':controller,'controllerAnalytics':ca,'controllerHistory':ch,'controllerEvents':ce,'events':ev,'hostname':socket.gethostname(),'counts':{'health':len(h),'telemetry':len(t)},'gallery':gallery,'config':safe_config}
+ payload={'version':V,'generated':n.isoformat(),'state':state,'reasons':reasons,'mode':mode,'ageMinutes':None if age is None else round(age,1),'metrics':metrics,'series':ser,'modeEffectiveness':effect,'controller':controller,'controllerAnalytics':ca,'controllerHistory':ch,'controllerEvents':ce,'events':ev,'incidents':incident_rows,'hostname':socket.gethostname(),'counts':{'health':len(h),'telemetry':len(t),'incidents':len(incident_rows)},'gallery':gallery,'config':safe_config}
  tpl=(Path(__file__).resolve().parent/'templates/dashboard.html').read_text(); tpl=tpl.replace('__DATA__',json.dumps(payload,separators=(',',':')).replace('</','<\\/'))
  atomic(OUT/'dashboard.html',tpl);atomic(OUT/'dashboard-data.json',json.dumps(payload,indent=2)); result=publish() if upload else 'generated';print(json.dumps({'result':result,'state':state,'mode':mode,'age_minutes':payload['ageMinutes'],'health_records':len(h),'telemetry_records':len(t),'graph_points':{k:len(v) for k,v in ser.items()}}))
 def main():

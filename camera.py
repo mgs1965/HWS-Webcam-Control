@@ -149,7 +149,15 @@ def capture_frame():
 def restart_camera():
     """Restart Picamera2 after repeated failures and reapply the active mode."""
     global camera_restart_count
+    now = local_now()
+    while camera_restart_times and (now - camera_restart_times[0]).total_seconds() > 3600:
+        camera_restart_times.popleft()
+    if len(camera_restart_times) >= V50_MAX_CAMERA_RESTARTS_PER_HOUR:
+        logger.critical('[CAMERA] Restart limit reached: %d/hour; manual intervention required', V50_MAX_CAMERA_RESTARTS_PER_HOUR)
+        audit_event('camera_restart_limit', severity='CRITICAL', restart_count=camera_restart_count)
+        return False
     camera_restart_count += 1
+    camera_restart_times.append(now)
     logger.warning('[CAMERA] Restarting')
     audit_event('camera_restart', severity='WARNING', restart_count=camera_restart_count)
     with camera_lock:

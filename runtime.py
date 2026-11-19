@@ -28,6 +28,11 @@ def ensure_ftp_worker_running():
 
     if ftp_thread.is_alive():
         return
+    now = local_now()
+    if ftp_worker_last_restart is not None:
+        elapsed = (now - ftp_worker_last_restart).total_seconds()
+        if elapsed < V50_FTP_WORKER_RESTART_COOLDOWN_SECONDS:
+            return
 
     ftp_worker_unexpected_stops += 1
     ftp_worker_restart_count += 1
@@ -67,6 +72,7 @@ def main():
     global storage_failure_count, last_daily_summary_date, ftp_thread
     global daily_counter_baseline
     install_signal_handlers()
+    validate_v50_configuration()
     validate_storage_paths()
     logger.info('============================================================')
     logger.info(' HARPENDEN WEATHER STATION STARTING | %s %s', VERSION_DATE, VERSION)

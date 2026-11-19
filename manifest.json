@@ -1,156 +1,23 @@
 {
-  "edition": "analytics-dashboard-runtime-hardening",
-  "release": "V49.11.2",
-  "baseline": "V49.11.1",
-  "built": "2026-11-18",
+  "edition": "reliability-observability",
+  "release": "V50",
+  "baseline": "V49.11.2",
+  "built": "2026-11-19",
   "telemetry_schema": 4,
   "telemetry_fields": 58,
   "fixes": [
-    "remove undeclared Path dependency from analytics retention",
-    "define defensive fmtTime dashboard formatter",
-    "initialise seven-tab navigation before optional panels",
-    "isolate Controller rendering from navigation"
+    "environment-configured FTP credentials",
+    "V50 runtime and telemetry safety validation",
+    "bounded camera restart and FTP worker cooldown",
+    "structured incident payload for dashboard visibility",
+    "V50 release verification and rollback scripts"
   ],
   "files": [
-    {
-      "path": "ARCHITECTURE.md",
-      "size": 377,
-      "sha256": "31d85651c4cd67098c6b251f93e520d42788e3404459e52645451ce5ec5337a4"
-    },
-    {
-      "path": "CHANGELOG.md",
-      "size": 3885,
-      "sha256": "b7e18c57fd95239a479eee2513d43deddebe8052227afe2ad67374b1102f4985"
-    },
-    {
-      "path": "DEPLOYMENT.md",
-      "size": 1089,
-      "sha256": "b9ef10c7e78acd1ea6729ff6a9122f3d8010bc2620fe86f10a7e8033031134e9"
-    },
-    {
-      "path": "MAPPING.md",
-      "size": 2503,
-      "sha256": "59d6a5eb2930d178b02f1176b0a85f575856cce079eaa37885ed26ee001e72b2"
-    },
-    {
-      "path": "README.md",
-      "size": 1579,
-      "sha256": "4aa08ede9e4d1c03f107869c20575be13e0ac4cd0c2ceb24fb41729c65a16797"
-    },
-    {
-      "path": "camera.py",
-      "size": 9162,
-      "sha256": "7b918087244787d5b6e454f8e1c90e2458916319002a53b31023ea25474e44e4"
-    },
-    {
-      "path": "controller_analytics.py",
-      "size": 6759,
-      "sha256": "2ac94a232b48877ae829de2f059f453cc2cea66c7e39a7492c102a82b6982f2e"
-    },
-    {
-      "path": "core.py",
-      "size": 12992,
-      "sha256": "8db7fbf27baa369fb22d607a6f08b5eee0a882abd7f0e0d0eb13afd8e3c130cb"
-    },
-    {
-      "path": "dashboard.env.example",
-      "size": 104,
-      "sha256": "10d12dbac9566df50b535eb09d470cf08acb24029460059c31e279daebe76e1d"
-    },
-    {
-      "path": "exposure.py",
-      "size": 19409,
-      "sha256": "00cf6b5e51c0e3437dc2c8e86e827b0c1dacb823cd7f7a01d4b0f88dfcd80a25"
-    },
-    {
-      "path": "image_quality.py",
-      "size": 15336,
-      "sha256": "f80dff3c2d28e9d50b1cbb92c8aac020b032dadc47a0466cc46b5a05c5b2ce95"
-    },
-    {
-      "path": "install_v49_11_2.sh",
-      "size": 1746,
-      "sha256": "4fa476b0d69d2b02e0ab55337ae2ffe3440bab83a13541db4f8e3f85177a90d9"
-    },
-    {
-      "path": "loader.py",
-      "size": 831,
-      "sha256": "cf9e4852194ee5484a2cb06da978c4d4a454ca764dc1ab83979ebfb30dd38f8c"
-    },
-    {
-      "path": "modes.py",
-      "size": 12881,
-      "sha256": "bf3de15279036977210b274000c691c285433822c40d914f272e74779400ac90"
-    },
-    {
-      "path": "monitoring.py",
-      "size": 27733,
-      "sha256": "3169aac96bbc65d8629126a8d02ed410477e2acb56f53da25b4432aad037fc32"
-    },
-    {
-      "path": "publishing.py",
-      "size": 26942,
-      "sha256": "74d77615e709978cd24e140e920fc5acc72bde4c57a41a16675e6d9def03473b"
-    },
-    {
-      "path": "rollback_v49_11_2.sh",
-      "size": 715,
-      "sha256": "d3b516991943c0ff3572522d0ba2d07fc458e0b5c4a3ed0397cc060780921040"
-    },
-    {
-      "path": "runtime.py",
-      "size": 7662,
-      "sha256": "8b94e9621e669bc0457c04baef40fe07b6841426ce4bc9c136d15f3ff6d7fa84"
-    },
-    {
-      "path": "state.py",
-      "size": 7666,
-      "sha256": "99d5f152638b6da254f84c6fb93172c65ec6ed3193ff711ce5e4106407ed548e"
-    },
-    {
-      "path": "systemd/weathercam-dashboard.service",
-      "size": 288,
-      "sha256": "fdd612620c8e8e4210384c7a97b29aab02c5f1e2c5511c6d4ae24f0854499ee1"
-    },
-    {
-      "path": "systemd/weathercam-dashboard.timer",
-      "size": 205,
-      "sha256": "34d5fb845fb6bb7ce993da6f062093ac136c72a68f8031862cdf69f8e3f15bd1"
-    },
-    {
-      "path": "timelapse.py",
-      "size": 32074,
-      "sha256": "3d2fa40d1e4de1bb15bacd5f4d4fbcb7e56b6561151436981b10864fd4b646a6"
-    },
-    {
-      "path": "v47_control.py",
-      "size": 10775,
-      "sha256": "e59120559f5678476b01ed15a37aae59b24b5168ac1bab24390d83bdbe6bb62e"
-    },
-    {
-      "path": "verify_v49_11_2.py",
-      "size": 5342,
-      "sha256": "120fc3d11ef8e1296611d0b8181ef5142d6a1a5423927a76026259c904d583b5"
-    },
-    {
-      "path": "version.py",
-      "size": 159,
-      "sha256": "e52a7c829df0515fed1747ebecc2c7141b99632502a24c2f45460780e0059c26"
-    },
-    {
-      "path": "weather_camera.py",
-      "size": 111,
-      "sha256": "149da6384d821ef40d8930ad01bf8cf0ae32fe65a9a9d6d6f2e780739b1a62fa"
-    },
-    {
-      "path": "weathercam_dashboard/dashboard.py",
-      "size": 16284,
-      "sha256": "5b65e678893ebbbba1de5698e80f095b99993148a5bca82f45c1cf5f8b0bf67d"
-    },
-    {
-      "path": "weathercam_dashboard/templates/dashboard.html",
-      "size": 36300,
-      "sha256": "b274c953fb59ac827710590af09607ce6c71f37d7c5545dfa6e2867418cf54c3"
-    }
+    "ARCHITECTURE.md", "CHANGELOG.md", "DEPLOYMENT.md", "MAPPING.md", "README.md",
+    "camera.py", "controller_analytics.py", "core.py", "dashboard.env.example",
+    "exposure.py", "image_quality.py", "install_v50.sh", "loader.py", "manifest.json",
+    "modes.py", "monitoring.py", "publishing.py", "rollback_v50.sh", "runtime.py",
+    "state.py", "systemd", "timelapse.py", "v47_control.py", "verify_v50.py",
+    "version.py", "weather_camera.py", "weathercam_dashboard"
   ]
 }

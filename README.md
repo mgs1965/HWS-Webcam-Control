@@ -1,8 +1,8 @@
-# Harpenden Weather Camera V49.11.2
+# Harpenden Weather Camera V50
 
 **Controller observability release, based on V49.8.1 photographic behaviour.**
 
-V49.11.2 is the dashboard/observability release based on the complete V49.5 source. Camera-control, exposure, mode thresholds, quality calculation, timelapse, camera FTP worker and telemetry-v4 58-field schema are retained.
+V50 is the reliability and observability release based on the complete V49.5 source. Camera-control, exposure, mode thresholds, quality calculation, timelapse, camera FTP worker and telemetry-v4 58-field schema are retained.
 
 ## UI
 - Restores the approved dark mock-up hierarchy with a large live image and prominent System Health panel.
@@ -18,10 +18,10 @@ V49.11.2 is the dashboard/observability release based on the complete V49.5 sour
 
 ## Install
 ```bash
-unzip HarpendenWeatherCamera-V49.11.2.zip
-cd HarpendenWeatherCamera-V49.11.2
-python3 verify_v49_11_2.py
-sudo ./install_v49_11_2.sh
+unzip HarpendenWeatherCamera-V50.zip
+cd HarpendenWeatherCamera-V50
+python3 verify_v50.py
+sudo ./install_v50.sh
 ```
 
 ## Publish immediately
@@ -31,5 +31,5 @@ sudo bash -c 'set -a; . /etc/weathercam/dashboard.env; set +a; exec sudo -u mgs 
 
 ## Rollback
 ```bash
-sudo /mnt/weathercam/app/current/rollback_v49_11_2.sh
+sudo /mnt/weathercam/app/current/rollback_v50.sh
 ```

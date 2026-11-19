@@ -229,7 +229,7 @@ def cleanup_old_hourly_segments():
 
 def initialise_anomaly_window():
     """Start a new anomaly-summary window from the current counters."""
-    global last_anomaly_summary_time, anomaly_window
+    global last_anomaly_summary_time
     last_anomaly_summary_time = local_now()
     anomaly_window.update({
         'capture_slow': 0,
@@ -271,7 +271,6 @@ def record_capture_anomalies(measurement, processing_ms, cpu_temperature_c):
 
 def log_anomaly_summary(force=False):
     """Emit one compact health/anomaly summary for the current time window."""
-    global last_anomaly_summary_time
     if not LOG_ANOMALY_SUMMARY_ENABLED:
         return
     now = local_now()

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import argparse,csv,ftplib,html,json,math,os,re,shutil,socket,tempfile
+import argparse,csv,ftplib,json,math,os,re,shutil,socket,tempfile
 from datetime import datetime,timedelta,timezone
 from pathlib import Path
-V='51.0'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
+V='51.0.1'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
 IMG=Path(os.getenv('WEATHERCAM_LATEST_IMAGE',str(ROOT/'frames/latest.jpg'))); HD=Path(os.getenv('WEATHERCAM_HEALTH_DIR',str(ROOT/'telemetry/health'))); TD=Path(os.getenv('WEATHERCAM_TELEMETRY_DIR',str(ROOT/'logs'))); LD=Path(os.getenv('WEATHERCAM_LOG_DIR',str(ROOT/'logs')))
 def dt(x):
  try:return datetime.fromisoformat(str(x).replace('Z','+00:00')).astimezone(timezone.utc)
@@ -106,7 +106,7 @@ def recommended_checks(metrics,timelapse):
  return checks
 def telemetry(hours=720):
  now=datetime.now(timezone.utc); cut=now-timedelta(hours=hours); recent_cut=now-timedelta(hours=min(hours,24)); out=[];older_index=0
- files=sorted(TD.glob('camera_telemetry_v4_*.csv'),key=lambda p:p.stat().st_mtime)[-3:]
+ files=sorted(TD.glob('camera_telemetry_v4_*.csv'),key=lambda p:p.name)[-3:]
  for p in files:
   try:
    with p.open(newline='',encoding='utf-8-sig',errors='replace') as f:
@@ -174,7 +174,7 @@ def events():
  except:return out
  for line in lines:
   if any(x in line for x in (' WARNING ',' ERROR ',' CRITICAL ','[FTP FAILURE]','[MODE CHANGE]','[DAILY HEALTH]')):
-   level='CRITICAL' if (' ERROR ' in line or ' CRITICAL ' in line) else 'WARNING' if ' WARNING ' in line else 'INFO';out.append({'level':level,'message':line[-200:]})
+   level='CRITICAL' if (' ERROR ' in line or ' CRITICAL ' in line) else 'WARNING' if ' WARNING ' in line else 'INFO';out.append({'time':line[:19].replace(' ','T') if re.match(r'\d{4}-\d\d-\d\d \d\d:\d\d:\d\d',line) else None,'level':level,'message':line[-200:]})
  return out[-12:][::-1]
 def incidents(limit=100):
  out=[]
@@ -222,9 +222,21 @@ def publish():
  if not all((host,user,pw)):return 'disabled'
  desired={p.name for p in (OUT/'gallery').glob('frame_*.jpg') if p.is_file()}
  cls=ftplib.FTP_TLS if os.getenv('DASHBOARD_FTP_TLS','0')!='0' else ftplib.FTP
- ftp=cls();ftp.connect(host,int(os.getenv('DASHBOARD_FTP_PORT','21')),timeout=45);ftp.login(user,pw)
+ ftp=cls()
+ try:
+  return publish_with(ftp,host,user,pw,remote,desired)
+ finally:
+  try:ftp.close()
+  except Exception:pass
+def publish_with(ftp,host,user,pw,remote,desired):
+ ftp.connect(host,int(os.getenv('DASHBOARD_FTP_PORT','21')),timeout=45);ftp.login(user,pw)
  if isinstance(ftp,ftplib.FTP_TLS):ftp.prot_p()
  ftp.cwd(remote)
+ def remote_names():
+  try:return ftp.nlst()
+  except ftplib.error_perm as exc:
+   if str(exc).startswith('550'):return []
+   raise
  def ensure_gallery():
   ftp.cwd(remote)
   try:ftp.mkd('gallery')
@@ -239,7 +251,7 @@ def publish():
  # Stage and verify every required gallery image before making the page visible.
  ensure_gallery()
  for name in sorted(desired):atomic_send(OUT/'gallery'/name,name)
- remote_frames={Path(n).name for n in ftp.nlst() if Path(n).name.startswith('frame_') and Path(n).name.lower().endswith('.jpg')}
+ remote_frames={Path(n).name for n in remote_names() if Path(n).name.startswith('frame_') and Path(n).name.lower().endswith('.jpg')}
  missing=desired-remote_frames
  if missing:raise RuntimeError('Remote gallery verification failed; missing: '+', '.join(sorted(missing)[:10]))
  # Remove only obsolete weather-camera frames. Preserve unrelated site files.
@@ -249,7 +261,7 @@ def publish():
   try:ftp.delete(name);deleted+=1
   except ftplib.error_perm:pass
  # Recheck exact desired set after reconciliation.
- remote_frames={Path(n).name for n in ftp.nlst() if Path(n).name.startswith('frame_') and Path(n).name.lower().endswith('.jpg')}
+ remote_frames={Path(n).name for n in remote_names() if Path(n).name.startswith('frame_') and Path(n).name.lower().endswith('.jpg')}
  if remote_frames!=desired:raise RuntimeError(f'Remote gallery mismatch: desired={len(desired)} remote={len(remote_frames)}')
  # Commit top-level assets in safe order; HTML is always last.
  ftp.cwd(remote)
@@ -273,11 +285,11 @@ def generate(upload=False):
  latest_video=latest_timelapse()
  health_age=seconds_since(last_health.get('timestamp'),now) if last_health else None
  reported_health=str(last_health.get('overall_health') or 'UNKNOWN').upper()
- pi_flags=get(last_health,'system.pi_throttling',{})
+ pi_flags=get(last_health,'system.pi_throttling')
  throttle_fields=('throttled_now','under_voltage_now','frequency_capped_now','soft_temperature_limit_now')
  throttling_active=any(pi_flags.get(flag) is True for flag in throttle_fields) if isinstance(pi_flags,dict) else None
  for row in health_rows:
-  flags=get(row,'system.pi_throttling',{})
+  flags=get(row,'system.pi_throttling')
   row['_throttling_active']=int(any(flags.get(flag) is True for flag in throttle_fields)) if isinstance(flags,dict) else None
  def first(*values):
   return next((value for value in values if value not in (None,'')),None)
@@ -330,8 +342,8 @@ def generate(upload=False):
  elif cpu_temp is not None and cpu_temp>=70:reasons.append('CPU temperature is elevated')
  if memory_percent is not None and memory_percent>=95:reasons.append('Memory usage is critical')
  elif memory_percent is not None and memory_percent>=85:reasons.append('Memory usage is high')
- if disk_percent is not None and disk_percent>=95 and disk_free is not None and disk_free>=2:reasons.append('Disk usage is critical')
- elif disk_percent is not None and disk_percent>=85 and disk_free is not None and disk_free>=10:reasons.append('Disk usage is high')
+ if disk_percent is not None and disk_percent>=95 and (disk_free is None or disk_free>=2):reasons.append('Disk usage is critical')
+ elif disk_percent is not None and disk_percent>=85 and (disk_free is None or disk_free>=10):reasons.append('Disk usage is high')
  if throttling_active:reasons.append('Raspberry Pi throttling is active')
  health_reasons=get(last_health,'health_reasons',[])
  if isinstance(health_reasons,list):
@@ -350,6 +362,8 @@ def generate(upload=False):
            or throttling_active is True)
  warning=bool(reasons)
  state='CRITICAL' if critical else 'NO DATA' if camera_state=='UNKNOWN' else 'WARNING' if warning else 'HEALTHY'
+ urgent=('critical','unavailable','unhealthy','more than 2 minutes','throttling')
+ reasons.sort(key=lambda reason:not any(word in reason.lower() for word in urgent))
  if not reasons:reasons=['All monitored systems are healthy']
  chart_series={};chart_coverage={}
  report_rows=[row for row in report_rows if row.get('_ts') and row['_ts']>=now-timedelta(days=30)]
@@ -436,7 +450,7 @@ def generate(upload=False):
  } for row in report_rows[-30:]]
  actions=recommended_checks(metrics,timelapse)
  safe_config={
-  'release':'V51.0','telemetry_schema':4,'dashboard_refresh_minutes':5,
+  'release':'V51.0.1','telemetry_schema':4,'dashboard_refresh_minutes':5,
   'capture_interval_seconds':10,'ftp_configured':bool(os.getenv('DASHBOARD_FTP_HOST')),
   'ftp_tls':os.getenv('DASHBOARD_FTP_TLS','0')!='0',
  }

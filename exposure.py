@@ -84,7 +84,6 @@ def update_manual_exposure(measurement, metadata):
     global current_exposure_action, last_actual_exposure, last_actual_gain
     global pending_control_captures, mode_control_pending
     global mode_transition_target_exposure_us
-    global low_light_entry_floor_product
     global low_light_floor_interventions
     if current_camera_mode not in ('TWILIGHT', 'LOW LIGHT', 'NIGHT'):
         return

@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse,csv,ftplib,html,json,os,re,shutil,socket,tempfile
 from datetime import datetime,timedelta,timezone
 from pathlib import Path
-V='50.1'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
+V='50.2'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
 IMG=Path(os.getenv('WEATHERCAM_LATEST_IMAGE',str(ROOT/'frames/latest.jpg'))); HD=Path(os.getenv('WEATHERCAM_HEALTH_DIR',str(ROOT/'telemetry/health'))); TD=Path(os.getenv('WEATHERCAM_TELEMETRY_DIR',str(ROOT/'logs'))); LD=Path(os.getenv('WEATHERCAM_LOG_DIR',str(ROOT/'logs')))
 def dt(x):
  try:return datetime.fromisoformat(str(x).replace('Z','+00:00')).astimezone(timezone.utc)
@@ -232,8 +232,10 @@ def generate(upload=False):
  control_health=str(first(status_data.get('control_health'),latest.get('control_health'),'UNKNOWN')).upper()
  disk_free=num(first(get(last_health,'storage.free_space_gb'),status_data.get('free_space_gb')))
  cpu_temp=num(get(last_health,'system.cpu_temperature_c'))
+ cpu_load=num(get(last_health,'system.cpu_load_percent'))
  memory_percent=num(get(last_health,'memory.used_percent'))
  disk_percent=num(get(last_health,'storage.used_percent'))
+ rss_bytes=num(get(last_health,'memory.process_rss_bytes'))
  camera_state='UNKNOWN' if capture_age is None else 'CRITICAL' if capture_age>120 else 'WARNING' if capture_age>30 else 'HEALTHY'
  mode=first(status_data.get('camera_mode'),latest.get('camera_mode'),'UNKNOWN')
  metrics={
@@ -244,7 +246,10 @@ def generate(upload=False):
   'gain':num(first(latest.get('analogue_gain'),status_data.get('analogue_gain'))),
   'quality':num(first(latest.get('image_quality_score'),status_data.get('image_quality_score'))),
   'disk_free_gb':disk_free,'disk_percent':disk_percent,'cpu_temp_c':cpu_temp,
-  'memory_percent':memory_percent,'restart_count':num(status_data.get('camera_restart_count')),
+  'cpu_load_percent':cpu_load,'memory_percent':memory_percent,
+  'process_rss_mb':rss_bytes/1048576 if rss_bytes is not None else None,
+  'host_uptime_seconds':num(get(last_health,'system.host_uptime_seconds')),
+  'restart_count':num(status_data.get('camera_restart_count')),
   'process_uptime_seconds':num(status_data.get('uptime_seconds')),
  }
  reasons=[]
@@ -292,7 +297,7 @@ def generate(upload=False):
  for item in log_events:
   events_payload.append({'time':item.get('time'),'severity':item.get('level','INFO'),'message':item.get('message','Operational event')})
  safe_config={
-  'release':'V50.1','telemetry_schema':4,'dashboard_refresh_minutes':5,
+  'release':'V50.2','telemetry_schema':4,'dashboard_refresh_minutes':5,
   'capture_interval_seconds':10,'ftp_configured':bool(os.getenv('DASHBOARD_FTP_HOST')),
   'ftp_tls':os.getenv('DASHBOARD_FTP_TLS','0')!='0',
  }

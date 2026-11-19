@@ -1,39 +1,48 @@
-# V50.3.5 Final Deployment
+# V51.0 Deployment
 
-This release includes runtime recovery, Pi health decoding, daily report and clean-install service fixes. Camera-control behavior and telemetry-v4 (58 fields) remain unchanged.
+V51.0 adds a data-backed camera-operations dashboard while retaining the V50.3.5 runtime reliability fixes and telemetry-v4 (58-field) contract. Camera-control behavior is unchanged.
 
 ## Pre-install
+
 ```bash
-python3 verify_v50_3_5.py
+python3 verify_v51_0.py
 ```
 
-For a clean install, create `/etc/weathercam/dashboard.env` from `dashboard.env.example` and set `HWS_FTP_PASSWORD`. The installer supplies `weathercam.service` only when no camera service unit already exists.
+For a clean install, create `/etc/weathercam/dashboard.env` from `dashboard.env.example` and set `HWS_FTP_PASSWORD`. The installer supplies `weathercam.service` only when no existing unit is registered and will not overwrite an on-disk unit file.
 
 ## Install
+
 ```bash
-sudo bash ./install_v50_3_5.sh
+sudo bash ./install_v51_0.sh
 ```
 
 ## Confirm active release
+
 ```bash
 readlink -f /mnt/weathercam/app/current
 systemctl is-active weathercam.service
 systemctl is-active weathercam-dashboard.timer
 ```
-Expected active release: `/mnt/weathercam/app/releases/HarpendenWeatherCamera-V50.3.5` and both services `active` (the dashboard service itself is oneshot and can be inactive between timer runs).
+
+Expected release: `/mnt/weathercam/app/releases/HarpendenWeatherCamera-V51.0`. The dashboard publisher is a oneshot service and may be inactive between timer runs.
 
 ## Force one publication
+
 ```bash
 sudo bash -c 'set -a; . /etc/weathercam/dashboard.env; set +a; exec sudo -u mgs -E /usr/bin/python3 /mnt/weathercam/app/current/weathercam_dashboard/dashboard.py --upload'
 ```
 
-## Verify generated UI
+## Verify the generated dashboard
+
 ```bash
-grep -E 'V50.3.5|Looking North East|Recent events|Raspberry Pi status|Advanced|30 days|Camera process memory|Camera mode performance' /mnt/weathercam/dashboard/dashboard.html | head
+grep -E 'V51.0|Recommended checks|Timelapse|Daily reliability reports|Recent captures|CPU temperature|30 days' /mnt/weathercam/dashboard/dashboard.html | head
 ! grep -q '__DATA__' /mnt/weathercam/dashboard/dashboard.html
 ```
 
+The dashboard displays recommended checks and historical readings but does not modify camera controls or send external alerts.
+
 ## Rollback
+
 ```bash
-sudo bash /mnt/weathercam/app/current/rollback_v50_3_5.sh
+sudo bash /mnt/weathercam/app/current/rollback_v51_0.sh
 ```

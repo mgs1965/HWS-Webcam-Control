@@ -1,31 +1,27 @@
 {
-  "edition": "runtime-reliability-fixes",
-  "release": "V50.3.5",
-  "baseline": "V50.3.4",
-  "package": "HWS-Webcam-Control-50.3.5.zip",
+  "edition": "camera-operations-dashboard",
+  "release": "V51.0",
+  "baseline": "V50.3.5",
+  "package": "HWS-Webcam-Control-51.0.zip",
   "built": "2026-11-19",
   "telemetry_schema": 4,
   "telemetry_fields": 58,
-  "fixes": [
-    "environment-configured FTP credentials",
-    "V50 runtime and telemetry safety validation",
-    "bounded camera restart and FTP worker cooldown",
-    "simplified Live, Trends, Events and Advanced dashboard",
-    "removed dashboard Gallery and detailed Controller panel",
-    "24-hour, 7-day and 30-day brightness, quality, exposure and process-memory trends",
-    "Advanced view and Raspberry Pi statistics on Live",
-    "native CSS radio navigation with corrected control placement",
-    "last-24-hour camera-mode summaries and recent transitions",
-    "correct Raspberry Pi throttle flags and daily health report updates",
-    "validated persisted quality state and bounded camera restart recovery",
-    "V50.3.5 release verification and rollback scripts"
+  "features": [
+    "Live camera and component health with recommended diagnostic checks",
+    "Daily capture-completeness and timelapse reporting",
+    "24-hour, 7-day and 30-day image and Raspberry Pi health trends",
+    "Chart sample coverage and warning/error event markers",
+    "Recent-frame Archive view",
+    "Client-side CSV export for trends and daily reports",
+    "Bounded telemetry history sampling for Raspberry Pi memory",
+    "Automatic dashboard refresh on the existing five-minute publication cycle"
   ],
   "files": [
     "ARCHITECTURE.md", "CHANGELOG.md", "DEPLOYMENT.md", "MAPPING.md", "README.md",
     "camera.py", "controller_analytics.py", "core.py", "dashboard.env.example",
-    "exposure.py", "image_quality.py", "install_v50_3_5.sh", "loader.py", "manifest.json",
-    "modes.py", "monitoring.py", "publishing.py", "rollback_v50_3_5.sh", "runtime.py",
-    "state.py", "systemd", "test_v50_3_5.py", "timelapse.py", "v47_control.py", "verify_v50_3_5.py",
-    "version.py", "weather_camera.py", "weathercam_dashboard"
+    "exposure.py", "image_quality.py", "install_v51_0.sh", "loader.py", "manifest.json",
+    "modes.py", "monitoring.py", "publishing.py", "rollback_v51_0.sh", "runtime.py",
+    "state.py", "systemd", "test_v51_0.py", "timelapse.py", "v47_control.py",
+    "verify_v51_0.py", "version.py", "weather_camera.py", "weathercam_dashboard"
   ]
 }

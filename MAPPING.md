@@ -1,6 +1,6 @@
 # Function map
 
-Current release: V50.3.5. The dashboard template is rendered by `weathercam_dashboard/dashboard.py` and is not deployed with its `__DATA__` placeholder intact.
+Current release: V51.0. The dashboard template is rendered by `weathercam_dashboard/dashboard.py` and is not deployed with its `__DATA__` placeholder intact.
 
 ## camera.py
 - `CameraAcquisitionError`
@@ -119,8 +119,12 @@ Current release: V50.3.5. The dashboard template is rendered by `weathercam_dash
 - `controller_events`
 - `status`
 - `health`
+- `daily_health_reports`
+- `latest_timelapse`
+- `recommended_checks`
 - `telemetry`
 - `series`
+- `sample_coverage`
 - `mode_series`
 - `mode_effectiveness`
 - `events`
@@ -133,20 +137,23 @@ Current release: V50.3.5. The dashboard template is rendered by `weathercam_dash
 - `generate`
 - `main`
 
-`generate` assembles status, health and telemetry data into the dashboard payload, prepares 24-hour/7-day/30-day trend series including process RSS, summarizes last-24-hour camera-mode observations, and injects that payload exactly once into the template's JSON data block. `publish` uploads the generated page and its assets.
+`generate` assembles status, health, telemetry, daily reports, timelapse and event data into the dashboard payload. It prepares bounded 24-hour/7-day/30-day series, health recommendations, sample coverage, chart event markers, recent archive thumbnails and daily capture-completeness summaries. The most recent 24 hours of telemetry remain full resolution; older 30-day history is sampled. The payload is injected exactly once into the template's JSON data block. `publish` uploads the generated page and its assets.
 
 ## weathercam_dashboard/templates/dashboard.html
-- Renders the Live, Trends, Events and Advanced views.
-- Trends period subtabs select 24-hour, 7-day and 30-day charts for brightness, quality, exposure and process memory.
+- Renders Live, Trends, Events, Advanced, Reports and Archive views.
+- Trends period subtabs select 24-hour, 7-day and 30-day charts for image metrics, process memory, CPU, system memory, disk use and Pi throttling.
+- Charts show their source sample count and time span, and annotate warning/error events.
 - Trends compares 24-hour camera-mode capture counts, estimated time, descriptive telemetry averages and recent transitions; low sample counts are flagged.
+- Reports show daily capture completeness and timelapse results with CSV export.
+- Archive shows up to 48 recent retained camera frames.
+- Trend and report CSV exports are generated in the browser from the dashboard payload.
 - Main-view navigation uses native radio controls and CSS; Trends period controls are separate.
 - Reads dashboard data from the `dashboard-data` JSON block; the source template remains navigable before data injection.
-- The Gallery view is absent; backend gallery image publishing remains in the dashboard generator.
 
 ## Release and package files
-- `version.py` contains the V50.3.5 release identity and telemetry schema version.
+- `version.py` contains the V51.0 release identity and telemetry schema version.
 - `manifest.json` records the release baseline, package filename and release file inventory.
-- `verify_v50_3_5.py` validates release identity, telemetry contract, dashboard structure and runtime regression guards.
-- `test_v50_3_5.py` contains focused release and runtime regression checks.
-- `install_v50_3_5.sh` installs the release; `rollback_v50_3_5.sh` restores its recorded previous target.
+- `verify_v51_0.py` validates release identity, telemetry contract, dashboard structure and release guards.
+- `test_v51_0.py` contains focused dashboard-data and runtime regression checks.
+- `install_v51_0.sh` installs the release; `rollback_v51_0.sh` restores its recorded previous target.
 - `systemd/weathercam.service` provides the camera runtime unit on clean installs; the installer leaves an existing unit untouched.

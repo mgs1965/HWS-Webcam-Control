@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parent
 def test_release_identity():
     namespace = {}
     exec((ROOT / 'version.py').read_text(encoding='utf-8'), namespace)
-    assert namespace['VERSION'] == 'V50.3.5'
+    assert namespace['VERSION'] == 'V51.0'
     assert namespace['TELEMETRY_SCHEMA_VERSION'] == 4
 
 def test_telemetry_schema():
@@ -32,18 +32,17 @@ def test_credentials_are_not_embedded():
     assert "FTP_PASSWORD = os.getenv('HWS_FTP_PASSWORD', '')" in core
     assert 'cGnRUCGhc' not in core
 
-def test_dashboard_v50_3_5_payload():
+def test_dashboard_v51_0_payload():
     dashboard = (ROOT / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
     template = (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
-    assert "V='50.3.5'" in dashboard
-    assert "'release':'V50.3.5'" in dashboard
+    assert "V='51.0'" in dashboard
+    assert "'release':'V51.0'" in dashboard
     assert "for period,hours in (('24h',24),('7d',168),('30d',720))" in dashboard
     assert 'incidents' in dashboard
-    assert "'process_memory':series(recent_health,'memory.process_rss_bytes',scale=1/1048576)" in dashboard
+    assert "'process_memory':('health','memory.process_rss_bytes',1/1048576)" in dashboard
     assert 'V49.11.2' not in template
     assert 'data-view="gallery"' not in template
-    assert 'id="gallery"' not in template
-    for view in ('live', 'trends', 'events', 'advanced'):
+    for view in ('live', 'trends', 'events', 'advanced', 'reports', 'archive'):
         assert f'id="{view}"' in template
     assert 'Diagnostics</button>' not in template
     assert 'data-view="controller"' not in template
@@ -51,18 +50,19 @@ def test_dashboard_v50_3_5_payload():
         assert f'data-period="{period}"' in template
     assert 'id="processMemoryChart"' in template
     assert 'id="trendCharts"' in template
-    assert "D.series?.[activePeriod]?.[key]" in template
+    assert "D.series?.[period]?.[key]" in template
     assert template.count('__DATA__') == 1
     assert "dataText.startsWith('{')?JSON.parse(dataText):{}" in template
     assert "template.replace('__DATA__'" in dashboard
     assert "template.count('__DATA__') != 1:raise RuntimeError" in dashboard
-    for view in ('live', 'trends', 'events', 'advanced'):
+    for view in ('live', 'trends', 'events', 'advanced', 'reports', 'archive'):
         assert f'id="view-{view}"' in template
         assert f'for="view-{view}"' in template
-        assert f'#view-{view}:checked~.page #{view}' in template
-    assert template.index('id="view-live"') < template.index('<div class="page">')
     assert '#view-live:checked~.page #live' in template
     assert '#view-trends:checked~.page #trends' in template
+    assert '#view-reports:checked~.page #reports' in template
+    assert '#view-archive:checked~.page #archive' in template
+    assert template.index('id="view-live"') < template.index('<div class="page">')
     assert "document.querySelectorAll('.view-select')" in template
     assert 'Last 24 hours' in template
     assert 'Last 7 days' in template
@@ -75,6 +75,16 @@ def test_dashboard_v50_3_5_payload():
     assert 'id="modePerformanceRows"' in template
     assert 'id="modeTransitions"' in template
     assert 'renderModePerformance();' in template
+    for chart in ('cpuTemperatureChart', 'cpuLoadChart', 'systemMemoryChart', 'diskUsedChart', 'throttlingChart', 'captureCompletenessChart'):
+        assert f'id="{chart}"' in template
+    assert 'id="timelapseStats"' in template
+    assert 'id="recommendations"' in template
+    assert 'id="galleryGrid"' in template
+    assert 'Export this period as CSV' in template
+    assert 'Export daily reports as CSV' in template
+    assert "'coverage':chart_coverage" in dashboard
+    assert "'timeline_events':timeline_events" in dashboard
+    assert 'older_index%5==0' in dashboard
 
 def test_mode_performance_summary_and_sample_status():
     spec = importlib.util.spec_from_file_location(
@@ -222,9 +232,83 @@ def test_controller_configuration_fingerprint_tracks_real_limits():
 
 def test_camera_service_unit_and_install_preserve_existing_unit():
     service = (ROOT / 'systemd/weathercam.service').read_text(encoding='utf-8')
-    installer = (ROOT / 'install_v50_3_5.sh').read_text(encoding='utf-8')
+    installer = (ROOT / 'install_v51_0.sh').read_text(encoding='utf-8')
     assert 'EnvironmentFile=/etc/weathercam/dashboard.env' in service
     assert 'Restart=on-failure' in service
     assert 'TimeoutStopSec=240' in service
     assert 'systemctl cat weathercam.service' in installer
     assert 'weathercam.service" /etc/systemd/system/weathercam.service' in installer
+    assert 'refusing to overwrite it' in installer
+
+def test_dashboard_daily_reports_ignore_malformed_files(tmp_path):
+    dashboard = load_source_module('dashboard_reports_source', ROOT / 'weathercam_dashboard/dashboard.py')
+    dashboard.LD = tmp_path
+    (tmp_path / 'daily_health_20261118.json').write_text('{"date":"2026-11-18","captures":900}')
+    (tmp_path / 'daily_health_20261119.json').write_text('{malformed')
+
+    reports = dashboard.daily_health_reports()
+
+    assert len(reports) == 1
+    assert reports[0]['date'] == '2026-11-18'
+    assert reports[0]['captures'] == 900
+
+def test_dashboard_sample_coverage_uses_valid_readings():
+    dashboard = load_source_module('dashboard_coverage_source', ROOT / 'weathercam_dashboard/dashboard.py')
+    start = datetime.now(timezone.utc)
+    rows = [
+        {'_ts': start, 'cpu': 42},
+        {'_ts': start + timedelta(minutes=5), 'cpu': None},
+        {'_ts': start + timedelta(minutes=10), 'cpu': 56},
+    ]
+
+    coverage = dashboard.sample_coverage(rows, 'cpu')
+
+    assert coverage['samples'] == 2
+    assert coverage['first'] == start.isoformat()
+    assert coverage['last'] == (start + timedelta(minutes=10)).isoformat()
+
+def test_dashboard_selects_latest_timelapse_file(tmp_path):
+    dashboard = load_source_module('dashboard_timelapse_source', ROOT / 'weathercam_dashboard/dashboard.py')
+    directory = tmp_path / 'timelapse'
+    directory.mkdir()
+    older = directory / 'timelapse_20261117.mp4'
+    latest = directory / 'timelapse_20261118.mp4'
+    older.write_bytes(b'old')
+    latest.write_bytes(b'latest-video')
+    os.utime(older, (1000, 1000))
+    os.utime(latest, (2000, 2000))
+    dashboard.ROOT = tmp_path
+
+    video = dashboard.latest_timelapse()
+
+    assert video['filename'] == latest.name
+    assert video['size_bytes'] == len(b'latest-video')
+
+def test_dashboard_recommendations_cover_throttling_and_timelapse_gaps():
+    dashboard = load_source_module('dashboard_recommendations_source', ROOT / 'weathercam_dashboard/dashboard.py')
+    metrics = {
+        'capture_state': 'HEALTHY', 'ftp_health': 'HEALTHY', 'control_health': 'HEALTHY',
+        'disk_free_gb': 20, 'cpu_temp_c': 50, 'memory_percent': 40,
+        'throttling_active': True, 'health_age_seconds': 60,
+    }
+
+    checks = dashboard.recommended_checks(metrics, {'source_gap_count': 2})
+
+    assert {item['issue'] for item in checks} == {'Power or thermal throttling', 'Timelapse gaps'}
+    assert all(item['action'] for item in checks)
+
+def test_dashboard_telemetry_sampling_preserves_30_day_span(tmp_path):
+    dashboard = load_source_module('dashboard_telemetry_source', ROOT / 'weathercam_dashboard/dashboard.py')
+    dashboard.TD = tmp_path
+    filename = tmp_path / 'camera_telemetry_v4_202611.csv'
+    start = datetime.now(timezone.utc) - timedelta(days=30)
+    with filename.open('w', encoding='utf-8', newline='') as output:
+        output.write('capture_time,brightness_raw\n')
+        for index in range(121):
+            output.write(f'{(start + timedelta(hours=6 * index)).isoformat()},{index}\n')
+
+    rows = dashboard.telemetry()
+
+    assert rows
+    assert rows[-1]['_ts'] - rows[0]['_ts'] > timedelta(days=28)
+    assert len(rows) < 121

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 BASE=/mnt/weathercam/app
-REC=/etc/weathercam/v50_3_5-rollback-target
+REC=/etc/weathercam/v51_0-rollback-target
 [ -s "$REC" ] || { echo "Rollback target missing: $REC"; exit 1; }
 TARGET=$(cat "$REC")
 [ -e "$TARGET" ] || { echo "Rollback release missing: $TARGET"; exit 1; }

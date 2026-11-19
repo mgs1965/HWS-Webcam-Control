@@ -1,3 +1,11 @@
+#### V51.0 - 2026-11-19
+- Expanded Live with recommended diagnostic checks and the latest daily timelapse/capture report.
+- Added CPU, memory, disk and active-throttling history, source coverage and event markers to Trends.
+- Added daily reliability reports, capture-completeness history and client-side CSV exports.
+- Added a recent-frame Archive view and automatic dashboard refresh.
+- Downsampled older capture telemetry while preserving the latest 24 hours at full resolution to bound memory use.
+- Preserved camera-control behavior and telemetry-v4 58-field contract.
+
 #### V50.3.5 - 2026-11-19
 - Corrected Raspberry Pi throttling bit decoding and aligned daily timelapse updates with daily health reports.
 - Validate persisted quality-state structure and isolate camera-restart failures from the capture loop.

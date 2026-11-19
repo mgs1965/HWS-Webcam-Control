@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import argparse,csv,ftplib,html,json,os,re,shutil,socket,tempfile
+import argparse,csv,ftplib,html,json,math,os,re,shutil,socket,tempfile
 from datetime import datetime,timedelta,timezone
 from pathlib import Path
-V='50.3.5'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
+V='51.0'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
 IMG=Path(os.getenv('WEATHERCAM_LATEST_IMAGE',str(ROOT/'frames/latest.jpg'))); HD=Path(os.getenv('WEATHERCAM_HEALTH_DIR',str(ROOT/'telemetry/health'))); TD=Path(os.getenv('WEATHERCAM_TELEMETRY_DIR',str(ROOT/'logs'))); LD=Path(os.getenv('WEATHERCAM_LOG_DIR',str(ROOT/'logs')))
 def dt(x):
  try:return datetime.fromisoformat(str(x).replace('Z','+00:00')).astimezone(timezone.utc)
  except:return None
 def num(x):
- try:return float(re.sub(r'[^0-9.+-]','',str(x)))
+ try:
+  value=float(re.sub(r'[^0-9.+-]','',str(x)))
+  return value if math.isfinite(value) else None
  except:return None
 def get(d,path,default=None):
  x=d
@@ -57,15 +59,63 @@ def health(hours=720):
     if t and t>=cut:r['_ts']=t;out.append(r)
   except OSError:pass
  return sorted(out,key=lambda r:r['_ts'])
+def daily_health_reports(limit=30):
+ out=[]
+ for p in sorted(LD.glob('daily_health_*.json'))[-limit:]:
+  try:
+   row=json.loads(p.read_text(encoding='utf-8'))
+  except (OSError,ValueError,json.JSONDecodeError):
+   continue
+  if isinstance(row,dict):
+   stamp=dt(row.get('date'))
+   if stamp:
+    row['_ts']=stamp
+    out.append(row)
+ return sorted(out,key=lambda row:row['_ts'])[-limit:]
+def latest_timelapse():
+ found=[]
+ for p in (ROOT/'timelapse').glob('timelapse_*.mp4'):
+  try:
+   stat=p.stat()
+   found.append((stat.st_mtime,p,stat.st_size))
+  except OSError:
+   continue
+ if not found:return None
+ modified,path,size=max(found,key=lambda item:item[0])
+ return {'filename':path.name,'modified':datetime.fromtimestamp(modified,timezone.utc).isoformat(),'size_bytes':size}
+def recommended_checks(metrics,timelapse):
+ checks=[]
+ if metrics['capture_state'] in ('WARNING','CRITICAL','UNKNOWN'):
+  checks.append({'issue':'Capture stream','action':'Check the camera service and the timestamp of the latest capture.'})
+ if metrics['ftp_health'] in ('OUTAGE','DEGRADED','RECOVERING'):
+  checks.append({'issue':'Image publishing','action':'Check network reachability and the configured FTP destination.'})
+ if metrics['control_health'] in ('UNHEALTHY','FAILED','DEGRADED'):
+  checks.append({'issue':'Camera control','action':'Review recent control acknowledgements and camera-mode events.'})
+ if metrics['disk_free_gb'] is not None and metrics['disk_free_gb']<10:
+  checks.append({'issue':'Storage','action':'Review free space and the configured retention/cleanup policy.'})
+ if metrics['cpu_temp_c'] is not None and metrics['cpu_temp_c']>=70:
+  checks.append({'issue':'Temperature','action':'Check Raspberry Pi cooling, ventilation and workload.'})
+ if metrics['memory_percent'] is not None and metrics['memory_percent']>=85:
+  checks.append({'issue':'Memory','action':'Review memory history and running processes on the Raspberry Pi.'})
+ if metrics['throttling_active'] is True:
+  checks.append({'issue':'Power or thermal throttling','action':'Check the Pi power supply, cooling and active load.'})
+ if metrics['health_age_seconds'] is None or metrics['health_age_seconds']>7200:
+  checks.append({'issue':'Health data','action':'Confirm the camera service is recording system-health snapshots.'})
+ if timelapse and timelapse['source_gap_count']:
+  checks.append({'issue':'Timelapse gaps','action':'Review the missing-hour details in the latest daily report.'})
+ return checks
 def telemetry(hours=720):
- cut=datetime.now(timezone.utc)-timedelta(hours=hours); out=[]
+ now=datetime.now(timezone.utc); cut=now-timedelta(hours=hours); recent_cut=now-timedelta(hours=min(hours,24)); out=[];older_index=0
  files=sorted(TD.glob('camera_telemetry_v4_*.csv'),key=lambda p:p.stat().st_mtime)[-3:]
  for p in files:
   try:
    with p.open(newline='',encoding='utf-8-sig',errors='replace') as f:
     for r in csv.DictReader(f):
      t=dt(r.get('capture_time') or r.get('timestamp'))
-     if t and t>=cut:r['_ts']=t;out.append(r)
+     if not t or t<cut:continue
+     r['_ts']=t
+     if t>=recent_cut or older_index%5==0:out.append(r)
+     if t<recent_cut:older_index+=1
   except OSError:pass
  return sorted(out,key=lambda r:r['_ts'])[-70000:]
 def series(rows,path,maxp=144,scale=1):
@@ -78,6 +128,9 @@ def series(rows,path,maxp=144,scale=1):
   if a and a[-1]!=last:a.append(last)
   a=a[-maxp:]
  return a[-maxp:]
+def sample_coverage(rows,path):
+ samples=[r for r in rows if r.get('_ts') and num(get(r,path) if '.' in path else r.get(path)) is not None]
+ return {'samples':len(samples),'first':samples[0]['_ts'].isoformat() if samples else None,'last':samples[-1]['_ts'].isoformat() if samples else None}
 def mode_series(rows,maxp=720):
  pts=[]
  for r in rows:
@@ -211,10 +264,21 @@ def generate(upload=False):
  status_data=status()
  health_rows=health()
  telemetry_rows=telemetry()
+ report_rows=daily_health_reports()
  incident_rows=incidents(50)
  log_events=events()
  latest=telemetry_rows[-1] if telemetry_rows else {}
  last_health=health_rows[-1] if health_rows else {}
+ latest_report=report_rows[-1] if report_rows else {}
+ latest_video=latest_timelapse()
+ health_age=seconds_since(last_health.get('timestamp'),now) if last_health else None
+ reported_health=str(last_health.get('overall_health') or 'UNKNOWN').upper()
+ pi_flags=get(last_health,'system.pi_throttling',{})
+ throttle_fields=('throttled_now','under_voltage_now','frequency_capped_now','soft_temperature_limit_now')
+ throttling_active=any(pi_flags.get(flag) is True for flag in throttle_fields) if isinstance(pi_flags,dict) else None
+ for row in health_rows:
+  flags=get(row,'system.pi_throttling',{})
+  row['_throttling_active']=int(any(flags.get(flag) is True for flag in throttle_fields)) if isinstance(flags,dict) else None
  def first(*values):
   return next((value for value in values if value not in (None,'')),None)
  capture_text=first(status_data.get('capture_time'),status_data.get('last_capture_time'),latest.get('capture_time'))
@@ -230,6 +294,7 @@ def generate(upload=False):
  memory_percent=num(get(last_health,'memory.used_percent'))
  disk_percent=num(get(last_health,'storage.used_percent'))
  rss_bytes=num(get(last_health,'memory.process_rss_bytes'))
+ capture_percent=num(latest_report.get('capture_completeness_percent'))
  camera_state='UNKNOWN' if capture_age is None else 'CRITICAL' if capture_age>120 else 'WARNING' if capture_age>30 else 'HEALTHY'
  mode=first(status_data.get('camera_mode'),latest.get('camera_mode'),'UNKNOWN')
  metrics={
@@ -245,6 +310,11 @@ def generate(upload=False):
   'host_uptime_seconds':num(get(last_health,'system.host_uptime_seconds')),
   'restart_count':num(status_data.get('camera_restart_count')),
   'process_uptime_seconds':num(status_data.get('uptime_seconds')),
+  'capture_completeness_percent':capture_percent,
+  'throttling_active':throttling_active,
+  'throttling_value':num(get(last_health,'system.pi_throttling.value')),
+  'health_age_seconds':health_age,
+  'reported_health':reported_health,
  }
  reasons=[]
  if camera_state=='UNKNOWN':reasons.append('No camera capture data')
@@ -255,37 +325,76 @@ def generate(upload=False):
  if control_health in ('UNHEALTHY','FAILED'):reasons.append('Camera control is unhealthy')
  elif control_health=='DEGRADED':reasons.append('Camera control is degraded')
  if disk_free is not None and disk_free<2:reasons.append('Disk space is critically low')
- elif disk_free is not None and disk_free<5:reasons.append('Disk space is low')
+ elif disk_free is not None and disk_free<10:reasons.append('Disk space is low')
  if cpu_temp is not None and cpu_temp>=80:reasons.append('CPU temperature is critical')
  elif cpu_temp is not None and cpu_temp>=70:reasons.append('CPU temperature is elevated')
+ if memory_percent is not None and memory_percent>=95:reasons.append('Memory usage is critical')
+ elif memory_percent is not None and memory_percent>=85:reasons.append('Memory usage is high')
+ if disk_percent is not None and disk_percent>=95 and disk_free is not None and disk_free>=2:reasons.append('Disk usage is critical')
+ elif disk_percent is not None and disk_percent>=85 and disk_free is not None and disk_free>=10:reasons.append('Disk usage is high')
+ if throttling_active:reasons.append('Raspberry Pi throttling is active')
+ health_reasons=get(last_health,'health_reasons',[])
+ if isinstance(health_reasons,list):
+  for reason in health_reasons:
+   if isinstance(reason,str) and reason not in reasons:reasons.append(reason)
+ if health_age is None or health_age>7200:reasons.append('Raspberry Pi health data is stale')
+ elif reported_health=='CRITICAL' and not any('critical' in reason.lower() for reason in reasons):
+  reasons.append('Raspberry Pi health snapshot reports a critical condition')
  critical=(camera_state=='CRITICAL' or ftp_health=='OUTAGE'
            or control_health in ('UNHEALTHY','FAILED')
            or (disk_free is not None and disk_free<2)
-           or (cpu_temp is not None and cpu_temp>=80))
+           or (cpu_temp is not None and cpu_temp>=80)
+           or (memory_percent is not None and memory_percent>=95)
+           or (disk_percent is not None and disk_percent>=95)
+           or (reported_health=='CRITICAL' and health_age is not None and health_age<=7200)
+           or throttling_active is True)
  warning=bool(reasons)
  state='CRITICAL' if critical else 'NO DATA' if camera_state=='UNKNOWN' else 'WARNING' if warning else 'HEALTHY'
  if not reasons:reasons=['All monitored systems are healthy']
- chart_series={}
+ chart_series={};chart_coverage={}
+ report_rows=[row for row in report_rows if row.get('_ts') and row['_ts']>=now-timedelta(days=30)]
+ report_series=[dict(row,capture_completeness_percent=num(row.get('capture_completeness_percent'))) for row in report_rows]
+ series_sources={
+  'brightness':('telemetry','brightness_raw',1),
+  'quality':('telemetry','image_quality_score',1),
+  'exposure':('telemetry','exposure_ms',1),
+  'process_memory':('health','memory.process_rss_bytes',1/1048576),
+  'cpu_temperature':('health','system.cpu_temperature_c',1),
+  'cpu_load':('health','system.cpu_load_percent',1),
+  'system_memory':('health','memory.used_percent',1),
+  'disk_used':('health','storage.used_percent',1),
+  'throttling':('health','_throttling_active',1),
+  'capture_completeness':('reports','capture_completeness_percent',1),
+ }
  for period,hours in (('24h',24),('7d',168),('30d',720)):
   trend_cutoff=now-timedelta(hours=hours)
   recent_telemetry=[row for row in telemetry_rows if row.get('_ts') and row['_ts']>=trend_cutoff]
   recent_health=[row for row in health_rows if row.get('_ts') and row['_ts']>=trend_cutoff]
-  chart_series[period]={
-   'brightness':series(recent_telemetry,'brightness_raw'),
-   'quality':series(recent_telemetry,'image_quality_score'),
-   'exposure':series(recent_telemetry,'exposure_ms'),
-   'process_memory':series(recent_health,'memory.process_rss_bytes',scale=1/1048576),
-  }
+  recent_reports=[row for row in report_series if row['_ts']>=trend_cutoff]
+  sources={'telemetry':recent_telemetry,'health':recent_health,'reports':recent_reports}
+  chart_series[period]={}
+  chart_coverage[period]={}
+  for key,(source,path,scale) in series_sources.items():
+   rows=sources[source]
+   chart_series[period][key]=series(rows,path,scale=scale)
+   chart_coverage[period][key]=sample_coverage(rows,path)
  copy(IMG,OUT/'latest.jpg')
  gallery_dir=OUT/'gallery'
  gallery_dir.mkdir(parents=True,exist_ok=True)
- desired_names={image.name for image in recent_gallery_images()}
+ gallery_images=recent_gallery_images()
+ desired_names={image.name for image in gallery_images}
  for old_file in gallery_dir.glob('frame_*.jpg'):
   if old_file.name not in desired_names:
    try:old_file.unlink()
    except OSError:pass
- for image in recent_gallery_images():
-  copy(image,gallery_dir/image.name)
+ gallery_items=[]
+ for image in gallery_images:
+  if not copy(image,gallery_dir/image.name):continue
+  try:
+   modified=datetime.fromtimestamp(image.stat().st_mtime,timezone.utc).isoformat()
+   gallery_items.append({'src':'gallery/'+image.name,'captured':modified})
+  except OSError:
+   continue
  events_payload=[]
  for item in incident_rows:
   events_payload.append({
@@ -294,15 +403,51 @@ def generate(upload=False):
   })
  for item in log_events:
   events_payload.append({'time':item.get('time'),'severity':item.get('level','INFO'),'message':item.get('message','Operational event')})
+ timeline_events=[{
+  'time':item.get('timestamp'),
+  'severity':str(item.get('severity','INFO')).upper(),
+  'message':str(item.get('event_type') or item.get('message') or 'Operational event').replace('_',' '),
+ } for item in incident_rows if dt(item.get('timestamp'))]
+ gap_details=latest_report.get('timelapse_source_gaps',[])
+ if not isinstance(gap_details,list):gap_details=[]
+ timelapse={
+  'report_date':latest_report.get('date'),
+  'capture_count':num(latest_report.get('captures')),
+  'captures_expected':num(latest_report.get('captures_expected')),
+  'capture_completeness_percent':capture_percent,
+  'local_complete':bool(latest_report.get('timelapse_local_complete')),
+  'finalised':bool(latest_report.get('timelapse_publish_complete')),
+  'build_method':latest_report.get('timelapse_build_method'),
+  'segments':num(latest_report.get('timelapse_segments')),
+  'expected_frames':num(latest_report.get('timelapse_expected_frames')),
+  'source_gap_count':len(gap_details),
+  'source_gaps':gap_details[:8],
+  'latest_video':latest_video,
+  'latest_video_age_seconds':seconds_since(latest_video.get('modified'),now) if latest_video else None,
+  'latest_video_size_mb':round(latest_video['size_bytes']/1048576,2) if latest_video else None,
+ }
+ daily_history=[{
+  'date':row.get('date'),
+  'captures':num(row.get('captures')),
+  'captures_expected':num(row.get('captures_expected')),
+  'capture_completeness_percent':num(row.get('capture_completeness_percent')),
+  'health':row.get('overall'),
+  'timelapse_local_complete':bool(row.get('timelapse_local_complete')),
+ } for row in report_rows[-30:]]
+ actions=recommended_checks(metrics,timelapse)
  safe_config={
-  'release':'V50.3.5','telemetry_schema':4,'dashboard_refresh_minutes':5,
+  'release':'V51.0','telemetry_schema':4,'dashboard_refresh_minutes':5,
   'capture_interval_seconds':10,'ftp_configured':bool(os.getenv('DASHBOARD_FTP_HOST')),
   'ftp_tls':os.getenv('DASHBOARD_FTP_TLS','0')!='0',
  }
  payload={
   'version':V,'generated':now.isoformat(),'capture_time':capture_text,
   'state':state,'reasons':reasons[:2],'mode':mode,'metrics':metrics,
-  'series':chart_series,'mode_performance':mode_effectiveness(telemetry_rows,now),
+  'series':chart_series,'coverage':chart_coverage,'timeline_events':timeline_events,
+  'mode_performance':mode_effectiveness(telemetry_rows,now),
+  'timelapse':timelapse,'recommendations':actions,
+  'reports':{'latest':daily_history[-1] if daily_history else None,'history':daily_history},
+  'gallery':gallery_items,
   'events':events_payload,'hostname':socket.gethostname(),
   'counts':{'health':len(health_rows),'telemetry':len(telemetry_rows)},
   'config':safe_config,

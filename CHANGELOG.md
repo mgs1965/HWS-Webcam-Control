@@ -1,13 +1,15 @@
-#### V51.0.1 - 2026-11-19
-- Dashboard: critical disk usage is reported when free space is unavailable, unknown Pi throttling is no longer shown as inactive, and urgent health reasons are listed first.
-- Dashboard: log events now carry timestamps, FTP connections are always closed, and an empty remote gallery no longer aborts publishing.
-- Dashboard: telemetry files are ordered by name so a file removed mid-run cannot crash generation.
-- Removed unused globals, an unused variable and an unused import.
+#### V51.0.2 - 2026-11-19
 - Dashboard: alert thresholds are configurable through `DASHBOARD_*` variables in `dashboard.env` (see `dashboard.env.example`).
 - Dashboard: Events view can be filtered by severity, date range and message text; event severities now display correctly.
 - Dashboard: brightness, quality and exposure graphs show camera-mode bands and sunrise/sunset lines; added a best/worst image-quality summary.
 - Dashboard: latest timelapse can be played in the page (size-limited, uploaded only when changed).
 - Dashboard: a banner warns when the page is offline or its data is older than `DASHBOARD_STALE_MINUTES`.
+
+#### V51.0.1 - 2026-11-19
+- Dashboard: critical disk usage is reported when free space is unavailable, unknown Pi throttling is no longer shown as inactive, and urgent health reasons are listed first.
+- Dashboard: log events now carry timestamps, FTP connections are always closed, and an empty remote gallery no longer aborts publishing.
+- Dashboard: telemetry files are ordered by name so a file removed mid-run cannot crash generation.
+- Removed unused globals, an unused variable and an unused import.
 
 #### V51.0 - 2026-11-19
 - Expanded Live with recommended diagnostic checks and the latest daily timelapse/capture report.

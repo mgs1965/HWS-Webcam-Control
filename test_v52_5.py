@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parent
 def test_release_identity():
     namespace = {}
     exec((ROOT / 'version.py').read_text(encoding='utf-8'), namespace)
-    assert namespace['VERSION'] == 'V52.4'
+    assert namespace['VERSION'] == 'V52.5'
     assert namespace['TELEMETRY_SCHEMA_VERSION'] == 4
 
 def test_telemetry_schema():
@@ -32,11 +32,11 @@ def test_credentials_are_not_embedded():
     assert "FTP_PASSWORD = os.getenv('HWS_FTP_PASSWORD', '')" in core
     assert 'cGnRUCGhc' not in core
 
-def test_dashboard_v52_4_payload():
+def test_dashboard_v52_5_payload():
     dashboard = (ROOT / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
     template = (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
-    assert "V='52.4'" in dashboard
-    assert "'release':'V52.4'" in dashboard
+    assert "V='52.5'" in dashboard
+    assert "'release':'V52.5'" in dashboard
     assert "for period,hours in (('24h',24),('7d',168),('30d',720))" in dashboard
     assert 'incidents' in dashboard
     assert "'process_memory':('health','memory.process_rss_bytes',1/1048576)" in dashboard
@@ -232,7 +232,7 @@ def test_controller_configuration_fingerprint_tracks_real_limits():
 
 def test_camera_service_unit_and_install_preserve_existing_unit():
     service = (ROOT / 'systemd/weathercam.service').read_text(encoding='utf-8')
-    installer = (ROOT / 'install_v52_4.sh').read_text(encoding='utf-8')
+    installer = (ROOT / 'install_v52_5.sh').read_text(encoding='utf-8')
     assert 'EnvironmentFile=/etc/weathercam/dashboard.env' in service
     assert 'Restart=on-failure' in service
     assert 'TimeoutStopSec=240' in service
@@ -474,6 +474,41 @@ def test_release_zip_extracts_to_matching_directory(tmp_path):
     manifest = json.loads((ROOT / 'manifest.json').read_text(encoding='utf-8'))
     with zipfile.ZipFile(tmp_path / manifest['package']) as archive:
         names = archive.namelist()
-    assert manifest['package'] == 'HWS-Webcam-Control-52.4.zip'
-    assert all(name.startswith('HWS-Webcam-Control-52.4/') for name in names)
-    assert 'HWS-Webcam-Control-52.4/manifest.json' in names
+    assert manifest['package'] == 'HWS-Webcam-Control-52.5.zip'
+    assert all(name.startswith('HWS-Webcam-Control-52.5/') for name in names)
+    assert 'HWS-Webcam-Control-52.5/manifest.json' in names
+
+def _load_dashboard(tmp_path, monkeypatch):
+    monkeypatch.setenv('WEATHERCAM_ROOT', str(tmp_path))
+    monkeypatch.setenv('DASHBOARD_OUT', str(tmp_path / 'out'))
+    spec = importlib.util.spec_from_file_location('dash52_5', ROOT / 'weathercam_dashboard/dashboard.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+def test_dashboard_mode_schedule_matches_real_dawn(tmp_path, monkeypatch):
+    dash = _load_dashboard(tmp_path, monkeypatch)
+    now = datetime(2026, 11, 20, 6, 0, tzinfo=timezone.utc)
+    schedule = dash.mode_schedule(now, back_hours=1, forward_hours=3)
+    assert [(s['from'], s['to']) for s in schedule] == [('NIGHT', 'LOW LIGHT'), ('LOW LIGHT', 'TWILIGHT'), ('TWILIGHT', 'DAY')]
+    first = datetime.fromisoformat(schedule[0]['time'])
+    assert abs((first - datetime(2026, 11, 20, 6, 59, tzinfo=timezone.utc)).total_seconds()) <= 300
+    upcoming = dash.next_mode_change(now, schedule)
+    assert upcoming['to'] == 'LOW LIGHT' and upcoming['minutes'] > 0
+
+def test_dashboard_moon_and_disk_forecast(tmp_path, monkeypatch):
+    dash = _load_dashboard(tmp_path, monkeypatch)
+    moon = dash.moon_phase(datetime(2026, 11, 24, 12, 0, tzinfo=timezone.utc))
+    assert moon['phase'] == 'Full moon' and moon['illumination_percent'] > 95
+    now = datetime(2026, 11, 20, tzinfo=timezone.utc)
+    rows = [{'_ts': now - timedelta(hours=h), 'storage': {'used_percent': 50 - h / 24}} for h in range(117, -1, -3)]
+    forecast = dash.disk_forecast(rows, now)
+    assert forecast['percent_per_day'] > 0 and forecast['days_to_full'] > 0
+    assert dash.disk_forecast(rows[:5], now) is None
+
+def test_dashboard_v52_5_template_and_event_tag():
+    dashboard = (ROOT / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
+    template = (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
+    assert '[MODE TRANSITION]' in dashboard and '[MODE CHANGE]' not in dashboard
+    for ident in ('sunStats', 'modeStrip', 'eventStrip', 'calendarGrid', 'libraryRows', 'keogramStack', 'gainChart', 'nightToggle'):
+        assert f'id="{ident}"' in template

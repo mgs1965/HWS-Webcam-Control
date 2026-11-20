@@ -1,3 +1,6 @@
+#### V52.9 - 2026-11-20
+- Fix: partly broken cloud still read 100% because the uniform-sky shortcut was too loose; its red/blue spread limit is lowered from 0.08 to 0.04.
+
 #### V52.8 - 2026-11-20
 - Fix: cloud cover read ~90-100% with clear blue gaps in the sky; the red/blue cloud threshold is raised from 0.62 to 0.80.
 

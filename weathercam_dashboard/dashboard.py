@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse,csv,ftplib,json,math,os,re,shutil,socket,tempfile
 from datetime import datetime,timedelta,timezone
 from pathlib import Path
-V='52.12'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
+V='52.13'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
 IMG=Path(os.getenv('WEATHERCAM_LATEST_IMAGE',str(ROOT/'frames/latest.jpg'))); HD=Path(os.getenv('WEATHERCAM_HEALTH_DIR',str(ROOT/'telemetry/health'))); TD=Path(os.getenv('WEATHERCAM_TELEMETRY_DIR',str(ROOT/'logs'))); LD=Path(os.getenv('WEATHERCAM_LOG_DIR',str(ROOT/'logs')))
 def envnum(name,default):
  try:
@@ -124,7 +124,7 @@ def scene_history(now,hours=24,limit=144):
    except (ValueError,TypeError):continue
    if t.tzinfo is None:t=t.replace(tzinfo=now.tzinfo)
    if t<cutoff or t>now:continue
-   out.append({'t':t.isoformat(),**{k:num(r.get(k)) for k in ('cloud_cover_pct','fog_index','temperature_c','humidity_percent')}})
+   out.append({'t':t.isoformat(),**{k:num(r.get(k)) for k in ('cloud_cover_pct','fog_index','temperature_c','humidity_percent','solar_radiation_wm2','uv_index')}})
  if len(out)>limit:out=[out[round(i*(len(out)-1)/(limit-1))] for i in range(limit)]
  return out
 def weather_insight(weather,scene):
@@ -683,7 +683,7 @@ def generate(upload=False):
  actions=recommended_checks(metrics,timelapse,scene)
  schedule=mode_schedule(now)
  safe_config={
-  'release':'V52.12','telemetry_schema':4,'dashboard_refresh_minutes':5,
+  'release':'V52.13','telemetry_schema':4,'dashboard_refresh_minutes':5,
   'capture_interval_seconds':10,'ftp_configured':bool(os.getenv('DASHBOARD_FTP_HOST')),
   'ftp_tls':os.getenv('DASHBOARD_FTP_TLS','0')!='0',
   'thresholds':TH,'stale_after_minutes':TH['dashboard_stale_minutes'],

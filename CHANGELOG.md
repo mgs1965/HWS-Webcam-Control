@@ -1,3 +1,7 @@
+#### V52.13 - 2026-11-20
+- Weather station: reads UV index (clientraw token 34) and solar radiation in W/m2 (token 127) from the Davis VP2 sensors.
+- Dashboard: Solar and UV metrics plus 24-hour sparklines on the Weather station card; both are recorded in scene history.
+
 #### V52.12 - 2026-11-20
 - Dashboard: new "Weather station" card with dew point, pressure, 1-hour changes, rain rate, fog risk, plain-language reasons (for example humidity close to the dew point, a fast temperature drop, strong gusts, rain), 24-hour temperature/humidity/cloud/fog sparklines from the scene history, and 7-day plus year-record temperatures from `weather_station_history.json`.
 - Scene: new `fog_risk` (LOW/MODERATE/HIGH) from the air/dew-point spread and humidity, available day and night and recorded in scene history.

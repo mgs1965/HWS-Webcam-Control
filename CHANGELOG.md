@@ -1,3 +1,6 @@
+#### V52.2 - 2026-11-20
+- Fix: weekly/monthly timelapses failed validation (5.12 fps) because daily videos with different track timescales (1/15360 vs 1/90000) were joined by stream copy. Each daily video is now rewritten to a 90 kHz timescale before joining; this replaces the V52.1 fps retiming, which did not address the cause.
+
 #### V52.1 - 2026-11-19
 - Fix: daily videos from earlier releases with a different frame rate are retimed to 30 fps before joining, so weekly/monthly timelapses pass validation (the first weekly build failed at 5.12 fps).
 

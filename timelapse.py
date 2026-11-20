@@ -667,19 +667,19 @@ def periodic_daily_files(first, last):
         day += timedelta(days=1)
     return files
 
-def normalise_daily_video_rate(filename, info, kind, output):
-    """Return a stream-copied copy of a daily video retimed to TIMELAPSE_FPS when its frame rate differs (legacy releases)."""
-    fps = float((info or {}).get('fps') or 0.0)
-    if fps <= 0 or abs(fps - TIMELAPSE_FPS) <= TIMELAPSE_FPS_TOLERANCE:
-        return filename
-    retimed = unique_temporary_filename(output, 'retimed_' + os.path.basename(filename))
-    command = ['ffmpeg', '-y', '-loglevel', 'error', '-itsscale', '%.9f' % (fps / TIMELAPSE_FPS), '-i', filename, '-map', '0:v:0', '-c:v', 'copy', '-movflags', '+faststart', retimed]
+def normalise_daily_video_timescale(filename, kind, output):
+    """Return a stream-copied copy of a daily video on the common 90 kHz timescale.
+
+    Daily videos from different releases use different track timescales (for example 1/15360 and 1/90000); joining them
+    by stream copy stretches the result, so every input is rewritten to one timescale first.
+    """
+    prepared = unique_temporary_filename(output, 'timescale_' + os.path.basename(filename))
+    command = ['ffmpeg', '-y', '-loglevel', 'error', '-i', filename, '-map', '0:v:0', '-c:v', 'copy', '-video_track_timescale', '90000', '-movflags', '+faststart', prepared]
     result = subprocess.run(command, capture_output=True, text=True, timeout=TIMELAPSE_CONCAT_TIMEOUT_SECONDS)
     if result.returncode != 0:
-        logger.error('[PERIODIC TIMELAPSE] RETIME FAILED | Kind=%s | File=%s | Error=%s', kind, filename, result.stderr[-1000:] or 'unknown')
+        logger.error('[PERIODIC TIMELAPSE] TIMESCALE FAILED | Kind=%s | File=%s | Error=%s', kind, filename, result.stderr[-1000:] or 'unknown')
         return None
-    logger.info('[PERIODIC TIMELAPSE] RETIMED | Kind=%s | File=%s | SourceFPS=%.3f', kind, os.path.basename(filename), fps)
-    return retimed
+    return prepared
 
 def periodic_uploaded_marker(filename):
     return filename + '.uploaded'
@@ -694,22 +694,19 @@ def build_periodic_timelapse(kind, today):
         if len(files) < PERIODIC_MIN_DAILY_FILES[kind]:
             return True
         frames = 0
-        infos = []
         for filename in files:
             info = probe_video(filename)
-            infos.append(info)
             frames += int((info or {}).get('frames') or 0)
         if frames < 2:
             return False
         retimed = []
         try:
             inputs = []
-            for filename, info in zip(files, infos):
-                prepared = normalise_daily_video_rate(filename, info, kind, output)
+            for filename in files:
+                prepared = normalise_daily_video_timescale(filename, kind, output)
                 if not prepared:
                     return False
-                if prepared != filename:
-                    retimed.append(prepared)
+                retimed.append(prepared)
                 inputs.append(prepared)
             if not concatenate_video_segments(inputs, output, frames, f'{kind}-{first:%Y%m%d}', minimum_file_size=1):
                 return False

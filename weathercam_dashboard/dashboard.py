@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse,csv,ftplib,json,math,os,re,shutil,socket,tempfile
 from datetime import datetime,timedelta,timezone
 from pathlib import Path
-V='52.4'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
+V='52.5'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
 IMG=Path(os.getenv('WEATHERCAM_LATEST_IMAGE',str(ROOT/'frames/latest.jpg'))); HD=Path(os.getenv('WEATHERCAM_HEALTH_DIR',str(ROOT/'telemetry/health'))); TD=Path(os.getenv('WEATHERCAM_TELEMETRY_DIR',str(ROOT/'logs'))); LD=Path(os.getenv('WEATHERCAM_LOG_DIR',str(ROOT/'logs')))
 def envnum(name,default):
  try:
@@ -200,7 +200,7 @@ def events():
  try:lines=p.read_text(errors='replace').splitlines()[-2000:]
  except:return out
  for line in lines:
-  if any(x in line for x in (' WARNING ',' ERROR ',' CRITICAL ','[FTP FAILURE]','[MODE CHANGE]','[DAILY HEALTH]')):
+  if any(x in line for x in (' WARNING ',' ERROR ',' CRITICAL ','[FTP FAILURE]','[MODE TRANSITION]','[DAILY HEALTH]')):
    level='CRITICAL' if (' ERROR ' in line or ' CRITICAL ' in line) else 'WARNING' if ' WARNING ' in line else 'INFO';out.append({'time':line[:19].replace(' ','T') if re.match(r'\d{4}-\d\d-\d\d \d\d:\d\d:\d\d',line) else None,'level':level,'message':line[-200:]})
  return out[-12:][::-1]
 def incidents(limit=100):
@@ -348,6 +348,17 @@ def publish_with(ftp,host,user,pw,remote,desired):
  # Recheck exact desired set after reconciliation.
  remote_frames={Path(n).name for n in remote_names() if Path(n).name.startswith('frame_') and Path(n).name.lower().endswith('.jpg')}
  if remote_frames!=desired:raise RuntimeError(f'Remote gallery mismatch: desired={len(desired)} remote={len(remote_frames)}')
+ ftp.cwd(remote)
+ archive=OUT/'keograms'
+ if archive.is_dir() and any(archive.glob('keogram_*.png')):
+  try:ftp.mkd('keograms')
+  except ftplib.error_perm:pass
+  ftp.cwd('keograms')
+  for local in sorted(archive.glob('keogram_*.png')):
+   try:ftp.voidcmd('TYPE I');remote_size=ftp.size(local.name)
+   except (ftplib.error_perm,ftplib.error_reply,AttributeError):remote_size=None
+   if remote_size!=local.stat().st_size:atomic_send(local,local.name)
+  ftp.cwd(remote)
  # Commit top-level assets in safe order; HTML is always last.
  ftp.cwd(remote)
  preview=OUT/PREVIEW_NAME
@@ -366,6 +377,92 @@ def publish_with(ftp,host,user,pw,remote,desired):
  ftp.quit()
  return {'state':'published','gallery_files':len(desired),'obsolete_deleted':deleted,'remote_verified':True}
 
+MODE_NAMES=('NIGHT','LOW LIGHT','TWILIGHT','DAY')
+MODE_BOUNDARIES=(-5.0,-1.5,0.5)
+MODE_HYSTERESIS=0.25
+SYNODIC_MONTH=29.530588853
+def solar_elevation(when):
+ when=when.astimezone(timezone.utc);n=when.timetuple().tm_yday;hour=when.hour+when.minute/60+when.second/3600
+ g=2*math.pi/365*(n-1+(hour-12)/24)
+ eq=229.18*(0.000075+0.001868*math.cos(g)-0.032077*math.sin(g)-0.014615*math.cos(2*g)-0.040849*math.sin(2*g))
+ decl=0.006918-0.399912*math.cos(g)+0.070257*math.sin(g)-0.006758*math.cos(2*g)+0.000907*math.sin(2*g)-0.002697*math.cos(3*g)+0.00148*math.sin(3*g)
+ angle=((hour*60+eq+4*LONGITUDE)%1440)/4-180;lat=math.radians(LATITUDE)
+ cosz=math.sin(lat)*math.sin(decl)+math.cos(lat)*math.cos(decl)*math.cos(math.radians(angle))
+ return 90-math.degrees(math.acos(max(-1,min(1,cosz))))
+def mode_stage(elevation,previous,rising):
+ stage=previous
+ if rising:
+  while stage<3 and elevation>=MODE_BOUNDARIES[stage]+MODE_HYSTERESIS:stage+=1
+ else:
+  while stage>0 and elevation<MODE_BOUNDARIES[stage-1]-MODE_HYSTERESIS:stage-=1
+ return stage
+def mode_schedule(now,back_hours=24,forward_hours=24):
+ """Predicted solar-elevation mode changes, using the controller boundaries and hysteresis."""
+ start=now-timedelta(hours=back_hours);steps=(back_hours+forward_hours)*60
+ elevation=solar_elevation(start);stage=sum(elevation>=b for b in MODE_BOUNDARIES);out=[];previous=elevation
+ for minute in range(1,steps+1):
+  moment=start+timedelta(minutes=minute);elevation=solar_elevation(moment)
+  new=mode_stage(elevation,stage,elevation>=previous);previous=elevation
+  if new!=stage:out.append({'time':moment.isoformat(),'from':MODE_NAMES[stage],'to':MODE_NAMES[new],'elevation':round(elevation,2)});stage=new
+ return out
+def next_mode_change(now,schedule):
+ for item in schedule:
+  stamp=dt(item['time'])
+  if stamp and stamp>now:return dict(item,minutes=int((stamp-now).total_seconds()//60))
+ return None
+def moon_phase(now):
+ reference=datetime(2000,1,6,18,14,tzinfo=timezone.utc);age=((now-reference).total_seconds()/86400)%SYNODIC_MONTH
+ illumination=(1-math.cos(2*math.pi*age/SYNODIC_MONTH))/2*100
+ names=('New moon','Waxing crescent','First quarter','Waxing gibbous','Full moon','Waning gibbous','Last quarter','Waning crescent')
+ name=names[int((age/SYNODIC_MONTH*8+0.5)%8)]
+ next_full=(SYNODIC_MONTH/2-age)%SYNODIC_MONTH;next_new=(SYNODIC_MONTH-age)%SYNODIC_MONTH
+ return {'phase':name,'illumination_percent':round(illumination,1),'age_days':round(age,1),'next_full':(now+timedelta(days=next_full)).date().isoformat(),'next_new':(now+timedelta(days=next_new)).date().isoformat()}
+def sun_moon(now):
+ times=sun_times(now.date());out={'moon':moon_phase(now),'elevation':round(solar_elevation(now),2)}
+ if times:
+  rise,sset=times
+  out.update({'sunrise':rise.isoformat(),'sunset':sset.isoformat(),'solar_noon':(rise+(sset-rise)/2).isoformat(),'day_length_seconds':int((sset-rise).total_seconds()),
+   'golden_morning_end':(rise+timedelta(hours=1)).isoformat(),'golden_evening_start':(sset-timedelta(hours=1)).isoformat()})
+ return out
+def disk_forecast(rows,now):
+ points=[(r['_ts'],num(get(r,'storage.used_percent'))) for r in rows if r.get('_ts') and r['_ts']>=now-timedelta(days=7)]
+ points=[(t,v) for t,v in points if v is not None]
+ if len(points)<20 or (points[-1][0]-points[0][0])<timedelta(days=2):return None
+ half=len(points)//2;first=sum(v for _,v in points[:half])/half;last=sum(v for _,v in points[half:])/(len(points)-half)
+ span=((points[half:][len(points[half:])//2][0])-(points[:half][half//2][0])).total_seconds()/86400
+ slope=(last-first)/span if span>0 else 0;used=points[-1][1]
+ return {'used_percent':round(used,2),'percent_per_day':round(slope,3),'days_to_full':round((100-used)/slope) if slope>0.005 else None}
+def day_calendar(reports,days=35):
+ by_date={str(row.get('date'))[:10]:row for row in reports};today=datetime.now(timezone.utc).date();out=[]
+ for offset in range(days-1,-1,-1):
+  day=today-timedelta(days=offset);row=by_date.get(day.isoformat());video=ROOT/'timelapse'/f'timelapse_{day:%Y%m%d}.mp4'
+  try:size=round(video.stat().st_size/1048576,1)
+  except OSError:size=None
+  out.append({'date':day.isoformat(),'health':row.get('overall') if row else None,'captures':num(row.get('captures')) if row else None,
+   'completeness':num(row.get('capture_completeness_percent')) if row else None,'timelapse_mb':size})
+ return out
+def timelapse_library(limit=14):
+ out=[]
+ for kind,pattern,keep in (('daily','timelapse_*.mp4',limit),('weekly','weekly_timelapse_*.mp4',8),('monthly','monthly_timelapse_*.mp4',12)):
+  for p in sorted((ROOT/'timelapse').glob(pattern),key=lambda p:p.name)[-keep:]:
+   try:stat=p.stat()
+   except OSError:continue
+   out.append({'kind':kind,'name':p.name,'size_mb':round(stat.st_size/1048576,1),'modified':datetime.fromtimestamp(stat.st_mtime,timezone.utc).isoformat(),'uploaded':p.with_suffix('.uploaded').exists() or Path(str(p)+'.uploaded').exists()})
+ return out
+def sync_keogram_archive(limit=7):
+ directory=OUT/'keograms';directory.mkdir(parents=True,exist_ok=True)
+ files=sorted((ROOT/'keogram').glob('keogram_*.png'),key=lambda p:p.name)[-limit:];wanted=set();out=[]
+ for src in files:
+  try:
+   if src.stat().st_size>KEOGRAM_MAX_MB*1048576:continue
+  except OSError:continue
+  target=directory/src.name
+  if copy(src,target):wanted.add(src.name);out.append({'date':src.stem[8:],'src':'keograms/'+src.name})
+ for old in directory.glob('keogram_*.png'):
+  if old.name not in wanted:
+   try:old.unlink()
+   except OSError:pass
+ return out
 def generate(upload=False):
  now=datetime.now(timezone.utc)
  status_data=status()
@@ -407,7 +504,7 @@ def generate(upload=False):
  metrics={
   'capture_age_seconds':capture_age,'capture_state':camera_state,'upload_age_seconds':upload_age,
   'ftp_health':ftp_health,'ftp_consecutive_failures':int(num(status_data.get('ftp_consecutive_failures')) or 0),
-  'ftp_worker_alive':status_data.get('ftp_worker_alive'),'control_health':control_health,
+  'ftp_worker_alive':status_data.get('ftp_worker_alive'),'ftp_outage_count':int(num(status_data.get('ftp_outage_count')) or 0),'ftp_recovery_count':int(num(status_data.get('ftp_recovery_count')) or 0),'control_health':control_health,
   'exposure_ms':num(first(latest.get('exposure_ms'),num(status_data.get('exposure_seconds'))*1000 if num(status_data.get('exposure_seconds')) is not None else None)),
   'gain':num(first(latest.get('analogue_gain'),status_data.get('analogue_gain'))),
   'quality':num(first(latest.get('image_quality_score'),status_data.get('image_quality_score'))),
@@ -473,6 +570,7 @@ def generate(upload=False):
   'system_memory':('health','memory.used_percent',1),
   'disk_used':('health','storage.used_percent',1),
   'throttling':('health','_throttling_active',1),
+  'gain':('telemetry','analogue_gain',1),
   'capture_completeness':('reports','capture_completeness_percent',1),
  }
  for period,hours in (('24h',24),('7d',168),('30d',720)):
@@ -548,8 +646,9 @@ def generate(upload=False):
  scene=status_data.get('scene') if isinstance(status_data.get('scene'),dict) else None
  weather=status_data.get('weather') if isinstance(status_data.get('weather'),dict) else None
  actions=recommended_checks(metrics,timelapse,scene)
+ schedule=mode_schedule(now)
  safe_config={
-  'release':'V52.4','telemetry_schema':4,'dashboard_refresh_minutes':5,
+  'release':'V52.5','telemetry_schema':4,'dashboard_refresh_minutes':5,
   'capture_interval_seconds':10,'ftp_configured':bool(os.getenv('DASHBOARD_FTP_HOST')),
   'ftp_tls':os.getenv('DASHBOARD_FTP_TLS','0')!='0',
   'thresholds':TH,'stale_after_minutes':TH['dashboard_stale_minutes'],
@@ -559,6 +658,7 @@ def generate(upload=False):
   'state':state,'reasons':reasons[:2],'mode':mode,'metrics':metrics,
   'series':chart_series,'coverage':chart_coverage,'modes':chart_modes,'sun':sun_events(now),'quality_summary':quality_summary(telemetry_rows,now),'timeline_events':timeline_events,
   'mode_performance':mode_effectiveness(telemetry_rows,now),
+  'sun_moon':sun_moon(now),'mode_schedule':schedule,'next_mode':next_mode_change(now,schedule),'calendar':day_calendar(report_rows),'timelapse_library':timelapse_library(),'keogram_archive':sync_keogram_archive(),'disk_forecast':disk_forecast(health_rows,now),
   'timelapse':timelapse,'recommendations':actions,'scene':scene,'periodic':status_data.get('periodic_timelapses') if isinstance(status_data.get('periodic_timelapses'),dict) else {},'weather':weather,'keogram':sync_keogram(),
   'reports':{'latest':daily_history[-1] if daily_history else None,'history':daily_history},
   'gallery':gallery_items,

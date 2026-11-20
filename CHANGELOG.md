@@ -1,3 +1,8 @@
+#### V52.5 - 2026-11-20
+- Dashboard: new "Sun, moon & modes" card with next predicted mode change, sunrise/sunset, golden hours, day length, moon phase, a mode strip for today and a 24-hour event strip.
+- Dashboard: daily calendar heatmap (5 weeks) with day detail, timelapse library (daily/weekly/monthly), keogram history (last 7 days, also uploaded to `keograms/`), analogue gain trend chart, PNG download for each chart, disk-fill forecast, FTP outage/recovery counts and a red night mode.
+- Fix: `[MODE TRANSITION]` log lines now appear in the dashboard events list (it was filtering for a tag that is never logged).
+
 #### V52.4 - 2026-11-20
 - Fix: cloud cover under-reported uniform overcast skies (71% "mostly cloudy" when 100% cloud); the red/blue threshold is lowered to 0.62 and a uniform cloud-coloured sky now reads 100%.
 - Fix: control ACK gain tolerance scales with the requested gain (12%), ending the 2.12/2.35 reconcile loop and timeout warnings during long pre-dawn exposures.

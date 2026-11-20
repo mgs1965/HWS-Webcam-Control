@@ -1,4 +1,4 @@
-"""V52.2 physical module: scene_analysis.py. Loaded into the shared runtime namespace.
+"""V52.3 physical module: scene_analysis.py. Loaded into the shared runtime namespace.
 Do not import directly; use weather_camera.py.
 
 Observational scene intelligence: sky/cloud estimate, fog and haze, lens
@@ -303,6 +303,7 @@ def update_scene_analysis(image_array, measurement):
         'focus': 'DRIFT' if drifting else ('OK' if focus_samples >= SCENE_FOCUS_MIN_SAMPLES else 'LEARNING'),
         'alerts': sorted(scene_active_alerts),
         'analysed_at': local_now().isoformat(),
+        'mode': current_camera_mode, 'analysis_paused': not daytime,
     }
     result['summary'] = summarise_scene(result)
     measurement['scene'] = scene_last_result = result

@@ -1,3 +1,10 @@
+#### V52.3 - 2026-11-20
+- Reliability: weekly/monthly timelapse attempts are counted per day (3 per day), so a bad night no longer stops retries until restart; giving up is logged and audited.
+- Reliability: daily videos are checked for compatible codec/size/pixel format before joining; incompatible sets (or a failed stream copy) fall back to a libx264 re-encode.
+- Dashboard: weekly/monthly timelapse status (waiting, building, failed, complete) is shown on the Sky & scene card.
+- Fix: daily health expected captures are based on monitored uptime, so a restart no longer reports a false DEGRADED day.
+- Dashboard: Sky, Cloud cover, Visibility and Lens show "Paused (night)" instead of N/A when scene analysis is not running.
+
 #### V52.2 - 2026-11-20
 - Fix: weekly/monthly timelapses failed validation (5.12 fps) because daily videos with different track timescales (1/15360 vs 1/90000) were joined by stream copy. Each daily video is now rewritten to a 90 kHz timescale before joining; this replaces the V52.1 fps retiming, which did not address the cause.
 

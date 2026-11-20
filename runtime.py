@@ -70,7 +70,7 @@ def main():
     global current_operating_date, consecutive_camera_acquisition_failures, last_housekeeping_time
     global camera_acquisition_failure_count, image_processing_failure_count
     global storage_failure_count, last_daily_summary_date, ftp_thread
-    global daily_counter_baseline
+    global daily_counter_baseline, daily_counter_baseline_time
     install_signal_handlers()
     validate_v50_configuration()
     validate_storage_paths()
@@ -97,6 +97,7 @@ def main():
         current_operating_date = local_now().date()
         last_daily_summary_date = current_operating_date
         daily_counter_baseline = snapshot_counters()
+        daily_counter_baseline_time = local_now()
         load_controller_state()
         load_quality_state()
         get_harpenden_sun_times()
@@ -141,6 +142,7 @@ def main():
             if last_daily_summary_date and now.date() != last_daily_summary_date:
                 write_daily_health_summary(last_daily_summary_date)
                 daily_counter_baseline = snapshot_counters()
+                daily_counter_baseline_time = now
                 last_daily_summary_date = now.date()
             if now - last_housekeeping_time >= timedelta(hours=HOUSEKEEPING_INTERVAL_HOURS):
                 cleanup_old_files()

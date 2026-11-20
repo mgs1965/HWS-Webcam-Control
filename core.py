@@ -33,7 +33,7 @@ import numpy as np
 from libcamera import controls
 from picamera2 import Picamera2
 from PIL import Image, ImageDraw, ImageFont
-SCRIPT_VERSION = '2026-11-19 V52.2'
+SCRIPT_VERSION = '2026-11-19 V52.3'
 LOCAL_SAVE_PATH = '/mnt/weathercam'
 LOGS_PATH = os.path.join(LOCAL_SAVE_PATH, 'logs')
 FRAMES_PATH = os.path.join(LOCAL_SAVE_PATH, 'frames')
@@ -212,7 +212,7 @@ LOG_ANOMALY_SUMMARY_INTERVAL_MINUTES = 60
 LOG_ANOMALY_CPU_WARNING_C = 70.0
 LOG_ANOMALY_CAPTURE_WARNING_MS = 1500.0
 LOG_ANOMALY_FTP_FAILURE_WARNING = 1
-V51_RELEASE = 'V52.2'
+V51_RELEASE = 'V52.3'
 V50_FTP_WORKER_RESTART_COOLDOWN_SECONDS = 60
 V50_MAX_CAMERA_RESTARTS_PER_HOUR = 6
 V50_TELEMETRY_MAX_CLOCK_SKEW_SECONDS = 300
@@ -300,6 +300,7 @@ last_actual_exposure = last_actual_gain = None
 exposure_action_history = deque(maxlen=8)
 last_capture_time = None
 daily_counter_baseline = {}
+daily_counter_baseline_time = None
 sharpness_history = {mode: deque(maxlen=QUALITY_BASELINE_LENGTH) for mode in ('DAY', 'TWILIGHT', 'LOW LIGHT', 'NIGHT')}
 quality_warning_streak = 0
 quality_critical_streak = 0

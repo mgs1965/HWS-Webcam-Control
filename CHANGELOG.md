@@ -1,3 +1,6 @@
+#### V52.11 - 2026-11-20
+- Weather station: `weather_station.py` now also reads `clientrawhour.txt` (adds 1-hour temperature, humidity and pressure change and peak gust to `weather_station.json`; recorded in scene history with the dew point) and writes `weather_station_history.json` (`HWS_WEATHER_HISTORY_PATH`) every 30 minutes with 30 days of daily temperature/pressure extremes from `clientrawdaily.txt` and year records from `clientrawextra.txt`. Sibling files are located next to `CLIENTRAW_URL`; any that fail are skipped without affecting live data.
+
 #### V52.10 - 2026-11-20
 - New: `weather_station.py` fetches a Weather Display `clientraw.txt` (`CLIENTRAW_URL`) and writes `weather_station.json` for the existing weather overlay, status file and scene history. Stale, malformed or out-of-range data is never written; network errors are retried with back-off and the loop exits after 10 consecutive failed cycles so systemd restarts it.
 - New: `systemd/weathercam-weather-station.service` (Restart=on-failure, start-limit protected, refuses to start without `CLIENTRAW_URL`); the installer installs it and enables it only when `CLIENTRAW_URL` is set.

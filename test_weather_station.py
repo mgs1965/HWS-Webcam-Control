@@ -82,6 +82,52 @@ def test_run_loop_exits_after_consecutive_failures():
         ws.update_once = original
 
 
+def _hour_text(pressure_start=1011.0):
+    blocks = {k: ['-'] * 60 for k in ws.HOUR_BLOCKS}
+    for i in range(55):
+        blocks['temp_c'][i] = str(6.0 - i * 0.01)
+        blocks['humidity'][i] = str(80 + i // 10)
+        blocks['pressure_hpa'][i] = str(round(pressure_start + i * 0.02, 2))
+        blocks['gust_kt'][i] = '2.0'
+    tokens = ['12345'] + ['-'] * 600
+    for name, start in ws.HOUR_BLOCKS.items():
+        tokens[start:start + 60] = blocks[name]
+    tokens += ['0'] * 100
+    return ' '.join(tokens)
+
+
+def test_hour_trends():
+    trends = ws.hour_trends(ws.parse_clientrawhour(_hour_text()))
+    assert trends['temp_change_1h_c'] == -0.54
+    assert trends['humidity_change_1h'] == 5.0
+    assert trends['pressure_change_1h_hpa'] == 1.08
+    assert trends['wind_gust_max_1h_mph'] == round(2.0 * ws.KNOTS_TO_MPH, 2)
+    assert ws.hour_trends({'temp_c': [None] * 60}) == {}
+    assert ws.parse_clientrawhour('12345 1 2') is None
+
+
+def test_daily_and_extra():
+    tokens = ['12345'] + ['-'] * 399
+    for name, start in ws.DAILY_BLOCKS.items():
+        for i in range(30):
+            tokens[start + i] = str(i)
+    tokens[ws.DAILY_BLOCKS['temp_min_c'] + 29] = '-'
+    days = ws.parse_clientrawdaily(' '.join(tokens), datetime(2026, 11, 20).date())
+    assert len(days) == 30 and days[-1]['date'] == '2026-11-19' and days[-1]['temp_max_c'] == 29.0
+    assert 'temp_min_c' not in days[-1]
+    extra = ['12345'] + ['-'] * 300
+    extra[ws.EXTRA_YEAR_START:ws.EXTRA_YEAR_START + 6] = '40.2 16 44 13 08 2026'.split()
+    extra[ws.EXTRA_YEAR_START + 6:ws.EXTRA_YEAR_START + 12] = '-5.8 08 00 06 01 2026'.split()
+    records = ws.parse_clientrawextra(' '.join(extra))
+    assert records['temp_max_c'] == {'value': 40.2, 'when': '2026-08-13T16:44:00'}
+    assert records['temp_min_c']['value'] == -5.8 and 'pressure_min_hpa' not in records
+
+
+def test_sibling_url():
+    assert ws.sibling_url('http://a/Live/clientraw.txt', 'clientrawhour.txt') == 'http://a/Live/clientrawhour.txt'
+    assert ws.sibling_url('http://a/other.txt', 'clientrawhour.txt') is None
+
+
 if __name__ == '__main__':
     for name, function in list(globals().items()):
         if name.startswith('test_'):

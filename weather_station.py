@@ -2,7 +2,10 @@
 """Weather Display clientraw.txt fetcher.
 
 Standalone producer for the JSON file the camera already consumes
-(HWS_WEATHER_DATA_PATH, default /mnt/weathercam/logs/weather_station.json).
+(HWS_WEATHER_DATA_PATH, default /mnt/weathercam/logs/weather_station.json),
+enriched with 1-hour trends from clientrawhour.txt, plus a history file
+(HWS_WEATHER_HISTORY_PATH) with 30 daily extremes from clientrawdaily.txt and
+year records from clientrawextra.txt. Sibling files are found next to the URL.
 It never touches camera control. Missing, stale or malformed data is never
 written, so the camera simply treats the station as unavailable.
 
@@ -18,7 +21,7 @@ import sys
 import tempfile
 import time
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timedelta
 
 KNOTS_TO_MPH = 1.150779
 MIN_FETCH_INTERVAL_SECONDS = 30
@@ -36,6 +39,17 @@ IDX_DEW_POINT_C, IDX_DATE = 72, 74
 # clientraw reports rain rate per minute; the camera expects mm/h.
 RAIN_RATE_TO_MM_H = 60.0
 
+HISTORY_INTERVAL_SECONDS = 1800
+HOUR_BLOCK = 60
+# clientrawhour.txt: consecutive 60-minute blocks, oldest first, '-' = no sample.
+HOUR_BLOCKS = {'wind_kt': 1, 'gust_kt': 61, 'wind_dir': 121, 'temp_c': 181, 'humidity': 241, 'pressure_hpa': 301}
+# clientrawdaily.txt: 30 daily values per block (last = yesterday), one '-' padding token before each block.
+DAILY_DAYS = 30
+DAILY_BLOCKS = {'temp_max_c': 2, 'temp_min_c': 33, 'pressure_min_hpa': 95}
+# clientrawextra.txt: year records as (value, hour, minute, day, month, year) groups.
+EXTRA_YEAR_START = 187
+EXTRA_YEAR_RECORDS = ('temp_max_c', 'temp_min_c', 'wind_gust_record', 'rain_record', 'pressure_min_hpa', 'pressure_max_hpa')
+
 LIMITS = {
     'temperature_c': (-60.0, 60.0),
     'humidity_percent': (0.0, 100.0),
@@ -46,6 +60,10 @@ LIMITS = {
     'rain_rate_mm_h': (0.0, 500.0),
     'rain_today_mm': (0.0, 2000.0),
     'dew_point_c': (-60.0, 60.0),
+    'temp_change_1h_c': (-40.0, 40.0),
+    'humidity_change_1h': (-100.0, 100.0),
+    'pressure_change_1h_hpa': (-50.0, 50.0),
+    'wind_gust_max_1h_mph': (0.0, 250.0),
 }
 
 
@@ -111,6 +129,78 @@ def parse_clientraw(text, now):
     return values
 
 
+def _series(tokens, start, count=HOUR_BLOCK):
+    return [_number(token) for token in tokens[start:start + count]]
+
+
+def parse_clientrawhour(text):
+    """Parse clientrawhour.txt into {name: [60 values or None]}, oldest first. None if malformed."""
+    tokens = (text or '').split()
+    if len(tokens) < 361 or tokens[0] != '12345':
+        return None
+    return {name: _series(tokens, start) for name, start in HOUR_BLOCKS.items()}
+
+
+def hour_trends(series, window=60):
+    """Derive 1-hour change figures from parsed hour series; omit anything unmeasurable."""
+    def valid(name):
+        return [(i, v) for i, v in enumerate(series.get(name, [])) if v is not None]
+
+    trends = {}
+    for name, key in (('temp_c', 'temp_change_1h_c'), ('humidity', 'humidity_change_1h'), ('pressure_hpa', 'pressure_change_1h_hpa')):
+        points = valid(name)
+        # Need a genuine spread: samples from the first and last third of the hour.
+        if len(points) >= 10 and points[0][0] < window / 3 and points[-1][0] > 2 * window / 3:
+            trends[key] = _bounded(key, points[-1][1] - points[0][1])
+    gusts = [v for _, v in valid('gust_kt')]
+    if len(gusts) >= 10:
+        trends['wind_gust_max_1h_mph'] = _bounded('wind_gust_max_1h_mph', max(gusts) * KNOTS_TO_MPH)
+    return {key: value for key, value in trends.items() if value is not None}
+
+
+def parse_clientrawdaily(text, today):
+    """Parse clientrawdaily.txt into a list of per-day dicts, oldest first; the last day is yesterday."""
+    tokens = (text or '').split()
+    if len(tokens) < 130 or tokens[0] != '12345':
+        return None
+    days = []
+    for offset in range(DAILY_DAYS):
+        day = {'date': (today - timedelta(days=DAILY_DAYS - offset)).isoformat()}
+        for name, start in DAILY_BLOCKS.items():
+            index = start + offset
+            value = _number(tokens[index]) if index < len(tokens) else None
+            if value is not None:
+                day[name] = value
+        if len(day) > 1:
+            days.append(day)
+    return days or None
+
+
+def parse_clientrawextra(text):
+    """Parse year records (temperature and pressure extremes with dates) from clientrawextra.txt."""
+    tokens = (text or '').split()
+    if len(tokens) < EXTRA_YEAR_START + 36 or tokens[0] != '12345':
+        return None
+    records = {}
+    for number, name in enumerate(EXTRA_YEAR_RECORDS):
+        if name in ('wind_gust_record', 'rain_record'):
+            continue
+        group = tokens[EXTRA_YEAR_START + 6 * number:EXTRA_YEAR_START + 6 * number + 6]
+        value = _number(group[0])
+        try:
+            when = datetime(int(group[5]), int(group[4]), int(group[3]), int(group[1]), int(group[2]))
+        except ValueError:
+            continue
+        if value is not None:
+            records[name] = {'value': value, 'when': when.isoformat()}
+    return records or None
+
+
+def sibling_url(url, name):
+    """clientraw.txt -> clientrawhour.txt etc.; None if the URL doesn't end in clientraw.txt."""
+    return url[:-len('clientraw.txt')] + name if url.lower().endswith('clientraw.txt') else None
+
+
 def fetch_text(url, timeout=10):
     if not url.lower().startswith(('http://', 'https://')):
         raise ValueError('CLIENTRAW_URL must be http(s)')
@@ -162,6 +252,12 @@ def update_once(url, output_path, attempts=FETCH_ATTEMPTS, retry_delay=RETRY_DEL
         if data is None:
             log('clientraw malformed or stale; not publishing')
             return None
+        hour_url = sibling_url(url, 'clientrawhour.txt')
+        if hour_url:
+            try:
+                data.update(hour_trends(parse_clientrawhour(fetch_text(hour_url)) or {}))
+            except (OSError, ValueError) as error:
+                log(f'hour file unavailable, publishing live data only: {error}')
         try:
             write_json_atomic(output_path, data)
         except OSError as error:
@@ -171,10 +267,42 @@ def update_once(url, output_path, attempts=FETCH_ATTEMPTS, retry_delay=RETRY_DEL
     return None
 
 
-def run_loop(url, output_path, interval, max_failures=MAX_CONSECUTIVE_FAILURES, sleep=time.sleep):
+def update_history(url, history_path, now=None):
+    """Fetch the daily and extra files and write the history JSON. Returns the dict or None."""
+    now = now or datetime.now().astimezone()
+    history = {'updated': now.isoformat()}
+    for name, parse, key in (('clientrawdaily.txt', lambda text: parse_clientrawdaily(text, now.date()), 'daily'),
+                             ('clientrawextra.txt', parse_clientrawextra, 'year_records')):
+        target = sibling_url(url, name)
+        if not target:
+            continue
+        try:
+            parsed = parse(fetch_text(target))
+        except (OSError, ValueError) as error:
+            log(f'{name} unavailable: {error}')
+            continue
+        if parsed:
+            history[key] = parsed
+        else:
+            log(f'{name} malformed; skipped')
+    if len(history) == 1:
+        return None
+    try:
+        write_json_atomic(history_path, history)
+    except OSError as error:
+        log(f'could not write {history_path}: {error}')
+        return None
+    return history
+
+
+def run_loop(url, output_path, interval, max_failures=MAX_CONSECUTIVE_FAILURES, sleep=time.sleep, history_path=None):
     """Poll forever; return 1 after max_failures consecutive failures so systemd restarts us."""
     failures = 0
+    next_history = 0.0
     while True:
+        if history_path and time.monotonic() >= next_history:
+            next_history = time.monotonic() + HISTORY_INTERVAL_SECONDS
+            update_history(url, history_path)
         if update_once(url, output_path):
             if failures:
                 log(f'recovered after {failures} failed cycle(s)')
@@ -191,14 +319,16 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     parser.add_argument('--url', default=os.getenv('CLIENTRAW_URL'))
     parser.add_argument('--output', default=os.getenv('HWS_WEATHER_DATA_PATH', '/mnt/weathercam/logs/weather_station.json'))
+    parser.add_argument('--history-output', default=os.getenv('HWS_WEATHER_HISTORY_PATH', '/mnt/weathercam/logs/weather_station_history.json'))
     parser.add_argument('--interval', type=int, default=0, help='poll every N seconds (minimum %d); omit for a single run' % MIN_FETCH_INTERVAL_SECONDS)
     parser.add_argument('--once', action='store_true')
     args = parser.parse_args(argv)
     if not args.url:
         parser.error('set CLIENTRAW_URL or pass --url')
     if args.once or not args.interval:
+        update_history(args.url, args.history_output)
         return 0 if update_once(args.url, args.output) else 1
-    return run_loop(args.url, args.output, max(MIN_FETCH_INTERVAL_SECONDS, args.interval))
+    return run_loop(args.url, args.output, max(MIN_FETCH_INTERVAL_SECONDS, args.interval), history_path=args.history_output)
 
 
 if __name__ == '__main__':

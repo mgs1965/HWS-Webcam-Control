@@ -1,3 +1,8 @@
+#### V52.12 - 2026-11-20
+- Dashboard: new "Weather station" card with dew point, pressure, 1-hour changes, rain rate, fog risk, plain-language reasons (for example humidity close to the dew point, a fast temperature drop, strong gusts, rain), 24-hour temperature/humidity/cloud/fog sparklines from the scene history, and 7-day plus year-record temperatures from `weather_station_history.json`.
+- Scene: new `fog_risk` (LOW/MODERATE/HIGH) from the air/dew-point spread and humidity, available day and night and recorded in scene history.
+- Lens: at NIGHT with exposure above 2000 ms (`NIGHT_LENS_TOLERANT_EXPOSURE_US`) a sharpness warning no longer reports lens `DEGRADED`; a critical sustained loss still reports `POSSIBLE OBSTRUCTION`.
+
 #### V52.11 - 2026-11-20
 - Weather station: `weather_station.py` now also reads `clientrawhour.txt` (adds 1-hour temperature, humidity and pressure change and peak gust to `weather_station.json`; recorded in scene history with the dew point) and writes `weather_station_history.json` (`HWS_WEATHER_HISTORY_PATH`) every 30 minutes with 30 days of daily temperature/pressure extremes from `clientrawdaily.txt` and year records from `clientrawextra.txt`. Sibling files are located next to `CLIENTRAW_URL`; any that fail are skipped without affecting live data.
 

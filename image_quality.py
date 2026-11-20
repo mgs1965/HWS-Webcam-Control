@@ -248,7 +248,8 @@ def update_image_quality(measurement):
     if quality_alert_level == 'CRITICAL':
         lens_status = 'POSSIBLE OBSTRUCTION'
     elif quality_alert_level == 'WARNING' or quality_status in ('WARNING', 'CRITICAL'):
-        lens_status = 'DEGRADED'
+        night_long_exposure = current_camera_mode == 'NIGHT' and (manual_exposure_us or 0) > NIGHT_LENS_TOLERANT_EXPOSURE_US
+        lens_status = 'CLEAR' if night_long_exposure else 'DEGRADED'
     else:
         lens_status = 'CLEAR'
     measurement.update({'sharpness_baseline': baseline, 'sharpness_ratio': sharpness_ratio, 'image_quality_score': quality_score, 'image_quality_status': quality_status, 'quality_learning_samples': QUALITY_BASELINE_MINIMUM_SAMPLES, 'quality_learning_required': QUALITY_BASELINE_MINIMUM_SAMPLES, 'lens_status': lens_status})

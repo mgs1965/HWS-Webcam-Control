@@ -1,4 +1,4 @@
-"""V52.11 physical module: scene_analysis.py. Loaded into the shared runtime namespace.
+"""V52.12 physical module: scene_analysis.py. Loaded into the shared runtime namespace.
 Do not import directly; use weather_camera.py.
 
 Observational scene intelligence: sky/cloud estimate, fog and haze, lens
@@ -55,6 +55,10 @@ SCENE_WEATHER_LIMITS = {
     'humidity_change_1h': (-100.0, 100.0),
     'pressure_change_1h_hpa': (-50.0, 50.0),
 }
+SCENE_FOG_RISK_HIGH_SPREAD_C = 1.0
+SCENE_FOG_RISK_HIGH_HUMIDITY = 95.0
+SCENE_FOG_RISK_MODERATE_SPREAD_C = 2.5
+SCENE_FOG_RISK_MODERATE_HUMIDITY = 90.0
 SCENE_ALERT_SEVERITY = {
     'FROZEN_IMAGE': 'ERROR', 'BLOCKED_VIEW': 'ERROR', 'LENS_DROPLETS': 'WARNING',
     'FOG': 'WARNING', 'FOCUS_DRIFT': 'WARNING',
@@ -225,6 +229,25 @@ def read_weather_data():
             cache['raw'] = None
     return parse_weather_data(cache['raw'], local_now())
 
+def weather_fog_risk(weather):
+    """Fog likelihood from air/dew-point spread and humidity; None without both inputs."""
+    if not weather:
+        return None
+    humidity = weather.get('humidity_percent')
+    temperature = weather.get('temperature_c')
+    dew_point = weather.get('dew_point_c')
+    if dew_point is None and temperature is not None and humidity is not None and humidity > 0:
+        gamma = math.log(humidity / 100.0) + 17.62 * temperature / (243.12 + temperature)
+        dew_point = 243.12 * gamma / (17.62 - gamma)
+    if temperature is None or dew_point is None or humidity is None:
+        return None
+    spread = temperature - dew_point
+    if spread <= SCENE_FOG_RISK_HIGH_SPREAD_C and humidity >= SCENE_FOG_RISK_HIGH_HUMIDITY:
+        return 'HIGH'
+    if spread <= SCENE_FOG_RISK_MODERATE_SPREAD_C and humidity >= SCENE_FOG_RISK_MODERATE_HUMIDITY:
+        return 'MODERATE'
+    return 'LOW'
+
 def format_weather_overlay(weather):
     if not weather:
         return None
@@ -260,7 +283,7 @@ def update_scene_analysis(image_array, measurement):
     frozen = set_scene_alert('FROZEN_IMAGE', update_frozen_detection(image_array), consecutive_captures=scene_frozen_streak)
     blocked = set_scene_alert('BLOCKED_VIEW', update_blocked_detection(measurement), contrast=round(float(measurement.get('contrast', 0.0)), 2))
     if scene_last_result is not None and scene_capture_counter % SCENE_ANALYSIS_EVERY_N_CAPTURES != 0:
-        result = dict(scene_last_result, alerts=sorted(scene_active_alerts), frozen=frozen, blocked=blocked)
+        result = dict(scene_last_result, alerts=sorted(scene_active_alerts), frozen=frozen, blocked=blocked, fog_risk=weather_fog_risk(weather))
         result['summary'] = summarise_scene(result)
         measurement['scene'] = scene_last_result = result
         return result
@@ -311,6 +334,7 @@ def update_scene_analysis(image_array, measurement):
         'frozen': frozen, 'blocked': blocked,
         'focus': 'DRIFT' if drifting else ('OK' if focus_samples >= SCENE_FOCUS_MIN_SAMPLES else 'LEARNING'),
         'alerts': sorted(scene_active_alerts),
+        'fog_risk': weather_fog_risk(weather),
         'analysed_at': local_now().isoformat(),
         'mode': current_camera_mode, 'analysis_paused': not daytime,
     }
@@ -335,7 +359,7 @@ def record_scene_history(capture_time, measurement):
         return False
     weather = measurement.get('weather') or {}
     record = {'timestamp': capture_time.isoformat(), 'mode': current_camera_mode}
-    record.update({key: scene.get(key) for key in ('cloud_cover_pct', 'sky_clarity_pct', 'fog_index', 'visibility', 'droplet_score', 'lens_condition', 'focus', 'alerts')})
+    record.update({key: scene.get(key) for key in ('cloud_cover_pct', 'sky_clarity_pct', 'fog_index', 'visibility', 'droplet_score', 'lens_condition', 'focus', 'alerts', 'fog_risk')})
     record.update({key: weather.get(key) for key in ('temperature_c', 'humidity_percent', 'pressure_hpa', 'wind_speed_mph', 'rain_rate_mm_h', 'dew_point_c', 'temp_change_1h_c', 'humidity_change_1h', 'pressure_change_1h_hpa')})
     filename = os.path.join(SCENE_HISTORY_PATH, f'scene_{capture_time:%Y%m%d}.jsonl')
     try:

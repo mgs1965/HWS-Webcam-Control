@@ -1,3 +1,6 @@
+#### V52.7 - 2026-11-20
+- Dashboard: Control status `IDLE` (no exposure/gain change needed recently) now shows green instead of grey.
+
 #### V52.6 - 2026-11-20
 - Dawn brightness filter: NIGHT/LOW LIGHT before solar noon use `DAWN_BRIGHTNESS_FILTER_ALPHA` (0.1 instead of 0.2) to stop gain ping-pong.
 - Night quality: NIGHT frames are labelled GOOD/DARK/NOISY/WASHED; changes log `[NIGHT QUALITY]` and raise `night_quality_*` audit events.

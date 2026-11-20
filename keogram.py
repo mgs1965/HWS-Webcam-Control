@@ -1,4 +1,4 @@
-"""V52.10 physical module: keogram.py. Loaded into the shared runtime namespace.
+"""V52.11 physical module: keogram.py. Loaded into the shared runtime namespace.
 Do not import directly; use weather_camera.py.
 
 A daily keogram (slit-scan) stacks one thin vertical slice of the camera view

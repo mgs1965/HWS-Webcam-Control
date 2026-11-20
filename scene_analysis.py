@@ -1,4 +1,4 @@
-"""V52.10 physical module: scene_analysis.py. Loaded into the shared runtime namespace.
+"""V52.11 physical module: scene_analysis.py. Loaded into the shared runtime namespace.
 Do not import directly; use weather_camera.py.
 
 Observational scene intelligence: sky/cloud estimate, fog and haze, lens
@@ -50,6 +50,10 @@ SCENE_WEATHER_LIMITS = {
     'wind_gust_mph': (0.0, 250.0),
     'wind_direction_deg': (0.0, 360.0),
     'rain_rate_mm_h': (0.0, 500.0),
+    'dew_point_c': (-60.0, 60.0),
+    'temp_change_1h_c': (-40.0, 40.0),
+    'humidity_change_1h': (-100.0, 100.0),
+    'pressure_change_1h_hpa': (-50.0, 50.0),
 }
 SCENE_ALERT_SEVERITY = {
     'FROZEN_IMAGE': 'ERROR', 'BLOCKED_VIEW': 'ERROR', 'LENS_DROPLETS': 'WARNING',
@@ -332,7 +336,7 @@ def record_scene_history(capture_time, measurement):
     weather = measurement.get('weather') or {}
     record = {'timestamp': capture_time.isoformat(), 'mode': current_camera_mode}
     record.update({key: scene.get(key) for key in ('cloud_cover_pct', 'sky_clarity_pct', 'fog_index', 'visibility', 'droplet_score', 'lens_condition', 'focus', 'alerts')})
-    record.update({key: weather.get(key) for key in ('temperature_c', 'humidity_percent', 'pressure_hpa', 'wind_speed_mph', 'rain_rate_mm_h')})
+    record.update({key: weather.get(key) for key in ('temperature_c', 'humidity_percent', 'pressure_hpa', 'wind_speed_mph', 'rain_rate_mm_h', 'dew_point_c', 'temp_change_1h_c', 'humidity_change_1h', 'pressure_change_1h_hpa')})
     filename = os.path.join(SCENE_HISTORY_PATH, f'scene_{capture_time:%Y%m%d}.jsonl')
     try:
         with open(filename, 'a', encoding='utf-8') as output:

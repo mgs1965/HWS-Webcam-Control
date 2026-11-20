@@ -86,8 +86,21 @@ def determine_camera_mode():
         stage -= 1
     return modes[stage]
 
+def is_morning():
+    """True before solar noon, when the sun is rising."""
+    sunrise, sunset = get_harpenden_sun_times()
+    return local_now() < sunrise + (sunset - sunrise) / 2
+
 def maximum_exposure_for_mode(mode):
-    """Return the longest permitted manual exposure for the requested mode."""
+    """Return the longest permitted manual exposure for the requested mode.
+
+    At dawn the NIGHT cap tapers to the LOW LIGHT cap as the sun approaches the
+    NIGHT/LOW LIGHT boundary, so long exposures never carry into the transition.
+    """
+    if mode == 'NIGHT' and current_solar_elevation > NIGHT_DAWN_CAP_START_ELEVATION and is_morning():
+        span = NIGHT_ELEVATION - NIGHT_DAWN_CAP_START_ELEVATION
+        fraction = clamp((current_solar_elevation - NIGHT_DAWN_CAP_START_ELEVATION) / span, 0.0, 1.0)
+        return int(MAX_NIGHT_EXPOSURE_US - fraction * (MAX_NIGHT_EXPOSURE_US - MAX_LOW_LIGHT_EXPOSURE_US))
     if mode == 'TWILIGHT':
         return MAX_TWILIGHT_EXPOSURE_US
     if mode == 'LOW LIGHT':
@@ -185,6 +198,8 @@ def configure_camera_mode(force=False):
                 )
             else:
                 low_light_entry_floor_product = None
+            if previous_mode == 'NIGHT' and night_colour_gains is not None and LOW_LIGHT_DAWN_AWB_LOCK:
+                logger.info('[AWB] Dawn LOW LIGHT keeps locked NIGHT gains R %.3f | B %.3f', night_colour_gains[0], night_colour_gains[1])
             logger.info('[LOW LIGHT ENTRY] Exp=%dus Gain=%.2f', manual_exposure_us, manual_gain)
         elif required_mode == 'NIGHT':
             if len(awb_gain_history) >= AWB_MINIMUM_SAMPLES:

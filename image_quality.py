@@ -29,15 +29,37 @@ def measure_image(image_array):
     edge_density = (float(np.mean(horizontal >= QUALITY_EDGE_THRESHOLD)) + float(np.mean(vertical >= QUALITY_EDGE_THRESHOLD))) * 50.0
     return {'brightness': brightness, 'sky': sky_value, 'horizon': horizon_value, 'foreground': foreground_value, 'contrast': float(np.std(luminance)), 'highlights': float(np.mean(sky_horizon >= HIGHLIGHT_THRESHOLD) * 100.0), 'shadows': float(np.mean(luminance <= SHADOW_THRESHOLD) * 100.0), 'sharpness_score': sharpness, 'edge_density': edge_density}
 
+def classify_night_quality(measurement, brightness, highlights):
+    """Label a NIGHT frame GOOD, DARK, NOISY or WASHED and log changes."""
+    global night_quality_state
+    gain = float(manual_gain or 0.0)
+    if brightness >= NIGHT_QUALITY_WASH_BRIGHTNESS or highlights > NIGHT_MAX_HIGHLIGHT_PERCENT:
+        label = 'WASHED'
+    elif brightness < NIGHT_OBSERVABILITY_MIN_BRIGHTNESS:
+        label = 'DARK'
+    elif gain >= NIGHT_QUALITY_NOISY_GAIN:
+        label = 'NOISY'
+    else:
+        label = 'GOOD'
+    measurement['night_quality'] = label
+    if label != night_quality_state:
+        logger.info('[NIGHT QUALITY] %s -> %s | B=%.1f | Gain=%.2f | Highlights=%.2f%%', night_quality_state, label, brightness, gain, highlights)
+        if label != 'GOOD':
+            audit_event('night_quality_' + label.lower(), severity='INFO', brightness=round(brightness, 1), gain=round(gain, 2), highlights=round(highlights, 2))
+        night_quality_state = label
+    return label
+
 def update_night_observability(measurement):
     """Gate NIGHT quality only after the camera is genuinely light-limited."""
     global night_observability_open, night_observability_recovery_streak
-    global night_observability_failure_streak
+    global night_observability_failure_streak, night_quality_state
     if current_camera_mode != 'NIGHT':
         night_observability_open = True
         night_observability_recovery_streak = 0
         night_observability_failure_streak = 0
         measurement['night_observability'] = 'N/A'
+        measurement['night_quality'] = 'N/A'
+        night_quality_state = 'N/A'
         return True
     brightness = float(measurement.get('filtered_brightness', measurement.get('brightness', 0.0)))
     contrast = float(measurement.get('contrast', 0.0))
@@ -70,6 +92,7 @@ def update_night_observability(measurement):
     measurement['night_observability_recovery_streak'] = night_observability_recovery_streak
     measurement['night_observability_failure_streak'] = night_observability_failure_streak
     measurement['night_light_limited'] = light_limited
+    classify_night_quality(measurement, brightness, float(measurement.get('highlights', 0.0)))
     if previous != night_observability_open:
         logger.info(
             '[NIGHT OBSERVABILITY] %s | LightLimited=%s | B=%.1f/%.1f | C=%.1f/%.1f | ED=%.2f/%.2f | SR=%s/%.2f',

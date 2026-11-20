@@ -33,7 +33,7 @@ import numpy as np
 from libcamera import controls
 from picamera2 import Picamera2
 from PIL import Image, ImageDraw, ImageFont
-SCRIPT_VERSION = '2026-11-19 V52.5'
+SCRIPT_VERSION = '2026-11-19 V52.6'
 LOCAL_SAVE_PATH = '/mnt/weathercam'
 LOGS_PATH = os.path.join(LOCAL_SAVE_PATH, 'logs')
 FRAMES_PATH = os.path.join(LOCAL_SAVE_PATH, 'frames')
@@ -159,6 +159,17 @@ FOREGROUND_WEIGHT = 0.1
 METERING_STEP = 16
 CAMERA_MODE_SETTLE_SECONDS = 3
 BRIGHTNESS_FILTER_ALPHA = 0.2
+# V52.6: slower brightness filter in NIGHT/LOW LIGHT before solar noon, so the dawn gain does not ping-pong.
+DAWN_BRIGHTNESS_FILTER_ALPHA = 0.1
+# V52.6: NIGHT exposure cap tapers from MAX_NIGHT to MAX_LOW_LIGHT between this elevation and NIGHT_ELEVATION at dawn.
+NIGHT_DAWN_CAP_START_ELEVATION = -8.0
+# V52.6: dawn LOW LIGHT keeps the locked NIGHT colour gains instead of re-running Auto AWB.
+LOW_LIGHT_DAWN_AWB_LOCK = True
+# V52.6: a timed-out control is resubmitted once and given this many more captures before reconciling.
+CONTROL_ACK_RETRY_CAPTURES = 2
+# V52.6: NIGHT frame quality labels (DARK uses NIGHT_OBSERVABILITY_MIN_BRIGHTNESS).
+NIGHT_QUALITY_NOISY_GAIN = 3.2
+NIGHT_QUALITY_WASH_BRIGHTNESS = 85.0
 AWB_HISTORY_LENGTH = 20
 AWB_MINIMUM_SAMPLES = 8
 AWB_GAIN_MIN = 0.5
@@ -213,7 +224,7 @@ LOG_ANOMALY_SUMMARY_INTERVAL_MINUTES = 60
 LOG_ANOMALY_CPU_WARNING_C = 70.0
 LOG_ANOMALY_CAPTURE_WARNING_MS = 1500.0
 LOG_ANOMALY_FTP_FAILURE_WARNING = 1
-V51_RELEASE = 'V52.5'
+V51_RELEASE = 'V52.6'
 V50_FTP_WORKER_RESTART_COOLDOWN_SECONDS = 60
 V50_MAX_CAMERA_RESTARTS_PER_HOUR = 6
 V50_TELEMETRY_MAX_CLOCK_SKEW_SECONDS = 300
@@ -318,6 +329,8 @@ night_observability_open = False
 night_observability_recovery_streak = 0
 night_observability_failure_streak = 0
 pending_control_captures = 0
+control_ack_retry_used = False
+night_quality_state = 'N/A'
 mode_control_pending = False
 mode_transition_target_exposure_us = None
 low_light_entry_floor_product = None

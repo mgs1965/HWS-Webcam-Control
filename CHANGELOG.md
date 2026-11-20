@@ -1,3 +1,8 @@
+#### V52.4 - 2026-11-20
+- Fix: cloud cover under-reported uniform overcast skies (71% "mostly cloudy" when 100% cloud); the red/blue threshold is lowered to 0.62 and a uniform cloud-coloured sky now reads 100%.
+- Fix: control ACK gain tolerance scales with the requested gain (12%), ending the 2.12/2.35 reconcile loop and timeout warnings during long pre-dawn exposures.
+- Logging: `MODE TRANSITION` lines include exposure and gain.
+
 #### V52.3 - 2026-11-20
 - Reliability: weekly/monthly timelapse attempts are counted per day (3 per day), so a bad night no longer stops retries until restart; giving up is logged and audited.
 - Reliability: daily videos are checked for compatible codec/size/pixel format before joining; incompatible sets (or a failed stream copy) fall back to a libx264 re-encode.

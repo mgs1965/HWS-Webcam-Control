@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parent
 def test_release_identity():
     namespace = {}
     exec((ROOT / 'version.py').read_text(encoding='utf-8'), namespace)
-    assert namespace['VERSION'] == 'V52.3'
+    assert namespace['VERSION'] == 'V52.4'
     assert namespace['TELEMETRY_SCHEMA_VERSION'] == 4
 
 def test_telemetry_schema():
@@ -32,11 +32,11 @@ def test_credentials_are_not_embedded():
     assert "FTP_PASSWORD = os.getenv('HWS_FTP_PASSWORD', '')" in core
     assert 'cGnRUCGhc' not in core
 
-def test_dashboard_v52_3_payload():
+def test_dashboard_v52_4_payload():
     dashboard = (ROOT / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
     template = (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
-    assert "V='52.3'" in dashboard
-    assert "'release':'V52.3'" in dashboard
+    assert "V='52.4'" in dashboard
+    assert "'release':'V52.4'" in dashboard
     assert "for period,hours in (('24h',24),('7d',168),('30d',720))" in dashboard
     assert 'incidents' in dashboard
     assert "'process_memory':('health','memory.process_rss_bytes',1/1048576)" in dashboard
@@ -232,7 +232,7 @@ def test_controller_configuration_fingerprint_tracks_real_limits():
 
 def test_camera_service_unit_and_install_preserve_existing_unit():
     service = (ROOT / 'systemd/weathercam.service').read_text(encoding='utf-8')
-    installer = (ROOT / 'install_v52_3.sh').read_text(encoding='utf-8')
+    installer = (ROOT / 'install_v52_4.sh').read_text(encoding='utf-8')
     assert 'EnvironmentFile=/etc/weathercam/dashboard.env' in service
     assert 'Restart=on-failure' in service
     assert 'TimeoutStopSec=240' in service
@@ -443,6 +443,21 @@ def test_scene_analysis_marks_night_as_paused(tmp_path):
     assert result['analysis_paused'] is True and result['mode'] == 'NIGHT'
     assert 'Paused' in (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
 
+def test_uniform_overcast_sky_reads_full_cloud(tmp_path):
+    import numpy as np
+    scene = load_v52_namespace(tmp_path, 'scene_analysis.py')
+    rng = np.random.default_rng(2)
+    overcast = np.zeros((100, 100, 3), dtype=np.float32)
+    overcast[:] = (110, 125, 150)
+    overcast += rng.normal(0, 2, overcast.shape).astype(np.float32)
+    assert scene['estimate_cloud_cover'](overcast) == 100.0
+
+def test_ack_gain_tolerance_scales_with_gain():
+    core = (ROOT / 'core.py').read_text(encoding='utf-8')
+    assert 'CONTROL_ACK_GAIN_TOLERANCE_FRACTION = 0.12' in core
+    assert 'CONTROL_ACK_GAIN_TOLERANCE_FRACTION' in (ROOT / 'exposure.py').read_text(encoding='utf-8')
+    assert 'CONTROL_ACK_GAIN_TOLERANCE_FRACTION' in (ROOT / 'v47_control.py').read_text(encoding='utf-8')
+
 def test_dashboard_scene_recommendations():
     dashboard = load_source_module('dashboard_scene_source', ROOT / 'weathercam_dashboard/dashboard.py')
     metrics = {
@@ -459,6 +474,6 @@ def test_release_zip_extracts_to_matching_directory(tmp_path):
     manifest = json.loads((ROOT / 'manifest.json').read_text(encoding='utf-8'))
     with zipfile.ZipFile(tmp_path / manifest['package']) as archive:
         names = archive.namelist()
-    assert manifest['package'] == 'HWS-Webcam-Control-52.3.zip'
-    assert all(name.startswith('HWS-Webcam-Control-52.3/') for name in names)
-    assert 'HWS-Webcam-Control-52.3/manifest.json' in names
+    assert manifest['package'] == 'HWS-Webcam-Control-52.4.zip'
+    assert all(name.startswith('HWS-Webcam-Control-52.4/') for name in names)
+    assert 'HWS-Webcam-Control-52.4/manifest.json' in names

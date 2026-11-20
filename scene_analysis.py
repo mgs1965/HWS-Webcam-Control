@@ -1,4 +1,4 @@
-"""V52.3 physical module: scene_analysis.py. Loaded into the shared runtime namespace.
+"""V52.4 physical module: scene_analysis.py. Loaded into the shared runtime namespace.
 Do not import directly; use weather_camera.py.
 
 Observational scene intelligence: sky/cloud estimate, fog and haze, lens
@@ -17,7 +17,9 @@ SCENE_OVERLAY_ENABLED = True
 SCENE_SKY_FRACTION = 0.55
 SCENE_SKY_MIN_LUMINANCE = 50.0
 SCENE_SKY_MIN_VALID_FRACTION = 0.3
-SCENE_CLOUD_RBR_THRESHOLD = 0.75
+SCENE_CLOUD_RBR_THRESHOLD = 0.62
+SCENE_OVERCAST_UNIFORM_STD = 0.08
+SCENE_OVERCAST_MIN_MEAN_RBR = 0.5
 SCENE_FROZEN_STEP = 32
 SCENE_FROZEN_CHANGED_FRACTION = 0.002
 SCENE_FROZEN_CONSECUTIVE = 12
@@ -93,7 +95,10 @@ def estimate_cloud_cover(sample):
         return None
     red = sky[:, :, 0][valid]
     blue = sky[:, :, 2][valid]
-    return float(np.mean(red / np.maximum(blue, 1.0) > SCENE_CLOUD_RBR_THRESHOLD) * 100.0)
+    ratio = red / np.maximum(blue, 1.0)
+    if float(ratio.std()) < SCENE_OVERCAST_UNIFORM_STD and float(ratio.mean()) > SCENE_OVERCAST_MIN_MEAN_RBR:
+        return 100.0
+    return float(np.mean(ratio > SCENE_CLOUD_RBR_THRESHOLD) * 100.0)
 
 def estimate_fog_index(measurement):
     """Blend of sharpness loss and low contrast, 0 (clear) to 100 (dense fog)."""

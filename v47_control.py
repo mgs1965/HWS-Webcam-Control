@@ -34,7 +34,7 @@ mode_validation = None
 
 
 def _control_now(): return local_now()
-def _within(e,g,r): return abs(e-r['exposure_us']) <= CONTROL_ACK_EXPOSURE_TOLERANCE_US and abs(g-r['gain']) <= CONTROL_ACK_GAIN_TOLERANCE
+def _within(e,g,r): return abs(e-r['exposure_us']) <= CONTROL_ACK_EXPOSURE_TOLERANCE_US and abs(g-r['gain']) <= max(CONTROL_ACK_GAIN_TOLERANCE,r['gain']*CONTROL_ACK_GAIN_TOLERANCE_FRACTION)
 
 
 def submit_control(exposure_us, gain, reason, mode=None):
@@ -58,7 +58,7 @@ def evaluate_control_ack(actual_exposure, actual_gain):
     if not control_history: return {'state':'IDLE','waiting':False,'timeout':False,'exposure_ack':True,'gain_ack':True,'captures':0}
     current=control_history[-1]; current['capture_count']+=1
     control_exposure_acknowledged=abs(actual_exposure-current['exposure_us'])<=CONTROL_ACK_EXPOSURE_TOLERANCE_US
-    control_gain_acknowledged=abs(actual_gain-current['gain'])<=CONTROL_ACK_GAIN_TOLERANCE
+    control_gain_acknowledged=abs(actual_gain-current['gain'])<=max(CONTROL_ACK_GAIN_TOLERANCE,current['gain']*CONTROL_ACK_GAIN_TOLERANCE_FRACTION)
     if control_exposure_acknowledged and control_gain_acknowledged:
         current['state']='ACKNOWLEDGED'; control_ack_state='ACKNOWLEDGED'; control_matched_history_depth=0
         control_last_ack_latency_seconds=max(0,(now-current['submitted_at']).total_seconds()); control_ack_samples.append((now,current['capture_count'])); control_successful_ack_count+=1; control_last_successful_ack_time=now

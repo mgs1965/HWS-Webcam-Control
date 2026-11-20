@@ -133,12 +133,14 @@ def configure_camera_mode(force=False):
         mode_entered_time = local_now()
 
         logger.info(
-            '[MODE TRANSITION] %s -> %s | Duration=%s sec | Sun=%.2f',
+            '[MODE TRANSITION] %s -> %s | Duration=%s sec | Sun=%.2f | Exp=%dms | Gain=%.2f',
             previous_mode or 'START',
             required_mode,
             round(transition_duration, 1)
             if transition_duration is not None else '--',
             current_solar_elevation,
+            int(manual_exposure_us or 0) / 1000.0,
+            float(manual_gain or 0.0),
         )
         pending_control_captures = 0
         mode_control_pending = required_mode in ('TWILIGHT', 'LOW LIGHT', 'NIGHT')

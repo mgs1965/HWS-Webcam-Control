@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parent
 def test_release_identity():
     namespace = {}
     exec((ROOT / 'version.py').read_text(encoding='utf-8'), namespace)
-    assert namespace['VERSION'] == 'V52.5'
+    assert namespace['VERSION'] == 'V52.6'
     assert namespace['TELEMETRY_SCHEMA_VERSION'] == 4
 
 def test_telemetry_schema():
@@ -32,11 +32,11 @@ def test_credentials_are_not_embedded():
     assert "FTP_PASSWORD = os.getenv('HWS_FTP_PASSWORD', '')" in core
     assert 'cGnRUCGhc' not in core
 
-def test_dashboard_v52_5_payload():
+def test_dashboard_v52_6_payload():
     dashboard = (ROOT / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
     template = (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
-    assert "V='52.5'" in dashboard
-    assert "'release':'V52.5'" in dashboard
+    assert "V='52.6'" in dashboard
+    assert "'release':'V52.6'" in dashboard
     assert "for period,hours in (('24h',24),('7d',168),('30d',720))" in dashboard
     assert 'incidents' in dashboard
     assert "'process_memory':('health','memory.process_rss_bytes',1/1048576)" in dashboard
@@ -232,7 +232,7 @@ def test_controller_configuration_fingerprint_tracks_real_limits():
 
 def test_camera_service_unit_and_install_preserve_existing_unit():
     service = (ROOT / 'systemd/weathercam.service').read_text(encoding='utf-8')
-    installer = (ROOT / 'install_v52_5.sh').read_text(encoding='utf-8')
+    installer = (ROOT / 'install_v52_6.sh').read_text(encoding='utf-8')
     assert 'EnvironmentFile=/etc/weathercam/dashboard.env' in service
     assert 'Restart=on-failure' in service
     assert 'TimeoutStopSec=240' in service
@@ -474,14 +474,14 @@ def test_release_zip_extracts_to_matching_directory(tmp_path):
     manifest = json.loads((ROOT / 'manifest.json').read_text(encoding='utf-8'))
     with zipfile.ZipFile(tmp_path / manifest['package']) as archive:
         names = archive.namelist()
-    assert manifest['package'] == 'HWS-Webcam-Control-52.5.zip'
-    assert all(name.startswith('HWS-Webcam-Control-52.5/') for name in names)
-    assert 'HWS-Webcam-Control-52.5/manifest.json' in names
+    assert manifest['package'] == 'HWS-Webcam-Control-52.6.zip'
+    assert all(name.startswith('HWS-Webcam-Control-52.6/') for name in names)
+    assert 'HWS-Webcam-Control-52.6/manifest.json' in names
 
 def _load_dashboard(tmp_path, monkeypatch):
     monkeypatch.setenv('WEATHERCAM_ROOT', str(tmp_path))
     monkeypatch.setenv('DASHBOARD_OUT', str(tmp_path / 'out'))
-    spec = importlib.util.spec_from_file_location('dash52_5', ROOT / 'weathercam_dashboard/dashboard.py')
+    spec = importlib.util.spec_from_file_location('dash52_6', ROOT / 'weathercam_dashboard/dashboard.py')
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -506,9 +506,64 @@ def test_dashboard_moon_and_disk_forecast(tmp_path, monkeypatch):
     assert forecast['percent_per_day'] > 0 and forecast['days_to_full'] > 0
     assert dash.disk_forecast(rows[:5], now) is None
 
-def test_dashboard_v52_5_template_and_event_tag():
+def test_dashboard_v52_6_template_and_event_tag():
     dashboard = (ROOT / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
     template = (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
     assert '[MODE TRANSITION]' in dashboard and '[MODE CHANGE]' not in dashboard
     for ident in ('sunStats', 'modeStrip', 'eventStrip', 'calendarGrid', 'libraryRows', 'keogramStack', 'gainChart', 'nightToggle'):
         assert f'id="{ident}"' in template
+
+def _camera_namespace(tmp_path, **extra):
+    ns = load_v52_namespace(tmp_path, 'modes.py', 'exposure.py', 'image_quality.py')
+    morning = datetime(2026, 11, 20, 6, 0).astimezone()
+    ns.update({
+        'NIGHT_ELEVATION': -5.0, 'NIGHT_DAWN_CAP_START_ELEVATION': -8.0, 'MAX_NIGHT_EXPOSURE_US': 4500000,
+        'MAX_LOW_LIGHT_EXPOSURE_US': 1500000, 'MAX_TWILIGHT_EXPOSURE_US': 1000000, 'current_solar_elevation': -10.0,
+        'get_harpenden_sun_times': lambda: (morning.replace(hour=7), morning.replace(hour=16)),
+        'local_now': lambda: morning, 'BRIGHTNESS_FILTER_ALPHA': 0.2, 'DAWN_BRIGHTNESS_FILTER_ALPHA': 0.1,
+        'NIGHT_QUALITY_NOISY_GAIN': 3.2, 'NIGHT_QUALITY_WASH_BRIGHTNESS': 85.0, 'NIGHT_MAX_HIGHLIGHT_PERCENT': 5.0,
+        'NIGHT_OBSERVABILITY_MIN_BRIGHTNESS': 18.0, 'night_quality_state': 'N/A', 'manual_gain': 1.5,
+    })
+    ns.update(extra)
+    return ns
+
+def test_night_exposure_cap_tapers_at_dawn_only(tmp_path):
+    ns = _camera_namespace(tmp_path)
+    cap = ns['maximum_exposure_for_mode']
+    assert cap('NIGHT') == 4500000
+    ns['current_solar_elevation'] = -6.5
+    assert 1500000 < cap('NIGHT') < 4500000
+    ns['current_solar_elevation'] = -5.0
+    assert cap('NIGHT') == 1500000
+    ns['local_now'] = lambda: datetime(2026, 11, 20, 20, 0).astimezone()
+    assert cap('NIGHT') == 4500000
+    assert cap('LOW LIGHT') == 1500000
+
+def test_dawn_filter_is_slower_and_night_quality_labels(tmp_path):
+    ns = _camera_namespace(tmp_path, current_camera_mode='NIGHT')
+    assert ns['brightness_filter_alpha']() == 0.1
+    ns['local_now'] = lambda: datetime(2026, 11, 20, 20, 0).astimezone()
+    assert ns['brightness_filter_alpha']() == 0.2
+    classify = ns['classify_night_quality']
+    assert classify({}, 40.0, 0.5) == 'GOOD'
+    assert classify({}, 10.0, 0.0) == 'DARK'
+    assert classify({}, 90.0, 0.0) == 'WASHED'
+    ns['manual_gain'] = 3.5
+    assert classify({}, 40.0, 0.5) == 'NOISY'
+
+def test_dawn_low_light_locks_night_colour_gains(tmp_path):
+    from types import SimpleNamespace
+    controls = SimpleNamespace(AwbModeEnum=SimpleNamespace(Auto=1))
+    ns = _camera_namespace(tmp_path, controls=controls, current_camera_mode='LOW LIGHT', night_colour_gains=(1.9, 1.4),
+        LOW_LIGHT_DAWN_AWB_LOCK=True, manual_exposure_us=500000, mode_control_pending=False, DAY_CAMERA_CONTROLS={},
+        MIN_EXPOSURE_US=1000, MIN_ANALOGUE_GAIN=1.0, ABSOLUTE_MAX_GAIN=4.0, LOW_LIGHT_SHARPNESS=1.0, TWILIGHT_SHARPNESS=1.0,
+        NIGHT_SHARPNESS=1.0, NIGHT_INITIAL_EXPOSURE_US=80000, LOW_LIGHT_INITIAL_EXPOSURE_US=80000, INITIAL_LOW_LIGHT_GAIN=1.4)
+    locked = ns['build_camera_controls']('LOW LIGHT')
+    assert locked['AwbEnable'] is False and locked['ColourGains'] == (1.9, 1.4)
+    ns['local_now'] = lambda: datetime(2026, 11, 20, 20, 0).astimezone()
+    assert ns['build_camera_controls']('LOW LIGHT')['AwbEnable'] is True
+
+def test_control_ack_retry_is_wired_before_reconcile():
+    source = (ROOT / 'exposure.py').read_text(encoding='utf-8')
+    assert source.index('[CONTROL ACK] RETRY') < source.index('[CONTROL ACK] TIMEOUT')
+    assert source.count('control_ack_retry_used = False') >= 3

@@ -35,10 +35,17 @@ def build_camera_controls(mode):
     else:
         dynamic_sharpness, dynamic_saturation = (NIGHT_SHARPNESS, 1.0)
     camera_controls = {'AeEnable': False, 'ExposureTime': exposure, 'AnalogueGain': gain, 'FrameDurationLimits': (frame_duration, frame_duration), 'AwbEnable': True, 'AwbMode': controls.AwbModeEnum.Auto, 'Brightness': 0.0, 'Contrast': 1.0, 'Saturation': dynamic_saturation, 'Sharpness': dynamic_sharpness}
-    if mode == 'NIGHT' and night_colour_gains is not None:
+    dawn_lock = mode == 'LOW LIGHT' and LOW_LIGHT_DAWN_AWB_LOCK and night_colour_gains is not None and is_morning()
+    if (mode == 'NIGHT' and night_colour_gains is not None) or dawn_lock:
         camera_controls['AwbEnable'] = False
         camera_controls['ColourGains'] = night_colour_gains
     return camera_controls
+
+def brightness_filter_alpha():
+    """Return the brightness filter weight; slower in NIGHT/LOW LIGHT at dawn."""
+    if current_camera_mode in ('NIGHT', 'LOW LIGHT') and is_morning():
+        return DAWN_BRIGHTNESS_FILTER_ALPHA
+    return BRIGHTNESS_FILTER_ALPHA
 
 def update_awb_learning(metadata):
     """Collect stable evening LOW LIGHT Auto-AWB gains for NIGHT locking.
@@ -84,7 +91,7 @@ def update_manual_exposure(measurement, metadata):
     global current_exposure_action, last_actual_exposure, last_actual_gain
     global pending_control_captures, mode_control_pending
     global mode_transition_target_exposure_us
-    global low_light_floor_interventions
+    global low_light_floor_interventions, control_ack_retry_used
     if current_camera_mode not in ('TWILIGHT', 'LOW LIGHT', 'NIGHT'):
         return
     actual_exposure = int(metadata.get('ExposureTime', manual_exposure_us or NIGHT_INITIAL_EXPOSURE_US))
@@ -116,6 +123,7 @@ def update_manual_exposure(measurement, metadata):
     ack_timed_out = False
     if control_acknowledged:
         pending_control_captures = 0
+        control_ack_retry_used = False
     else:
         pending_control_captures += 1
         if pending_control_captures < CONTROL_ACK_MAX_CAPTURES:
@@ -129,7 +137,16 @@ def update_manual_exposure(measurement, metadata):
                 actual_exposure / 1000.0,
                 actual_gain,
             )
+        elif CONTROL_ACK_RETRY_CAPTURES > 0 and not control_ack_retry_used:
+            control_ack_retry_used = True
+            pending_control_captures = max(0, CONTROL_ACK_MAX_CAPTURES - CONTROL_ACK_RETRY_CAPTURES)
+            waiting_for_camera = True
+            retry_frame_duration = max(int(controller_exposure) + 10000, 33333)
+            with camera_lock:
+                picam2.set_controls({'ExposureTime': int(controller_exposure), 'AnalogueGain': float(controller_gain), 'FrameDurationLimits': (retry_frame_duration, retry_frame_duration)})
+            logger.info('[CONTROL ACK] RETRY | Resubmitted %.0fms G%.2f | Actual=%.0fms G%.2f | ExtraCaptures=%d', controller_exposure / 1000.0, controller_gain, actual_exposure / 1000.0, actual_gain, CONTROL_ACK_RETRY_CAPTURES)
         else:
+            control_ack_retry_used = False
             logger.warning(
                 '[CONTROL ACK] TIMEOUT | Captures=%d | Requested=%.0fms G%.2f | Actual=%.0fms G%.2f | Reconciling',
                 pending_control_captures,
@@ -173,9 +190,10 @@ def update_manual_exposure(measurement, metadata):
         previous_filtered = None
     else:
         previous_filtered = filtered_brightness
-        filtered_brightness = (1.0 - BRIGHTNESS_FILTER_ALPHA) * filtered_brightness + BRIGHTNESS_FILTER_ALPHA * raw_brightness
+        filter_alpha = brightness_filter_alpha()
+        filtered_brightness = (1.0 - filter_alpha) * filtered_brightness + filter_alpha * raw_brightness
     if previous_filtered is not None:
-        logger.debug('[FILTER] Raw=%.1f Prev=%.1f New=%.1f Alpha=%.2f', raw_brightness, previous_filtered, filtered_brightness, BRIGHTNESS_FILTER_ALPHA)
+        logger.debug('[FILTER] Raw=%.1f Prev=%.1f New=%.1f Alpha=%.2f', raw_brightness, previous_filtered, filtered_brightness, filter_alpha)
     brightness = filtered_brightness
     logger.debug('[DEADBAND] Mode=%s Deadband=%.1f Brighten<%.1f Darken>%.1f', current_camera_mode, deadband, target_low - deadband, target_high + deadband)
     measurement.update({'filtered_brightness': brightness, 'target_low': target_low, 'target_high': target_high, 'brightness_deadband': deadband})
@@ -305,6 +323,7 @@ def update_manual_exposure(measurement, metadata):
                 'FrameDurationLimits': (frame_duration, frame_duration),
             })
         pending_control_captures = 0
+        control_ack_retry_used = False
         logger.info(
             '[CONTROL SUBMIT] Exp=%.0fms G%.2f | ChangedExp=%s ChangedGain=%s',
             manual_exposure_us / 1000.0,

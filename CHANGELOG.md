@@ -1,3 +1,10 @@
+#### V52.6 - 2026-11-20
+- Dawn brightness filter: NIGHT/LOW LIGHT before solar noon use `DAWN_BRIGHTNESS_FILTER_ALPHA` (0.1 instead of 0.2) to stop gain ping-pong.
+- Night quality: NIGHT frames are labelled GOOD/DARK/NOISY/WASHED; changes log `[NIGHT QUALITY]` and raise `night_quality_*` audit events.
+- Control ACK retry: a timed-out control is resubmitted once with `CONTROL_ACK_RETRY_CAPTURES` extra captures before reconciling.
+- Mode-aware exposure cap: at dawn the NIGHT exposure cap tapers from 4.5 s to the LOW LIGHT cap between -8 and -5 degrees, so long exposures do not carry into the transition.
+- White balance by mode: dawn LOW LIGHT keeps the locked NIGHT colour gains (`LOW_LIGHT_DAWN_AWB_LOCK`) instead of re-running Auto AWB.
+
 #### V52.5 - 2026-11-20
 - Dashboard: new "Sun, moon & modes" card with next predicted mode change, sunrise/sunset, golden hours, day length, moon phase, a mode strip for today and a 24-hour event strip.
 - Dashboard: daily calendar heatmap (5 weeks) with day detail, timelapse library (daily/weekly/monthly), keogram history (last 7 days, also uploaded to `keograms/`), analogue gain trend chart, PNG download for each chart, disk-fill forecast, FTP outage/recovery counts and a red night mode.

@@ -2,9 +2,9 @@
 set -euo pipefail
 SRC=$(cd "$(dirname "$0")" && pwd -P)
 BASE=/mnt/weathercam/app
-DEST=$BASE/releases/HarpendenWeatherCamera-V52.9
-REC=/etc/weathercam/v52_9-rollback-target
-python3 "$SRC/verify_v52_9.py"
+DEST=$BASE/releases/HarpendenWeatherCamera-V52.10
+REC=/etc/weathercam/v52_10-rollback-target
+python3 "$SRC/verify_v52_10.py"
 if [ "$SRC" = "$DEST" ]; then
   echo "Run the installer from an extracted staging directory, not the active release."
   exit 1
@@ -28,7 +28,7 @@ fi
 if [ -L "$BASE/current" ]; then
   PREVIOUS=$(readlink -f "$BASE/current")
 elif [ -d "$BASE/current" ]; then
-  PREVIOUS="$BASE/current-pre-v52.9-$(date +%Y%m%d-%H%M%S)"
+  PREVIOUS="$BASE/current-pre-v52.10-$(date +%Y%m%d-%H%M%S)"
   sudo systemctl stop weathercam-dashboard.timer 2>/dev/null || true
   sudo systemctl stop weathercam.service 2>/dev/null || true
   sudo mv "$BASE/current" "$PREVIOUS"
@@ -40,12 +40,13 @@ sudo systemctl stop weathercam-dashboard.timer 2>/dev/null || true
 sudo systemctl stop weathercam.service 2>/dev/null || true
 sudo rm -rf "$DEST"
 sudo cp -a "$SRC" "$DEST"
-python3 "$DEST/verify_v52_9.py"
+python3 "$DEST/verify_v52_10.py"
 sudo install -m 0644 "$DEST/systemd/weathercam-dashboard.service" /etc/systemd/system/weathercam-dashboard.service
 sudo install -m 0644 "$DEST/systemd/weathercam-dashboard.timer" /etc/systemd/system/weathercam-dashboard.timer
 if [ "$INSTALL_CAMERA_UNIT" -eq 1 ]; then
   sudo install -m 0644 "$DEST/systemd/weathercam.service" /etc/systemd/system/weathercam.service
 fi
+sudo install -m 0644 "$DEST/systemd/weathercam-weather-station.service" /etc/systemd/system/weathercam-weather-station.service
 sudo rm -f "$BASE/current"
 sudo ln -s "$DEST" "$BASE/current"
 sudo systemctl daemon-reload
@@ -55,9 +56,15 @@ fi
 sudo systemctl start weathercam.service
 sleep 8
 if ! systemctl is-active --quiet weathercam.service; then
-  echo "Camera failed to start. Run sudo bash /mnt/weathercam/app/current/rollback_v52_9.sh"
+  echo "Camera failed to start. Run sudo bash /mnt/weathercam/app/current/rollback_v52_10.sh"
   exit 1
+fi
+if sudo grep -Eq '^CLIENTRAW_URL=.+$' /etc/weathercam/dashboard.env; then
+  sudo systemctl enable weathercam-weather-station.service
+  sudo systemctl restart weathercam-weather-station.service
+else
+  echo "Weather station fetcher not started: set CLIENTRAW_URL in /etc/weathercam/dashboard.env, then run: sudo systemctl enable --now weathercam-weather-station.service"
 fi
 sudo -u mgs /usr/bin/python3 "$BASE/current/weathercam_dashboard/dashboard.py"
 sudo systemctl enable --now weathercam-dashboard.timer
-echo "Installed V52.9 -> $(readlink -f "$BASE/current")"
+echo "Installed V52.10 -> $(readlink -f "$BASE/current")"

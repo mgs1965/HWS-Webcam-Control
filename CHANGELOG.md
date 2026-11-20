@@ -1,3 +1,7 @@
+#### V52.10 - 2026-11-20
+- New: `weather_station.py` fetches a Weather Display `clientraw.txt` (`CLIENTRAW_URL`) and writes `weather_station.json` for the existing weather overlay, status file and scene history. Stale, malformed or out-of-range data is never written; network errors are retried with back-off and the loop exits after 10 consecutive failed cycles so systemd restarts it.
+- New: `systemd/weathercam-weather-station.service` (Restart=on-failure, start-limit protected, refuses to start without `CLIENTRAW_URL`); the installer installs it and enables it only when `CLIENTRAW_URL` is set.
+
 #### V52.9 - 2026-11-20
 - Fix: partly broken cloud still read 100% because the uniform-sky shortcut was too loose; its red/blue spread limit is lowered from 0.08 to 0.04.
 

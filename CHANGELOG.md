@@ -1,3 +1,6 @@
+#### V52.8 - 2026-11-20
+- Fix: cloud cover read ~90-100% with clear blue gaps in the sky; the red/blue cloud threshold is raised from 0.62 to 0.80.
+
 #### V52.7 - 2026-11-20
 - Dashboard: Control status `IDLE` (no exposure/gain change needed recently) now shows green instead of grey.
 

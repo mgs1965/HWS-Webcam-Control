@@ -1,4 +1,4 @@
-"""V52.7 physical module: scene_analysis.py. Loaded into the shared runtime namespace.
+"""V52.8 physical module: scene_analysis.py. Loaded into the shared runtime namespace.
 Do not import directly; use weather_camera.py.
 
 Observational scene intelligence: sky/cloud estimate, fog and haze, lens
@@ -17,7 +17,7 @@ SCENE_OVERLAY_ENABLED = True
 SCENE_SKY_FRACTION = 0.55
 SCENE_SKY_MIN_LUMINANCE = 50.0
 SCENE_SKY_MIN_VALID_FRACTION = 0.3
-SCENE_CLOUD_RBR_THRESHOLD = 0.62
+SCENE_CLOUD_RBR_THRESHOLD = 0.80
 SCENE_OVERCAST_UNIFORM_STD = 0.08
 SCENE_OVERCAST_MIN_MEAN_RBR = 0.5
 SCENE_FROZEN_STEP = 32

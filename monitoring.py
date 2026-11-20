@@ -139,7 +139,11 @@ def write_daily_health_summary(day):
     baseline = daily_counter_baseline or {key: 0 for key in snapshot_counters()}
     current = snapshot_counters()
     daily = {key: current[key] - baseline.get(key, 0) for key in current}
-    expected = int(86400 / CAPTURE_INTERVAL_SECONDS)
+    day_start = datetime.combine(day, datetime.min.time(), tzinfo=HARPENDEN_TIMEZONE)
+    window_start = max(day_start, daily_counter_baseline_time) if daily_counter_baseline_time else day_start
+    window_end = min(local_now(), day_start + timedelta(days=1))
+    monitored_seconds = max(0.0, min(86400.0, (window_end - window_start).total_seconds()))
+    expected = int(monitored_seconds / CAPTURE_INTERVAL_SECONDS)
     captures = daily.get('capture_count', 0)
     capture_pct = round(captures * 100.0 / expected, 2) if expected else 0.0
     health = 'HEALTHY'
@@ -150,7 +154,7 @@ def write_daily_health_summary(day):
     if captures and capture_pct < 99.0: health='DEGRADED'; reasons.append('capture completeness below 99%')
     summary = {
       'date': day.isoformat(), 'release': VERSION, 'telemetry_schema': TELEMETRY_SCHEMA_VERSION,
-      'overall': health, 'reasons': reasons, 'captures': captures, 'captures_expected': expected,
+      'overall': health, 'reasons': reasons, 'captures': captures, 'captures_expected': expected, 'monitored_seconds': int(monitored_seconds),
       'capture_completeness_percent': capture_pct, **daily,
       'mode_transitions': mode_transition_count, 'control_health': globals().get('control_health','N/A'),
       'control_ack_p95_captures': globals().get('control_ack_p95_captures',0),

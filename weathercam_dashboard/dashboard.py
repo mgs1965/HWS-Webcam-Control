@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse,csv,ftplib,json,math,os,re,shutil,socket,tempfile
 from datetime import datetime,timedelta,timezone
 from pathlib import Path
-V='52.1'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
+V='52.4'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
 IMG=Path(os.getenv('WEATHERCAM_LATEST_IMAGE',str(ROOT/'frames/latest.jpg'))); HD=Path(os.getenv('WEATHERCAM_HEALTH_DIR',str(ROOT/'telemetry/health'))); TD=Path(os.getenv('WEATHERCAM_TELEMETRY_DIR',str(ROOT/'logs'))); LD=Path(os.getenv('WEATHERCAM_LOG_DIR',str(ROOT/'logs')))
 def envnum(name,default):
  try:
@@ -549,7 +549,7 @@ def generate(upload=False):
  weather=status_data.get('weather') if isinstance(status_data.get('weather'),dict) else None
  actions=recommended_checks(metrics,timelapse,scene)
  safe_config={
-  'release':'V52.1','telemetry_schema':4,'dashboard_refresh_minutes':5,
+  'release':'V52.4','telemetry_schema':4,'dashboard_refresh_minutes':5,
   'capture_interval_seconds':10,'ftp_configured':bool(os.getenv('DASHBOARD_FTP_HOST')),
   'ftp_tls':os.getenv('DASHBOARD_FTP_TLS','0')!='0',
   'thresholds':TH,'stale_after_minutes':TH['dashboard_stale_minutes'],
@@ -559,7 +559,7 @@ def generate(upload=False):
   'state':state,'reasons':reasons[:2],'mode':mode,'metrics':metrics,
   'series':chart_series,'coverage':chart_coverage,'modes':chart_modes,'sun':sun_events(now),'quality_summary':quality_summary(telemetry_rows,now),'timeline_events':timeline_events,
   'mode_performance':mode_effectiveness(telemetry_rows,now),
-  'timelapse':timelapse,'recommendations':actions,'scene':scene,'weather':weather,'keogram':sync_keogram(),
+  'timelapse':timelapse,'recommendations':actions,'scene':scene,'periodic':status_data.get('periodic_timelapses') if isinstance(status_data.get('periodic_timelapses'),dict) else {},'weather':weather,'keogram':sync_keogram(),
   'reports':{'latest':daily_history[-1] if daily_history else None,'history':daily_history},
   'gallery':gallery_items,
   'events':events_payload,'hostname':socket.gethostname(),

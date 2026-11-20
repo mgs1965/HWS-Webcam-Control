@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parent
 def test_release_identity():
     namespace = {}
     exec((ROOT / 'version.py').read_text(encoding='utf-8'), namespace)
-    assert namespace['VERSION'] == 'V52.1'
+    assert namespace['VERSION'] == 'V52.4'
     assert namespace['TELEMETRY_SCHEMA_VERSION'] == 4
 
 def test_telemetry_schema():
@@ -32,11 +32,11 @@ def test_credentials_are_not_embedded():
     assert "FTP_PASSWORD = os.getenv('HWS_FTP_PASSWORD', '')" in core
     assert 'cGnRUCGhc' not in core
 
-def test_dashboard_v52_1_payload():
+def test_dashboard_v52_4_payload():
     dashboard = (ROOT / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
     template = (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
-    assert "V='52.1'" in dashboard
-    assert "'release':'V52.1'" in dashboard
+    assert "V='52.4'" in dashboard
+    assert "'release':'V52.4'" in dashboard
     assert "for period,hours in (('24h',24),('7d',168),('30d',720))" in dashboard
     assert 'incidents' in dashboard
     assert "'process_memory':('health','memory.process_rss_bytes',1/1048576)" in dashboard
@@ -232,7 +232,7 @@ def test_controller_configuration_fingerprint_tracks_real_limits():
 
 def test_camera_service_unit_and_install_preserve_existing_unit():
     service = (ROOT / 'systemd/weathercam.service').read_text(encoding='utf-8')
-    installer = (ROOT / 'install_v52_1.sh').read_text(encoding='utf-8')
+    installer = (ROOT / 'install_v52_4.sh').read_text(encoding='utf-8')
     assert 'EnvironmentFile=/etc/weathercam/dashboard.env' in service
     assert 'Restart=on-failure' in service
     assert 'TimeoutStopSec=240' in service
@@ -399,6 +399,65 @@ def test_periodic_timelapse_period_selection():
     assert (first.isoformat(), last.isoformat()) == ('2026-10-01', '2026-10-31')
     assert name.endswith('monthly_timelapse_202610.mp4')
 
+def load_timelapse_functions(*names, **extra):
+    tree = ast.parse((ROOT / 'timelapse.py').read_text(encoding='utf-8'))
+    functions = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name in names]
+    import threading
+    namespace = {'timedelta': timedelta, 'os': os, 'threading': threading, 'logger': logging.getLogger('v52-test'), 'audit_event': lambda *a, **k: None}
+    namespace.update(extra)
+    exec(compile(ast.Module(body=functions, type_ignores=[]), '<periodic>', 'exec'), namespace)
+    return namespace
+
+def test_periodic_join_requires_compatible_inputs():
+    namespace = load_timelapse_functions('periodic_inputs_compatible')
+    check = namespace['periodic_inputs_compatible']
+    good = {'codec_name': 'h264', 'width': 2560, 'height': 1440, 'pix_fmt': 'yuv420p'}
+    assert check([good, dict(good)])
+    assert not check([good, dict(good, width=1920, height=1080)])
+    assert not check([good, dict(good, codec_name='hevc')])
+
+def test_periodic_timelapse_retries_again_the_next_day():
+    clock = [datetime(2026, 11, 20, 1, 0)]
+    calls = []
+    namespace = load_timelapse_functions(
+        'process_periodic_timelapses', periodic_period=lambda kind, today: (datetime(2026, 11, 9).date(), None, None),
+        periodic_timelapse_lock=__import__('threading').Lock(), periodic_timelapse_attempts={}, periodic_timelapse_next_retry={},
+        PERIODIC_MAX_ATTEMPTS=3, PERIODIC_RETRY_MINUTES=30, local_now=lambda: clock[0],
+        build_periodic_timelapse=lambda kind, today: calls.append((kind, today)) or False, set_periodic_status=lambda *a, **k: None)
+    run = namespace['process_periodic_timelapses']
+    for _ in range(6):
+        clock[0] += timedelta(minutes=31)
+        run(clock[0].date())
+    assert len([c for c in calls if c[0] == 'weekly']) == 3
+    clock[0] += timedelta(days=1)
+    run(clock[0].date())
+    assert len([c for c in calls if c[0] == 'weekly']) == 4
+
+def test_scene_analysis_marks_night_as_paused(tmp_path):
+    import numpy as np
+    scene = load_v52_namespace(tmp_path, 'scene_analysis.py')
+    scene['current_camera_mode'] = 'NIGHT'
+    scene['METERING_STEP'] = 16
+    image = np.full((100, 100, 3), 20, dtype=np.uint8)
+    result = scene['update_scene_analysis'](image, {'contrast': 10.0, 'brightness': 20.0})
+    assert result['analysis_paused'] is True and result['mode'] == 'NIGHT'
+    assert 'Paused' in (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
+
+def test_uniform_overcast_sky_reads_full_cloud(tmp_path):
+    import numpy as np
+    scene = load_v52_namespace(tmp_path, 'scene_analysis.py')
+    rng = np.random.default_rng(2)
+    overcast = np.zeros((100, 100, 3), dtype=np.float32)
+    overcast[:] = (110, 125, 150)
+    overcast += rng.normal(0, 2, overcast.shape).astype(np.float32)
+    assert scene['estimate_cloud_cover'](overcast) == 100.0
+
+def test_ack_gain_tolerance_scales_with_gain():
+    core = (ROOT / 'core.py').read_text(encoding='utf-8')
+    assert 'CONTROL_ACK_GAIN_TOLERANCE_FRACTION = 0.12' in core
+    assert 'CONTROL_ACK_GAIN_TOLERANCE_FRACTION' in (ROOT / 'exposure.py').read_text(encoding='utf-8')
+    assert 'CONTROL_ACK_GAIN_TOLERANCE_FRACTION' in (ROOT / 'v47_control.py').read_text(encoding='utf-8')
+
 def test_dashboard_scene_recommendations():
     dashboard = load_source_module('dashboard_scene_source', ROOT / 'weathercam_dashboard/dashboard.py')
     metrics = {
@@ -415,6 +474,6 @@ def test_release_zip_extracts_to_matching_directory(tmp_path):
     manifest = json.loads((ROOT / 'manifest.json').read_text(encoding='utf-8'))
     with zipfile.ZipFile(tmp_path / manifest['package']) as archive:
         names = archive.namelist()
-    assert manifest['package'] == 'HWS-Webcam-Control-52.1.zip'
-    assert all(name.startswith('HWS-Webcam-Control-52.1/') for name in names)
-    assert 'HWS-Webcam-Control-52.1/manifest.json' in names
+    assert manifest['package'] == 'HWS-Webcam-Control-52.4.zip'
+    assert all(name.startswith('HWS-Webcam-Control-52.4/') for name in names)
+    assert 'HWS-Webcam-Control-52.4/manifest.json' in names

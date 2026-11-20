@@ -248,6 +248,7 @@ def write_status_file(capture_time, metadata, measurement):
     # Existing V47/V49.8.1 control-health fields remain authoritative.
     status.update(control_status_fields(capture_time))
     status['scene'] = measurement.get('scene')
+    status['periodic_timelapses'] = dict(periodic_timelapse_status)
     status['weather'] = measurement.get('weather')
     try:
         obs = {k: status.get(k) for k in (

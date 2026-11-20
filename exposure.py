@@ -110,7 +110,7 @@ def update_manual_exposure(measurement, metadata):
     controller_gain = float(manual_gain)
 
     exposure_acknowledged = abs(actual_exposure - controller_exposure) <= CONTROL_ACK_EXPOSURE_TOLERANCE_US
-    gain_acknowledged = abs(actual_gain - controller_gain) <= CONTROL_ACK_GAIN_TOLERANCE
+    gain_acknowledged = abs(actual_gain - controller_gain) <= max(CONTROL_ACK_GAIN_TOLERANCE, controller_gain * CONTROL_ACK_GAIN_TOLERANCE_FRACTION)
     control_acknowledged = exposure_acknowledged and gain_acknowledged
     waiting_for_camera = False
     ack_timed_out = False

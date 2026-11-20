@@ -640,6 +640,8 @@ PERIODIC_MIN_DAILY_FILES = {'weekly': 2, 'monthly': 7}
 PERIODIC_MAX_ATTEMPTS = 3
 PERIODIC_RETRY_MINUTES = 30
 PERIODIC_CHECK_SECONDS = 600
+PERIODIC_REENCODE_TIMEOUT_SECONDS = 4 * 3600
+periodic_timelapse_status = {}
 PERIODIC_LATEST_REMOTE = {'weekly': 'latest_weekly_timelapse.mp4', 'monthly': 'latest_monthly_timelapse.mp4'}
 periodic_timelapse_lock = threading.Lock()
 periodic_timelapse_thread = None
@@ -667,64 +669,123 @@ def periodic_daily_files(first, last):
         day += timedelta(days=1)
     return files
 
-def normalise_daily_video_rate(filename, info, kind, output):
-    """Return a stream-copied copy of a daily video retimed to TIMELAPSE_FPS when its frame rate differs (legacy releases)."""
-    fps = float((info or {}).get('fps') or 0.0)
-    if fps <= 0 or abs(fps - TIMELAPSE_FPS) <= TIMELAPSE_FPS_TOLERANCE:
-        return filename
-    retimed = unique_temporary_filename(output, 'retimed_' + os.path.basename(filename))
-    command = ['ffmpeg', '-y', '-loglevel', 'error', '-itsscale', '%.9f' % (fps / TIMELAPSE_FPS), '-i', filename, '-map', '0:v:0', '-c:v', 'copy', '-movflags', '+faststart', retimed]
+def normalise_daily_video_timescale(filename, kind, output):
+    """Return a stream-copied copy of a daily video on the common track timescale.
+
+    Daily videos from different releases use different track timescales (for example 1/15360 and 1/90000); joining them
+    by stream copy stretches the result, so every input is rewritten to one timescale first.
+    """
+    prepared = unique_temporary_filename(output, 'timescale_' + os.path.basename(filename))
+    command = ['ffmpeg', '-y', '-loglevel', 'error', '-i', filename, '-map', '0:v:0', '-c:v', 'copy', '-video_track_timescale', str(TIMELAPSE_TRACK_TIMESCALE), '-movflags', '+faststart', prepared]
     result = subprocess.run(command, capture_output=True, text=True, timeout=TIMELAPSE_CONCAT_TIMEOUT_SECONDS)
     if result.returncode != 0:
-        logger.error('[PERIODIC TIMELAPSE] RETIME FAILED | Kind=%s | File=%s | Error=%s', kind, filename, result.stderr[-1000:] or 'unknown')
+        logger.error('[PERIODIC TIMELAPSE] TIMESCALE FAILED | Kind=%s | File=%s | Error=%s', kind, filename, result.stderr[-1000:] or 'unknown')
         return None
-    logger.info('[PERIODIC TIMELAPSE] RETIMED | Kind=%s | File=%s | SourceFPS=%.3f', kind, os.path.basename(filename), fps)
-    return retimed
+    return prepared
 
 def periodic_uploaded_marker(filename):
     return filename + '.uploaded'
+
+def set_periodic_status(kind, state, first, message=''):
+    """Record the latest weekly/monthly outcome and log only when it changes."""
+    entry = {'state': state, 'period_start': first.isoformat(), 'message': message, 'updated': local_now().isoformat()}
+    previous = periodic_timelapse_status.get(kind) or {}
+    periodic_timelapse_status[kind] = entry
+    if (previous.get('state'), previous.get('period_start'), previous.get('message')) != (state, entry['period_start'], message):
+        logger.info('[PERIODIC TIMELAPSE] %s | Kind=%s | Period=%s | %s', state.upper(), kind, first.isoformat(), message or '--')
+
+def periodic_inputs_compatible(infos):
+    """True when every daily video shares codec, size and pixel format so they can be joined by stream copy."""
+    signatures = {(i.get('codec_name'), i.get('width'), i.get('height'), i.get('pix_fmt')) for i in infos}
+    return len(signatures) == 1 and next(iter(signatures))[0] == 'h264'
+
+def reencode_daily_videos(files, output, frames, label):
+    """Slow fallback: re-encode the daily videos into one consistent H.264 file."""
+    concat_filename = unique_temporary_filename(output, 'reencode.txt')
+    temporary_output = unique_temporary_filename(output, 'tmp.mp4')
+    with open(concat_filename, 'w', encoding='utf-8') as listing:
+        for filename in files:
+            listing.write("file '%s'\n" % filename.replace("'", "'\\''"))
+    command = [
+        'ffmpeg', '-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', concat_filename,
+        '-vf', f'scale={WEB_WIDTH}:{WEB_HEIGHT},fps={TIMELAPSE_FPS}', '-an', '-c:v', 'libx264',
+        '-preset', TIMELAPSE_PRESET, '-crf', str(TIMELAPSE_CRF), '-pix_fmt', 'yuv420p',
+        '-profile:v', TIMELAPSE_VIDEO_PROFILE, '-level:v', TIMELAPSE_VIDEO_LEVEL,
+        '-g', str(TIMELAPSE_GOP_FRAMES), '-keyint_min', str(TIMELAPSE_GOP_FRAMES), '-sc_threshold', '0',
+        '-video_track_timescale', str(TIMELAPSE_TRACK_TIMESCALE), '-movflags', '+faststart', temporary_output,
+    ]
+    try:
+        with ffmpeg_lock:
+            logger.info('[PERIODIC TIMELAPSE] REENCODE START | Label=%s | Files=%d | Frames=%d', label, len(files), frames)
+            result = subprocess.run(command, capture_output=True, text=True, timeout=PERIODIC_REENCODE_TIMEOUT_SECONDS)
+            if result.returncode != 0:
+                logger.error('[PERIODIC TIMELAPSE] REENCODE FAILED | Label=%s | Error=%s', label, result.stderr[-1000:] or 'unknown')
+                return None
+            if not validate_timelapse(temporary_output, frames, 1):
+                return None
+            os.replace(temporary_output, output)
+            return output
+    except (OSError, subprocess.TimeoutExpired):
+        logger.exception('[PERIODIC TIMELAPSE] REENCODE FAILED | Label=%s', label)
+        return None
+    finally:
+        for temporary in (concat_filename, temporary_output):
+            try:
+                if os.path.exists(temporary): os.remove(temporary)
+            except OSError: pass
+
+def join_daily_videos(files, infos, output, frames, label, kind):
+    """Join by stream copy when the inputs are compatible, otherwise (or if that fails) by re-encoding."""
+    if periodic_inputs_compatible(infos):
+        prepared = []
+        try:
+            for filename in files:
+                item = normalise_daily_video_timescale(filename, kind, output)
+                if not item:
+                    break
+                prepared.append(item)
+            else:
+                if concatenate_video_segments(prepared, output, frames, label, minimum_file_size=1):
+                    return True
+        finally:
+            for temporary in prepared:
+                try:
+                    os.remove(temporary)
+                except OSError:
+                    pass
+        logger.warning('[PERIODIC TIMELAPSE] STREAM COPY FAILED | Label=%s | Falling back to re-encode', label)
+    else:
+        logger.warning('[PERIODIC TIMELAPSE] INPUTS INCOMPATIBLE | Label=%s | Using re-encode', label)
+    return bool(reencode_daily_videos(files, output, frames, label))
 
 def build_periodic_timelapse(kind, today):
     """Join the existing daily videos of the previous full week/month; True when nothing remains to do."""
     first, last, output = periodic_period(kind, today)
     if os.path.exists(output) and (not UPLOAD_TIMELAPSE or os.path.exists(periodic_uploaded_marker(output))):
+        set_periodic_status(kind, 'complete', first, os.path.basename(output))
         return True
     if not os.path.exists(output):
         files = periodic_daily_files(first, last)
         if len(files) < PERIODIC_MIN_DAILY_FILES[kind]:
+            set_periodic_status(kind, 'skipped', first, f'only {len(files)} daily videos, need {PERIODIC_MIN_DAILY_FILES[kind]}')
             return True
-        frames = 0
-        infos = []
-        for filename in files:
-            info = probe_video(filename)
-            infos.append(info)
-            frames += int((info or {}).get('frames') or 0)
+        infos = [probe_video(filename) for filename in files]
+        frames = sum(int(info.get('frames') or 0) for info in infos)
         if frames < 2:
+            set_periodic_status(kind, 'failed', first, 'daily videos contain no frames')
             return False
-        retimed = []
-        try:
-            inputs = []
-            for filename, info in zip(files, infos):
-                prepared = normalise_daily_video_rate(filename, info, kind, output)
-                if not prepared:
-                    return False
-                if prepared != filename:
-                    retimed.append(prepared)
-                inputs.append(prepared)
-            if not concatenate_video_segments(inputs, output, frames, f'{kind}-{first:%Y%m%d}', minimum_file_size=1):
-                return False
-        finally:
-            for temporary in retimed:
-                try:
-                    os.remove(temporary)
-                except OSError:
-                    pass
+        set_periodic_status(kind, 'building', first, f'{len(files)} daily videos, {frames} frames')
+        if not join_daily_videos(files, infos, output, frames, f'{kind}-{first:%Y%m%d}', kind):
+            set_periodic_status(kind, 'failed', first, 'join failed')
+            return False
         audit_event(f'{kind}_timelapse_completed', first_day=first.isoformat(), last_day=last.isoformat(), daily_files=len(files), frames=frames)
     if UPLOAD_TIMELAPSE:
         if not (upload_to_ftp(output, os.path.basename(output)) and upload_to_ftp(output, PERIODIC_LATEST_REMOTE[kind])):
+            set_periodic_status(kind, 'failed', first, 'upload failed')
             return False
         with open(periodic_uploaded_marker(output), 'w', encoding='utf-8') as marker:
             marker.write(local_now().isoformat())
+    set_periodic_status(kind, 'complete', first, os.path.basename(output))
     return True
 
 def process_periodic_timelapses(today):
@@ -732,22 +793,28 @@ def process_periodic_timelapses(today):
         return
     try:
         for kind in ('weekly', 'monthly'):
-            key = (kind, periodic_period(kind, today)[0])
+            first = periodic_period(kind, today)[0]
+            key = (kind, first, today)
             if periodic_timelapse_attempts.get(key, 0) >= PERIODIC_MAX_ATTEMPTS:
                 continue
-            if key in periodic_timelapse_next_retry and local_now() < periodic_timelapse_next_retry[key]:
+            retry_key = (kind, first)
+            if retry_key in periodic_timelapse_next_retry and local_now() < periodic_timelapse_next_retry[retry_key]:
                 continue
             periodic_timelapse_attempts[key] = periodic_timelapse_attempts.get(key, 0) + 1
             try:
                 ok = build_periodic_timelapse(kind, today)
             except Exception:
                 logger.exception('[PERIODIC TIMELAPSE] FAILED | Kind=%s', kind)
+                set_periodic_status(kind, 'failed', first, 'unexpected error')
                 ok = False
             if ok:
                 periodic_timelapse_attempts[key] = 0
-                periodic_timelapse_next_retry[key] = local_now() + timedelta(days=1)
+                periodic_timelapse_next_retry[retry_key] = local_now() + timedelta(days=1)
+            elif periodic_timelapse_attempts[key] >= PERIODIC_MAX_ATTEMPTS:
+                logger.error('[PERIODIC TIMELAPSE] GIVING UP TODAY | Kind=%s | Period=%s | Attempts=%d | Will retry tomorrow', kind, first.isoformat(), PERIODIC_MAX_ATTEMPTS)
+                audit_event('periodic_timelapse_gave_up', severity='ERROR', kind=kind, period_start=first.isoformat())
             else:
-                periodic_timelapse_next_retry[key] = local_now() + timedelta(minutes=PERIODIC_RETRY_MINUTES)
+                periodic_timelapse_next_retry[retry_key] = local_now() + timedelta(minutes=PERIODIC_RETRY_MINUTES)
     finally:
         periodic_timelapse_lock.release()
 

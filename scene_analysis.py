@@ -1,4 +1,4 @@
-"""V52.13 physical module: scene_analysis.py. Loaded into the shared runtime namespace.
+"""V52.14 physical module: scene_analysis.py. Loaded into the shared runtime namespace.
 Do not import directly; use weather_camera.py.
 
 Observational scene intelligence: sky/cloud estimate, fog and haze, lens

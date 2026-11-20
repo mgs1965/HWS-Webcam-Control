@@ -1,3 +1,6 @@
+#### V52.14 - 2026-11-20
+- Dashboard: weather station graphs now have value scales (max/mid/min) and a time axis with grid lines.
+
 #### V52.13 - 2026-11-20
 - Weather station: reads UV index (clientraw token 34) and solar radiation in W/m2 (token 127) from the Davis VP2 sensors.
 - Dashboard: Solar and UV metrics plus 24-hour sparklines on the Weather station card; both are recorded in scene history.

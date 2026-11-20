@@ -35,6 +35,7 @@ IDX_TEMP_C, IDX_HUMIDITY, IDX_PRESSURE_HPA = 4, 5, 6
 IDX_RAIN_TODAY_MM, IDX_RAIN_RATE = 7, 10
 IDX_HOUR, IDX_MINUTE, IDX_SECOND, IDX_STATION = 29, 30, 31, 32
 IDX_DEW_POINT_C, IDX_DATE = 72, 74
+IDX_UV_INDEX, IDX_SOLAR_WM2 = 34, 127
 
 # clientraw reports rain rate per minute; the camera expects mm/h.
 RAIN_RATE_TO_MM_H = 60.0
@@ -60,6 +61,8 @@ LIMITS = {
     'rain_rate_mm_h': (0.0, 500.0),
     'rain_today_mm': (0.0, 2000.0),
     'dew_point_c': (-60.0, 60.0),
+    'uv_index': (0.0, 20.0),
+    'solar_radiation_wm2': (0.0, 1800.0),
     'temp_change_1h_c': (-40.0, 40.0),
     'humidity_change_1h': (-100.0, 100.0),
     'pressure_change_1h_hpa': (-50.0, 50.0),
@@ -118,6 +121,8 @@ def parse_clientraw(text, now):
         'rain_rate_mm_h': scaled(IDX_RAIN_RATE, RAIN_RATE_TO_MM_H),
         'rain_today_mm': field(IDX_RAIN_TODAY_MM),
         'dew_point_c': field(IDX_DEW_POINT_C),
+        'uv_index': field(IDX_UV_INDEX),
+        'solar_radiation_wm2': field(IDX_SOLAR_WM2),
     }
     values = {key: _bounded(key, value) for key, value in raw.items()}
     values = {key: value for key, value in values.items() if value is not None}

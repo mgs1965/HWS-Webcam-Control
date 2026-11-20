@@ -1,9 +1,9 @@
 {
   "edition": "camera-and-image-intelligence",
-  "release": "V52.12",
+  "release": "V52.13",
   "baseline": "V51.0.2",
-  "package": "HWS-Webcam-Control-52.12.zip",
-  "package_directory": "HWS-Webcam-Control-52.12",
+  "package": "HWS-Webcam-Control-52.13.zip",
+  "package_directory": "HWS-Webcam-Control-52.13",
   "built": "2026-11-20",
   "telemetry_schema": 4,
   "telemetry_fields": 58,
@@ -24,9 +24,9 @@
   "files": [
     "ARCHITECTURE.md", "CHANGELOG.md", "DEPLOYMENT.md", "MAPPING.md", "README.md",
     "camera.py", "controller_analytics.py", "core.py", "dashboard.env.example",
-    "exposure.py", "image_quality.py", "install_v52_12.sh", "keogram.py", "loader.py", "manifest.json",
-    "modes.py", "monitoring.py", "publishing.py", "rollback_v52_12.sh", "runtime.py",
-    "scene_analysis.py", "state.py", "systemd", "test_v52_12.py", "build_release.py", "timelapse.py", "v47_control.py",
-    "verify_v52_12.py", "version.py", "weather_camera.py", "weather_station.py", "test_weather_station.py", "weathercam_dashboard"
+    "exposure.py", "image_quality.py", "install_v52_13.sh", "keogram.py", "loader.py", "manifest.json",
+    "modes.py", "monitoring.py", "publishing.py", "rollback_v52_13.sh", "runtime.py",
+    "scene_analysis.py", "state.py", "systemd", "test_v52_13.py", "build_release.py", "timelapse.py", "v47_control.py",
+    "verify_v52_13.py", "version.py", "weather_camera.py", "weather_station.py", "test_weather_station.py", "weathercam_dashboard"
   ]
 }

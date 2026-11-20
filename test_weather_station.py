@@ -12,6 +12,13 @@ SAMPLE = ('12345 2.72 2.72 0 5.6 88 1012.4 0.0 64.0 643.8 0.00 0.00 17.9 66 7.9 
 NOW = datetime(2026, 11, 20, 17, 59, 40, tzinfo=timezone.utc)
 
 
+def test_parse_solar_and_uv():
+    tokens = SAMPLE.split(' ')
+    tokens[34], tokens[127] = '5.5', '612'
+    data = ws.parse_clientraw(' '.join(tokens), NOW)
+    assert data['uv_index'] == 5.5 and data['solar_radiation_wm2'] == 612.0
+
+
 def test_parse_sample():
     data = ws.parse_clientraw(SAMPLE, NOW)
     assert data['temperature_c'] == 5.6

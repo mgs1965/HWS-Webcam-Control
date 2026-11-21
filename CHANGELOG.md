@@ -1,3 +1,8 @@
+#### V53.6
+
+- On start-up the weather service back-fills the local minute log (last hour) and daily log (last 30 days) from the clientraw hour/daily files, without overwriting real readings. Needs both `CLIENTRAW_URL` and `HWS_METEOBRIDGE_URL`; seed before setting `HWS_CLIENTRAW_ENABLED=0`.
+- Meteobridge year records (`-ymax`/`-ymin`) confirmed working on the device.
+
 #### V53.5
 
 - New `HWS_CLIENTRAW_ENABLED` option (set 0) switches off the clientraw feed; the weather service then uses only the Meteobridge.

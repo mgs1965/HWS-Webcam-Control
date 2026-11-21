@@ -603,6 +603,66 @@ def update_once(url, output_path, attempts=FETCH_ATTEMPTS, retry_delay=RETRY_DEL
     return None
 
 
+def seed_local_history(url, now=None):
+    """Back-fill the local minute and daily logs from the clientraw hour/daily files without overwriting real readings."""
+    now = now or datetime.now().astimezone()
+    added = {'minutes': 0, 'days': 0}
+    try:
+        hour = parse_clientrawhour(fetch_text(sibling_url(url, 'clientrawhour.txt')))
+    except (OSError, ValueError, TypeError) as error:
+        log(f'history seed: clientrawhour.txt unavailable: {error}')
+        hour = None
+    if hour and MINUTE_PATH:
+        samples = [x for x in _load_json(MINUTE_PATH, {}).get('samples', []) if isinstance(x, dict) and 't' in x]
+        try:
+            first = min(datetime.fromisoformat(x['t']) for x in samples) if samples else now
+        except ValueError:
+            first = now
+        convert = (('wind_speed_mph', 'wind_kt', KNOTS_TO_MPH), ('wind_gust_mph', 'gust_kt', KNOTS_TO_MPH), ('wind_direction_deg', 'wind_dir', 1.0),
+                   ('temperature_c', 'temp_c', 1.0), ('humidity_percent', 'humidity', 1.0), ('pressure_hpa', 'pressure_hpa', 1.0))
+        seeded = []
+        for index in range(HOUR_BLOCK):
+            stamp = now.replace(second=0, microsecond=0) - timedelta(minutes=HOUR_BLOCK - 1 - index)
+            if stamp >= first - timedelta(seconds=MINUTE_INTERVAL_SECONDS):
+                continue
+            sample = {'t': stamp.isoformat(timespec='seconds'), **{key: None for key in MINUTE_KEYS}}
+            for key, source, scale in convert:
+                value = hour[source][index]
+                sample[key] = _bounded(key, value * scale) if value is not None else None
+            if any(sample[key] is not None for key, _, _ in convert):
+                seeded.append(sample)
+        if seeded:
+            stamp = max(datetime.fromisoformat(x['t']) for x in seeded + samples)
+            samples = sorted(seeded + samples, key=lambda x: x['t'])
+            try:
+                write_json_atomic(MINUTE_PATH, {'updated': stamp.isoformat(), 'samples': samples})
+                added['minutes'] = len(seeded)
+            except OSError as error:
+                log(f'could not write {MINUTE_PATH}: {error}')
+    try:
+        daily = parse_clientrawdaily(fetch_text(sibling_url(url, 'clientrawdaily.txt')), now.date())
+    except (OSError, ValueError, TypeError) as error:
+        log(f'history seed: clientrawdaily.txt unavailable: {error}')
+        daily = None
+    if daily and DAILY_LOG_PATH:
+        days = _load_json(DAILY_LOG_PATH, {}).get('days')
+        days = days if isinstance(days, dict) else {}
+        for entry in daily:
+            if entry['date'] not in days:
+                days[entry['date']] = {key: value for key, value in entry.items() if key != 'date'}
+                added['days'] += 1
+        if added['days']:
+            days = {day: days[day] for day in sorted(days)[-DAILY_LOG_DAYS:]}
+            try:
+                write_json_atomic(DAILY_LOG_PATH, {'days': days})
+            except OSError as error:
+                log(f'could not write {DAILY_LOG_PATH}: {error}')
+                added['days'] = 0
+    if added['minutes'] or added['days']:
+        log(f"history seed from clientraw: {added['minutes']} minutes, {added['days']} days")
+    return added
+
+
 def update_history(url, history_path, now=None):
     """Fetch the daily and extra files and write the history JSON. Returns the dict or None."""
     now = now or datetime.now().astimezone()
@@ -677,6 +737,7 @@ def main(argv=None):
         parser.error('HWS_CLIENTRAW_ENABLED=0 needs HWS_METEOBRIDGE_URL')
     if not args.url and not args.meteobridge:
         parser.error('set CLIENTRAW_URL (or HWS_METEOBRIDGE_URL) or pass --url')
+    seed_url = args.url
     args.url = args.url or 'http://invalid.invalid/clientraw.txt'
     global RAW_PATH, COMPARE_PATH, MINUTE_PATH, DAILY_LOG_PATH, CLIENTRAW_ENABLED, METEOBRIDGE_URL, METEOBRIDGE_USER, METEOBRIDGE_PASSWORD
     METEOBRIDGE_USER, METEOBRIDGE_PASSWORD = args.meteobridge_user, args.meteobridge_password
@@ -684,6 +745,8 @@ def main(argv=None):
     COMPARE_PATH = args.compare_output
     MINUTE_PATH, DAILY_LOG_PATH, CLIENTRAW_ENABLED = args.minute_output, args.daily_log_output, not args.no_clientraw
     METEOBRIDGE_URL = args.meteobridge or None
+    if seed_url and METEOBRIDGE_URL:
+        seed_local_history(seed_url)
     if args.once or not args.interval:
         update_history(args.url, args.history_output)
         return 0 if update_once(args.url, args.output, series_path=args.series_output) else 1

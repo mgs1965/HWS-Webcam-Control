@@ -57,11 +57,33 @@ def _hour_block(tokens,start,scale=1.0):
   except (IndexError,ValueError):v=None
   out.append(v if v is not None and math.isfinite(v) else None)
  return out
+def _minute_hour():
+ try:samples=json.loads((LD/'weather_station_minute.json').read_text(errors='ignore')).get('samples')
+ except (OSError,ValueError,AttributeError):return {}
+ pts=[]
+ for x in samples if isinstance(samples,list) else []:
+  try:pts.append((datetime.fromisoformat(str(x.get('t'))),x))
+  except (ValueError,TypeError,AttributeError):pass
+ if len(pts)<5:return {}
+ end=pts[-1][0];out={'fetched':end.isoformat(),'source':'local'}
+ for name,key,scale in (('wind_mph','wind_speed_mph',1),('gust_mph','wind_gust_mph',1),('direction_deg','wind_direction_deg',1),('temperature_c','temperature_c',1),('humidity_percent','humidity_percent',1),('pressure_hpa','pressure_hpa',1),('solar_wm2','solar_radiation_wm2',1)):
+  col=[None]*60
+  for t,x in pts:
+   age=(end-t).total_seconds()/60
+   if age>59.5:continue
+   i=59-int(round(age));v=num(x.get(key))
+   if v is not None and 0<=i<60:col[i]=v
+  out[name]=col
+ return out
 def weather_hour():
  try:raw=json.loads((LD/'weather_station_raw.json').read_text(errors='ignore'))
- except (OSError,ValueError):return {}
+ except (OSError,ValueError):return _minute_hour()
  info=raw.get('clientrawhour') if isinstance(raw,dict) else None;tokens=info.get('tokens') if isinstance(info,dict) else None
- if not isinstance(tokens,list) or len(tokens)<480:return {}
+ if not isinstance(tokens,list) or len(tokens)<480:return _minute_hour()
+ local=_minute_hour()
+ try:
+  if local and (datetime.fromisoformat(local['fetched'])-datetime.fromisoformat(str(info.get('fetched','')))).total_seconds()>900:return local
+ except (ValueError,TypeError):pass
  return {'fetched':str(info.get('fetched',''))[:40],'wind_mph':_hour_block(tokens,1,1.15078),'gust_mph':_hour_block(tokens,61,1.15078),'direction_deg':_hour_block(tokens,121),'temperature_c':_hour_block(tokens,181),'humidity_percent':_hour_block(tokens,241),'pressure_hpa':_hour_block(tokens,301),'solar_wm2':_hour_block(tokens,421)}
 def wind_rose(series,hour):
  pts=[(num(p.get('wind_direction_deg')),num(p.get('wind_speed_mph')) or 0) for p in series]

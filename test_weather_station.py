@@ -186,3 +186,34 @@ def test_meteobridge_parse_url_and_fallback():
             assert seen[0]['Authorization'] == 'Basic bWV0ZW9icmlkZ2U6cHc='
     finally:
         ws.fetch_text, ws.METEOBRIDGE_URL, ws.METEOBRIDGE_PASSWORD = old
+
+
+def test_clientraw_off_uses_local_history(tmp_path):
+    import weather_station as ws
+    old = (ws.fetch_text, ws.METEOBRIDGE_URL, ws.COMPARE_PATH, ws.CLIENTRAW_ENABLED, ws.MINUTE_PATH, ws.DAILY_LOG_PATH)
+    ws.METEOBRIDGE_URL, ws.COMPARE_PATH, ws.CLIENTRAW_ENABLED = 'x', None, False
+    ws.MINUTE_PATH, ws.DAILY_LOG_PATH = str(tmp_path / 'm.json'), str(tmp_path / 'd.json')
+    base = datetime.now().astimezone() - timedelta(minutes=60)
+    clock = {'now': base}
+    reading = {'t': 5.0}
+    calls = []
+    ws.fetch_text = lambda url, timeout=10, headers=None: calls.append(url) or f"temperature_c={reading['t']};humidity_percent=80;pressure_hpa=1000;wind_gust_mph=4"
+    real = ws.datetime
+    ws.datetime = type('D', (), {'now': staticmethod(lambda: clock['now']), 'fromisoformat': staticmethod(real.fromisoformat)})
+    try:
+        for minute in range(61):
+            clock['now'] = base + timedelta(minutes=minute)
+            reading['t'] = 5.0 + minute * 0.02
+            result = ws.update_once('http://c/clientraw.txt', str(tmp_path / 'w.json'), sleep=lambda s: None)
+        assert all('template.cgi' in url for url in calls)
+        assert result['source'] == 'meteobridge' and result['temp_change_1h_c'] == 1.2
+        assert result['wind_gust_max_1h_mph'] == 4
+        day = json.loads((tmp_path / 'd.json').read_text())['days']
+        assert list(day.values())[0]['temp_max_c'] >= 6.2
+        clock['now'] = base + timedelta(days=2)
+        (tmp_path / 'd.json').write_text(json.dumps({'days': {(clock['now'].date() - timedelta(days=1)).isoformat(): {'temp_max_c': 9.0, 'temp_min_c': 1.0}}}))
+        history = ws.update_history('http://c/clientraw.txt', str(tmp_path / 'h.json'))
+        assert history['daily'][-1]['temp_max_c'] == 9.0
+    finally:
+        ws.datetime = real
+        (ws.fetch_text, ws.METEOBRIDGE_URL, ws.COMPARE_PATH, ws.CLIENTRAW_ENABLED, ws.MINUTE_PATH, ws.DAILY_LOG_PATH) = old

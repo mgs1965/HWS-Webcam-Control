@@ -1,3 +1,11 @@
+#### V53.5
+
+- New `HWS_CLIENTRAW_ENABLED` option (set 0) switches off the clientraw feed; the weather service then uses only the Meteobridge.
+- Meteobridge-only mode keeps a local minute log and daily log, so hour charts, 1h trends and 30-day history build up from the Meteobridge readings (both modes record them).
+- Year records are read from the Meteobridge (`-ymax`/`-ymin`, untested on the device).
+- The raw "Weather data" tab and the source comparison need clientraw and stay empty when it is off.
+- `CLIENTRAW_URL` is no longer required when `HWS_METEOBRIDGE_URL` is set.
+
 #### V53.4 - 2026-11-21
 - Weather: new "Source comparison" table on the Weather tab showing the clientraw value, the Meteobridge value, the difference and a match/differs result for each shared field (temperature, humidity, pressure, wind, gust, direction, dew point, rain, UV, solar, max gust, lightning). Useful for checking units.
 - Weather station: saves both readings to `weather_station_compare.json` (`HWS_WEATHER_COMPARE_PATH`, `--compare-output`) whenever both sources are available. Restart the weather service after installing.

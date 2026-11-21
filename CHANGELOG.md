@@ -1,3 +1,9 @@
+#### V53.2 - 2026-11-21
+- Weather station: can read the Meteobridge directly (`HWS_METEOBRIDGE_URL=192.168.0.65` or `--meteobridge`) using its template.cgi live-data API, with the clientraw files kept as the fallback and for the hour/daily/extra data. Live values override clientraw where both exist.
+- New values from the Meteobridge: heat index, wet bulb, wind chill, sunshine hours, lightning energy and the bridge's data age, shown on the Weather tab.
+- Units requested: wind in mph, rain in mm, pressure sea-level hPa. Confirm against the console after installing.
+- Set `HWS_METEOBRIDGE_URL` in `/etc/weathercam/dashboard.env`, then restart the weather service.
+
 #### V53.1 - 2026-11-21
 - Dashboard: the weather station panel moves from the Live page to its own "Weather" tab (the raw clientraw tab stays as "Weather data").
 - Dashboard: new graphs for dew point, rain today, wind direction, lightning today, sky clarity and droplet score (24 h), and humidity and pressure for the last hour.

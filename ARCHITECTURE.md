@@ -1,4 +1,4 @@
-# V53.1 Architecture
+# V53.2 Architecture
 
 ## Runtime assembly
 
@@ -20,4 +20,4 @@ The generator keeps numeric trend series bounded and publishes gallery images be
 
 ## Release and deployment
 
-`version.py` is the release identity source for V53.1 and telemetry schema v4. `manifest.json` records the release baseline, package filename and file inventory. `verify_v53_1.py` checks the release identity, telemetry contract, dashboard payload structure and regression guards. The installer deploys to `/mnt/weathercam/app/releases/HarpendenWeatherCamera-V53.1`, records a rollback target, and installs the camera unit only when no existing unit is registered.
+`version.py` is the release identity source for V53.2 and telemetry schema v4. `manifest.json` records the release baseline, package filename and file inventory. `verify_v53_2.py` checks the release identity, telemetry contract, dashboard payload structure and regression guards. The installer deploys to `/mnt/weathercam/app/releases/HarpendenWeatherCamera-V53.2`, records a rollback target, and installs the camera unit only when no existing unit is registered.

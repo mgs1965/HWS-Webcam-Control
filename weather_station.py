@@ -246,6 +246,25 @@ def write_json_atomic(path, data):
         raise
 
 
+RAW_PATH = None
+RAW_FILES = {}
+
+
+def record_raw(name, text):
+    """Keep the raw tokens of a clientraw file (header 12345 only) for the dashboard's data tab."""
+    tokens = text.split()
+    if len(tokens) > 1 and tokens[0] == '12345':
+        RAW_FILES[name] = {'fetched': datetime.now().astimezone().isoformat(timespec='seconds'), 'tokens': tokens[1:]}
+
+
+def flush_raw():
+    if RAW_PATH and RAW_FILES:
+        try:
+            write_json_atomic(RAW_PATH, RAW_FILES)
+        except OSError as error:
+            log(f'could not write {RAW_PATH}: {error}')
+
+
 FETCH_ATTEMPTS = 3
 RETRY_DELAY_SECONDS = 5
 MAX_CONSECUTIVE_FAILURES = 10
@@ -303,10 +322,13 @@ def update_once(url, output_path, attempts=FETCH_ATTEMPTS, retry_delay=RETRY_DEL
         if data is None:
             log('clientraw malformed or stale; not publishing')
             return None
+        record_raw('clientraw', text)
         hour_url = sibling_url(url, 'clientrawhour.txt')
         if hour_url:
             try:
-                data.update(hour_trends(parse_clientrawhour(fetch_text(hour_url)) or {}))
+                hour_text = fetch_text(hour_url)
+                record_raw('clientrawhour', hour_text)
+                data.update(hour_trends(parse_clientrawhour(hour_text) or {}))
             except (OSError, ValueError) as error:
                 log(f'hour file unavailable, publishing live data only: {error}')
         try:
@@ -314,6 +336,7 @@ def update_once(url, output_path, attempts=FETCH_ATTEMPTS, retry_delay=RETRY_DEL
         except OSError as error:
             log(f'could not write {output_path}: {error}')
             return None
+        flush_raw()
         if series_path:
             try:
                 append_series(series_path, data)
@@ -333,14 +356,17 @@ def update_history(url, history_path, now=None):
         if not target:
             continue
         try:
-            parsed = parse(fetch_text(target))
+            body = fetch_text(target)
+            parsed = parse(body)
         except (OSError, ValueError) as error:
             log(f'{name} unavailable: {error}')
             continue
+        record_raw(name[:-4], body)
         if parsed:
             history[key] = parsed
         else:
             log(f'{name} malformed; skipped')
+    flush_raw()
     if len(history) == 1:
         return None
     try:
@@ -377,11 +403,14 @@ def main(argv=None):
     parser.add_argument('--output', default=os.getenv('HWS_WEATHER_DATA_PATH', '/mnt/weathercam/logs/weather_station.json'))
     parser.add_argument('--history-output', default=os.getenv('HWS_WEATHER_HISTORY_PATH', '/mnt/weathercam/logs/weather_station_history.json'))
     parser.add_argument('--series-output', default=os.getenv('HWS_WEATHER_SERIES_PATH', '/mnt/weathercam/logs/weather_station_series.json'))
+    parser.add_argument('--raw-output', default=os.getenv('HWS_WEATHER_RAW_PATH', '/mnt/weathercam/logs/weather_station_raw.json'))
     parser.add_argument('--interval', type=int, default=0, help='poll every N seconds (minimum %d); omit for a single run' % MIN_FETCH_INTERVAL_SECONDS)
     parser.add_argument('--once', action='store_true')
     args = parser.parse_args(argv)
     if not args.url:
         parser.error('set CLIENTRAW_URL or pass --url')
+    global RAW_PATH
+    RAW_PATH = args.raw_output
     if args.once or not args.interval:
         update_history(args.url, args.history_output)
         return 0 if update_once(args.url, args.output, series_path=args.series_output) else 1

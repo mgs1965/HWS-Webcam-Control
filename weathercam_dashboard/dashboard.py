@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse,csv,ftplib,json,math,os,re,shutil,socket,tempfile
 from datetime import datetime,timedelta,timezone
 from pathlib import Path
-V='52.16'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
+V='52.17'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
 IMG=Path(os.getenv('WEATHERCAM_LATEST_IMAGE',str(ROOT/'frames/latest.jpg'))); HD=Path(os.getenv('WEATHERCAM_HEALTH_DIR',str(ROOT/'telemetry/health'))); TD=Path(os.getenv('WEATHERCAM_TELEMETRY_DIR',str(ROOT/'logs'))); LD=Path(os.getenv('WEATHERCAM_LOG_DIR',str(ROOT/'logs')))
 def envnum(name,default):
  try:
@@ -120,7 +120,7 @@ def weather_series(now,hours=24):
   try:t=datetime.fromisoformat(str(r.get('t')))
   except (ValueError,TypeError,AttributeError):continue
   if t.tzinfo is None:t=t.replace(tzinfo=now.tzinfo)
-  if cutoff<=t<=now:out.append({'t':t.isoformat(),**{k:num(r.get(k)) for k in ('temperature_c','humidity_percent','pressure_hpa','wind_speed_mph','wind_gust_mph','solar_radiation_wm2','uv_index')}})
+  if cutoff<=t<=now:out.append({'t':t.isoformat(),**{k:num(r.get(k)) for k in ('temperature_c','humidity_percent','pressure_hpa','wind_speed_mph','wind_gust_mph','wind_direction_deg','dew_point_c','rain_today_mm','lightning_strikes_today','lightning_distance','solar_radiation_wm2','uv_index')}})
  return out
 def weather_raw():
  try:raw=json.loads((LD/'weather_station_raw.json').read_text(errors='ignore'));labels=json.loads((Path(__file__).resolve().parent/'weather_labels.json').read_text())
@@ -131,6 +131,79 @@ def weather_raw():
   names=labels.get(name,{})
   out[name]={'fetched':str(info.get('fetched',''))[:40],'rows':[[i,(names.get(str(i)) or {}).get('l',''),(names.get(str(i)) or {}).get('u',''),str(v)[:24]] for i,v in enumerate(info['tokens'],1)]}
  return out
+def solar_check(weather,scene,now):
+ w=weather or {};s=scene or {};solar=num(w.get('solar_radiation_wm2'))
+ if solar is None:return None
+ elev=solar_elevation(now)
+ if elev<10:return None
+ clear=max(1.0,990*math.sin(math.radians(elev))-30);cloud=max(0.0,min(100.0,(1-solar/clear)*100))
+ out={'elevation':round(elev,1),'clear_sky_wm2':round(clear),'solar_cloud_pct':round(cloud)}
+ cam=num(s.get('cloud_cover_pct'))
+ if cam is not None and not s.get('analysis_paused'):
+  out['camera_cloud_pct']=round(cam);diff=cam-cloud
+  if diff>=40:out['verdict']='CAMERA_CLOUDIER';out['note']=f'Camera sees {cam:.0f}% cloud but the solar sensor suggests {cloud:.0f}%: check the lens for fog, droplets or dirt.'
+  elif diff<=-40:out['verdict']='CAMERA_CLEARER';out['note']=f'Camera sees {cam:.0f}% cloud but the solar sensor suggests {cloud:.0f}%: thin or distant cloud, or the sun is shaded.'
+  else:out['verdict']='AGREE';out['note']=f'Camera cloud ({cam:.0f}%) and solar estimate ({cloud:.0f}%) agree.'
+ return out
+def record_notes(weather,history):
+ w=weather or {};r=(history or {}).get('year_records') or {};notes=[]
+ for key,field,hi,label in (('temp_max_c','temperature_c',True,'temperature high'),('temp_min_c','temperature_c',False,'temperature low'),('pressure_max_hpa','pressure_hpa',True,'pressure high'),('pressure_min_hpa','pressure_hpa',False,'pressure low')):
+  v,rec=num(w.get(field)),num((r.get(key) or {}).get('value'))
+  if v is None or rec is None:continue
+  if (v>=rec) if hi else (v<=rec):notes.append(f'Year-to-date {label} matched or broken: {v:.1f} (previous record {rec:.1f}).')
+ return notes
+def frost_notes(weather):
+ w=weather or {};t,d=num(w.get('temperature_c')),num(w.get('dew_point_c'))
+ if t is None:return []
+ if t<=0:return [f'Freezing: air {t:.1f} °C. Ice or frost on the lens or housing is possible.']
+ if t<=3 and (d is None or d<=1):return [f'Frost risk: air {t:.1f} °C'+(f', dew point {d:.1f} °C' if d is not None else '')+'.']
+ return []
+def _hour_block(tokens,start,scale=1.0):
+ out=[]
+ for i in range(60):
+  try:v=float(tokens[start-1+i])*scale
+  except (IndexError,ValueError):v=None
+  out.append(v if v is not None and math.isfinite(v) else None)
+ return out
+def weather_hour():
+ try:raw=json.loads((LD/'weather_station_raw.json').read_text(errors='ignore'))
+ except (OSError,ValueError):return {}
+ info=raw.get('clientrawhour') if isinstance(raw,dict) else None;tokens=info.get('tokens') if isinstance(info,dict) else None
+ if not isinstance(tokens,list) or len(tokens)<480:return {}
+ return {'fetched':str(info.get('fetched',''))[:40],'wind_mph':_hour_block(tokens,1,1.15078),'gust_mph':_hour_block(tokens,61,1.15078),'direction_deg':_hour_block(tokens,121),'temperature_c':_hour_block(tokens,181),'solar_wm2':_hour_block(tokens,421)}
+def wind_rose(series,hour):
+ pts=[(num(p.get('wind_direction_deg')),num(p.get('wind_speed_mph')) or 0) for p in series]
+ source='24 h'
+ if sum(1 for d,_ in pts if d is not None)<6 and hour:
+  pts=list(zip(hour.get('direction_deg',[]),[v or 0 for v in hour.get('wind_mph',[])]));source='last hour'
+ bins=[0.0]*16;n=0
+ for d,sp in pts:
+  if d is None or not 0<=d<=360:continue
+  bins[int(((d%360)+11.25)//22.5)%16]+=1;n+=1
+ if n<6:return {}
+ return {'source':source,'samples':n,'percent':[round(100*b/n,1) for b in bins]}
+def weather_summary(series):
+ if not series:return {}
+ def col(k):return [v for v in (num(p.get(k)) for p in series) if v is not None]
+ out={'samples':len(series),'from':series[0]['t'],'to':series[-1]['t']}
+ for key,field,fn in (('temp_min_c','temperature_c',min),('temp_max_c','temperature_c',max),('humidity_max','humidity_percent',max),('gust_max_mph','wind_gust_mph',max),('solar_max_wm2','solar_radiation_wm2',max),('uv_max','uv_index',max),('rain_today_mm','rain_today_mm',max),('lightning_today','lightning_strikes_today',max),('pressure_min_hpa','pressure_hpa',min),('pressure_max_hpa','pressure_hpa',max)):
+  v=col(field)
+  if v:out[key]=round(fn(v),1)
+ return out
+def weather_events(series):
+ events=[];last_light=None;fog_on=False
+ for p in series:
+  t=dt(p.get('t'))
+  if not t:continue
+  l=num(p.get('lightning_strikes_today'))
+  if l is not None and last_light is not None and l>last_light:
+   d=num(p.get('lightning_distance'));events.append({'time':p['t'],'severity':'WARNING','message':f'Lightning: {l-last_light:.0f} new strike(s)'+(f', last strike distance {d:g}' if d is not None else '')})
+  if l is not None:last_light=l
+  tt,dp,h=num(p.get('temperature_c')),num(p.get('dew_point_c')),num(p.get('humidity_percent'))
+  fog=tt is not None and dp is not None and h is not None and h>=95 and tt-dp<=1
+  if fog and not fog_on:events.append({'time':p['t'],'severity':'WARNING','message':f'Fog conditions: humidity {h:.0f}%, air within {tt-dp:.1f} °C of dew point'})
+  fog_on=fog
+ return events[-20:]
 def scene_history(now,hours=24,limit=144):
  out=[]
  cutoff=now-timedelta(hours=hours)
@@ -670,6 +743,7 @@ def generate(upload=False):
   })
  for item in log_events:
   events_payload.append({'time':item.get('time'),'severity':item.get('level','INFO'),'message':item.get('message','Operational event')})
+ events_payload.extend(weather_events(weather_series(now)))
  timeline_events=[{
   'time':item.get('timestamp'),
   'severity':str(item.get('severity','INFO')).upper(),
@@ -705,9 +779,11 @@ def generate(upload=False):
  scene=status_data.get('scene') if isinstance(status_data.get('scene'),dict) else None
  weather=status_data.get('weather') if isinstance(status_data.get('weather'),dict) else None
  actions=recommended_checks(metrics,timelapse,scene)
+ wseries=weather_series(now);whour=weather_hour();whistory=weather_history();sc=solar_check(weather,scene,now)
+ winsight=weather_insight(weather,scene)+frost_notes(weather)+record_notes(weather,whistory)+([sc['note']] if sc and sc.get('note') and sc.get('verdict')!='AGREE' else [])
  schedule=mode_schedule(now)
  safe_config={
-  'release':'V52.16','telemetry_schema':4,'dashboard_refresh_minutes':5,
+  'release':'V52.17','telemetry_schema':4,'dashboard_refresh_minutes':5,
   'capture_interval_seconds':10,'ftp_configured':bool(os.getenv('DASHBOARD_FTP_HOST')),
   'ftp_tls':os.getenv('DASHBOARD_FTP_TLS','0')!='0',
   'thresholds':TH,'stale_after_minutes':TH['dashboard_stale_minutes'],
@@ -718,7 +794,7 @@ def generate(upload=False):
   'series':chart_series,'coverage':chart_coverage,'modes':chart_modes,'sun':sun_events(now),'quality_summary':quality_summary(telemetry_rows,now),'timeline_events':timeline_events,
   'mode_performance':mode_effectiveness(telemetry_rows,now),
   'sun_moon':sun_moon(now),'mode_schedule':schedule,'next_mode':next_mode_change(now,schedule),'calendar':day_calendar(report_rows),'timelapse_library':timelapse_library(),'keogram_archive':sync_keogram_archive(),'disk_forecast':disk_forecast(health_rows,now),
-  'timelapse':timelapse,'recommendations':actions,'scene':scene,'periodic':status_data.get('periodic_timelapses') if isinstance(status_data.get('periodic_timelapses'),dict) else {},'weather':weather,'weather_history':weather_history(),'weather_raw':weather_raw(),'weather_series':weather_series(now),'scene_history':scene_history(now),'weather_insight':weather_insight(weather,scene),'keogram':sync_keogram(),
+  'timelapse':timelapse,'recommendations':actions,'scene':scene,'periodic':status_data.get('periodic_timelapses') if isinstance(status_data.get('periodic_timelapses'),dict) else {},'weather':weather,'weather_history':whistory,'weather_raw':weather_raw(),'weather_series':wseries,'weather_hour':whour,'wind_rose':wind_rose(wseries,whour),'weather_summary':weather_summary(wseries),'solar_check':solar_check(weather,scene,now),'scene_history':scene_history(now),'weather_insight':winsight,'keogram':sync_keogram(),
   'reports':{'latest':daily_history[-1] if daily_history else None,'history':daily_history},
   'gallery':gallery_items,
   'events':events_payload,'hostname':socket.gethostname(),

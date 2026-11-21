@@ -1,3 +1,11 @@
+#### V52.17 - 2026-11-21
+- Dashboard: solar cloud cross-check (clear-sky estimate from sun elevation vs measured solar W/m2, compared with the camera's cloud cover; a large disagreement suggests a dirty or fogged lens).
+- Dashboard: 30-day charts (daily high, low, lowest pressure), last-hour minute charts (wind, gust, temperature, solar) from the hour file, wind rose, and a 24-hour station summary.
+- Dashboard: year-to-date record alerts (temperature and pressure), frost/freezing notes, and fog-condition and lightning entries in the event timeline.
+- Camera overlay: adds gust, solar, UV and lightning to the weather line (set `HWS_OVERLAY_STATION_EXTRAS=0` to disable).
+- Weather station: the rolling series now also stores wind direction, dew point, rain, lightning count and distance.
+- Not included: the hour file on this station has no 24-hour solar/UV arrays (only 482 fields), so the hourly graphs cover the last hour; the daily rain block looked like a constant placeholder and the gust-record unit is unknown, so neither is charted or alerted on.
+
 #### V52.16 - 2026-11-21
 - Dashboard: new "Weather data" tab with sub-tabs for the live, hour, daily and extra clientraw files, showing every field number, label, value and unit (knots also shown in mph) with a filter box. Labels come from `weathercam_dashboard/weather_labels.json`.
 - Weather station: the raw tokens of all four files are written to `weather_station_raw.json` (`HWS_WEATHER_RAW_PATH`, `--raw-output`) for the tab. The tab fills in after the weather service restarts.

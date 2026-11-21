@@ -45,7 +45,8 @@ RAIN_RATE_TO_MM_H = 60.0
 HISTORY_INTERVAL_SECONDS = 1800
 SERIES_INTERVAL_SECONDS = 300
 SERIES_HOURS = 24
-SERIES_KEYS = ('temperature_c', 'humidity_percent', 'pressure_hpa', 'wind_speed_mph', 'wind_gust_mph', 'solar_radiation_wm2', 'uv_index')
+SERIES_KEYS = ('temperature_c', 'humidity_percent', 'pressure_hpa', 'wind_speed_mph', 'wind_gust_mph', 'wind_direction_deg', 'dew_point_c', 'rain_today_mm',
+               'lightning_strikes_today', 'lightning_distance', 'solar_radiation_wm2', 'uv_index')
 HOUR_BLOCK = 60
 # clientrawhour.txt: consecutive 60-minute blocks, oldest first, '-' = no sample.
 HOUR_BLOCKS = {'wind_kt': 1, 'gust_kt': 61, 'wind_dir': 121, 'temp_c': 181, 'humidity': 241, 'pressure_hpa': 301}

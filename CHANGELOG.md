@@ -1,3 +1,10 @@
+#### V53.7
+
+- New Insights tab: quality forecast (next hour and after sunset), "why was quality poor?", lens-maintenance predictor, weather correlations, daily summaries, monthly and year-to-date statistics (persisted in `dashboard_daily_stats.json`).
+- Smart events: rapid fog formation, sudden visibility collapse, sunset cloud break, heavy rain onset, possible snow.
+- Weather tab: Temperature metric, live strip (`weather-live.json`, `HWS_LIVE_UPLOAD_SECONDS`), stale-station banner and recommendation; page auto-reloads every 5 minutes.
+- `weather_station.py --diagnose` prints raw vs converted Meteobridge values for unit checks.
+
 #### V53.6
 
 - On start-up the weather service back-fills the local minute log (last hour) and daily log (last 30 days) from the clientraw hour/daily files, without overwriting real readings. Needs both `CLIENTRAW_URL` and `HWS_METEOBRIDGE_URL`; seed before setting `HWS_CLIENTRAW_ENABLED=0`.

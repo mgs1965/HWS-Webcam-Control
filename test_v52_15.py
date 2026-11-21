@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parent
 def test_release_identity():
     namespace = {}
     exec((ROOT / 'version.py').read_text(encoding='utf-8'), namespace)
-    assert namespace['VERSION'] == 'V52.14'
+    assert namespace['VERSION'] == 'V52.15'
     assert namespace['TELEMETRY_SCHEMA_VERSION'] == 4
 
 def test_telemetry_schema():
@@ -32,11 +32,11 @@ def test_credentials_are_not_embedded():
     assert "FTP_PASSWORD = os.getenv('HWS_FTP_PASSWORD', '')" in core
     assert 'cGnRUCGhc' not in core
 
-def test_dashboard_v52_14_payload():
+def test_dashboard_v52_15_payload():
     dashboard = (ROOT / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
     template = (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
-    assert "V='52.14'" in dashboard
-    assert "'release':'V52.14'" in dashboard
+    assert "V='52.15'" in dashboard
+    assert "'release':'V52.15'" in dashboard
     assert "for period,hours in (('24h',24),('7d',168),('30d',720))" in dashboard
     assert 'incidents' in dashboard
     assert "'process_memory':('health','memory.process_rss_bytes',1/1048576)" in dashboard
@@ -232,7 +232,7 @@ def test_controller_configuration_fingerprint_tracks_real_limits():
 
 def test_camera_service_unit_and_install_preserve_existing_unit():
     service = (ROOT / 'systemd/weathercam.service').read_text(encoding='utf-8')
-    installer = (ROOT / 'install_v52_14.sh').read_text(encoding='utf-8')
+    installer = (ROOT / 'install_v52_15.sh').read_text(encoding='utf-8')
     assert 'EnvironmentFile=/etc/weathercam/dashboard.env' in service
     assert 'Restart=on-failure' in service
     assert 'TimeoutStopSec=240' in service
@@ -459,6 +459,20 @@ def test_dashboard_weather_history_and_insight(tmp_path):
     reasons = dashboard.weather_insight(weather, {'fog_risk': 'HIGH'})
     assert len(reasons) == 3 and 'Fog risk high' in reasons[0]
     assert dashboard.weather_insight(None, None) == []
+    lightning = dashboard.weather_insight({'lightning_strikes_last_min': 2, 'wind_gust_max_today_mph': 30}, None)
+    assert any('Lightning' in r for r in lightning) and any('Gusts' in r for r in lightning)
+    assert dashboard.weather_series(now) == []
+    samples = [{'t': (now - timedelta(hours=h)).isoformat(), 'temperature_c': 5 + h} for h in (30, 2, 1)]
+    (tmp_path / 'weather_station_series.json').write_text(json.dumps({'samples': samples}))
+    assert [p['temperature_c'] for p in dashboard.weather_series(now)] == [7.0, 6.0]
+
+
+def test_periodic_upload_switches_are_per_kind():
+    timelapse = (ROOT / 'timelapse.py').read_text(encoding='utf-8')
+    core = (ROOT / 'core.py').read_text(encoding='utf-8')
+    assert "HWS_UPLOAD_WEEKLY_TIMELAPSE" in core and "HWS_UPLOAD_MONTHLY_TIMELAPSE" in core
+    assert "upload = UPLOAD_TIMELAPSE and (UPLOAD_WEEKLY_TIMELAPSE if kind == 'weekly' else UPLOAD_MONTHLY_TIMELAPSE)" in timelapse
+    assert "    if upload:\n        if not (upload_to_ftp(output" in timelapse
 
 
 def test_night_long_exposure_does_not_flag_lens_degraded():
@@ -516,14 +530,14 @@ def test_release_zip_extracts_to_matching_directory(tmp_path):
     manifest = json.loads((ROOT / 'manifest.json').read_text(encoding='utf-8'))
     with zipfile.ZipFile(tmp_path / manifest['package']) as archive:
         names = archive.namelist()
-    assert manifest['package'] == 'HWS-Webcam-Control-52.14.zip'
-    assert all(name.startswith('HWS-Webcam-Control-52.14/') for name in names)
-    assert 'HWS-Webcam-Control-52.14/manifest.json' in names
+    assert manifest['package'] == 'HWS-Webcam-Control-52.15.zip'
+    assert all(name.startswith('HWS-Webcam-Control-52.15/') for name in names)
+    assert 'HWS-Webcam-Control-52.15/manifest.json' in names
 
 def _load_dashboard(tmp_path, monkeypatch):
     monkeypatch.setenv('WEATHERCAM_ROOT', str(tmp_path))
     monkeypatch.setenv('DASHBOARD_OUT', str(tmp_path / 'out'))
-    spec = importlib.util.spec_from_file_location('dash52_14', ROOT / 'weathercam_dashboard/dashboard.py')
+    spec = importlib.util.spec_from_file_location('dash52_15', ROOT / 'weathercam_dashboard/dashboard.py')
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -548,7 +562,7 @@ def test_dashboard_moon_and_disk_forecast(tmp_path, monkeypatch):
     assert forecast['percent_per_day'] > 0 and forecast['days_to_full'] > 0
     assert dash.disk_forecast(rows[:5], now) is None
 
-def test_dashboard_v52_14_template_and_event_tag():
+def test_dashboard_v52_15_template_and_event_tag():
     dashboard = (ROOT / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
     template = (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
     assert '[MODE TRANSITION]' in dashboard and '[MODE CHANGE]' not in dashboard

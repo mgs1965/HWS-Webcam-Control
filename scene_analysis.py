@@ -1,4 +1,4 @@
-"""V52.14 physical module: scene_analysis.py. Loaded into the shared runtime namespace.
+"""V52.15 physical module: scene_analysis.py. Loaded into the shared runtime namespace.
 Do not import directly; use weather_camera.py.
 
 Observational scene intelligence: sky/cloud estimate, fog and haze, lens
@@ -53,6 +53,11 @@ SCENE_WEATHER_LIMITS = {
     'dew_point_c': (-60.0, 60.0),
     'uv_index': (0.0, 20.0),
     'solar_radiation_wm2': (0.0, 1800.0),
+    'wind_gust_max_1h_mph': (0.0, 250.0),
+    'wind_gust_max_today_mph': (0.0, 250.0),
+    'lightning_strikes_last_min': (0.0, 100000.0),
+    'lightning_strikes_today': (0.0, 1000000.0),
+    'lightning_distance': (0.0, 1000.0),
     'temp_change_1h_c': (-40.0, 40.0),
     'humidity_change_1h': (-100.0, 100.0),
     'pressure_change_1h_hpa': (-50.0, 50.0),

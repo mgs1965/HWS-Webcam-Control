@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse,csv,ftplib,json,math,os,re,shutil,socket,tempfile
 from datetime import datetime,timedelta,timezone
 from pathlib import Path
-V='52.14'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
+V='52.15'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
 IMG=Path(os.getenv('WEATHERCAM_LATEST_IMAGE',str(ROOT/'frames/latest.jpg'))); HD=Path(os.getenv('WEATHERCAM_HEALTH_DIR',str(ROOT/'telemetry/health'))); TD=Path(os.getenv('WEATHERCAM_TELEMETRY_DIR',str(ROOT/'logs'))); LD=Path(os.getenv('WEATHERCAM_LOG_DIR',str(ROOT/'logs')))
 def envnum(name,default):
  try:
@@ -112,6 +112,16 @@ def weather_history():
  try:data=json.loads(p.read_text(errors='ignore'))
  except (OSError,ValueError):return None
  return data if isinstance(data,dict) and (data.get('daily') or data.get('year_records')) else None
+def weather_series(now,hours=24):
+ try:data=json.loads((LD/'weather_station_series.json').read_text(errors='ignore'))
+ except (OSError,ValueError):return []
+ out=[];cutoff=now-timedelta(hours=hours)
+ for r in data.get('samples',[]) if isinstance(data,dict) else []:
+  try:t=datetime.fromisoformat(str(r.get('t')))
+  except (ValueError,TypeError,AttributeError):continue
+  if t.tzinfo is None:t=t.replace(tzinfo=now.tzinfo)
+  if cutoff<=t<=now:out.append({'t':t.isoformat(),**{k:num(r.get(k)) for k in ('temperature_c','humidity_percent','pressure_hpa','wind_speed_mph','wind_gust_mph','solar_radiation_wm2','uv_index')}})
+ return out
 def scene_history(now,hours=24,limit=144):
  out=[]
  cutoff=now-timedelta(hours=hours)
@@ -139,6 +149,11 @@ def weather_insight(weather,scene):
  if tc is not None and tc<=-3:reasons.append(f'Temperature fell {abs(tc):.1f} °C in the last hour.')
  g=num(w.get('wind_gust_max_1h_mph'))
  if g is not None and g>=25:reasons.append(f'Gusts up to {g:.0f} mph in the last hour (possible camera shake).')
+ gt=num(w.get('wind_gust_max_today_mph'))
+ if gt is not None and gt>=25 and (g is None or gt>g):reasons.append(f'Gusts up to {gt:.0f} mph today.')
+ ls,lt=num(w.get('lightning_strikes_last_min')),num(w.get('lightning_strikes_today'))
+ if ls is not None and ls>0:reasons.append(f'Lightning detected: {ls:.0f} strike(s) in the last minute.')
+ elif lt is not None and lt>0:reasons.append(f'Lightning detected today: {lt:.0f} strike(s) since noon.')
  r=num(w.get('rain_rate_mm_h'))
  if r is not None and r>0:reasons.append(f'Rain reported ({r:.1f} mm/h); droplets on the lens are likely.')
  return reasons
@@ -683,7 +698,7 @@ def generate(upload=False):
  actions=recommended_checks(metrics,timelapse,scene)
  schedule=mode_schedule(now)
  safe_config={
-  'release':'V52.14','telemetry_schema':4,'dashboard_refresh_minutes':5,
+  'release':'V52.15','telemetry_schema':4,'dashboard_refresh_minutes':5,
   'capture_interval_seconds':10,'ftp_configured':bool(os.getenv('DASHBOARD_FTP_HOST')),
   'ftp_tls':os.getenv('DASHBOARD_FTP_TLS','0')!='0',
   'thresholds':TH,'stale_after_minutes':TH['dashboard_stale_minutes'],
@@ -694,7 +709,7 @@ def generate(upload=False):
   'series':chart_series,'coverage':chart_coverage,'modes':chart_modes,'sun':sun_events(now),'quality_summary':quality_summary(telemetry_rows,now),'timeline_events':timeline_events,
   'mode_performance':mode_effectiveness(telemetry_rows,now),
   'sun_moon':sun_moon(now),'mode_schedule':schedule,'next_mode':next_mode_change(now,schedule),'calendar':day_calendar(report_rows),'timelapse_library':timelapse_library(),'keogram_archive':sync_keogram_archive(),'disk_forecast':disk_forecast(health_rows,now),
-  'timelapse':timelapse,'recommendations':actions,'scene':scene,'periodic':status_data.get('periodic_timelapses') if isinstance(status_data.get('periodic_timelapses'),dict) else {},'weather':weather,'weather_history':weather_history(),'scene_history':scene_history(now),'weather_insight':weather_insight(weather,scene),'keogram':sync_keogram(),
+  'timelapse':timelapse,'recommendations':actions,'scene':scene,'periodic':status_data.get('periodic_timelapses') if isinstance(status_data.get('periodic_timelapses'),dict) else {},'weather':weather,'weather_history':weather_history(),'weather_series':weather_series(now),'scene_history':scene_history(now),'weather_insight':weather_insight(weather,scene),'keogram':sync_keogram(),
   'reports':{'latest':daily_history[-1] if daily_history else None,'history':daily_history},
   'gallery':gallery_items,
   'events':events_payload,'hostname':socket.gethostname(),

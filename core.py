@@ -33,7 +33,7 @@ import numpy as np
 from libcamera import controls
 from picamera2 import Picamera2
 from PIL import Image, ImageDraw, ImageFont
-SCRIPT_VERSION = '2026-11-20 V52.14'
+SCRIPT_VERSION = '2026-11-20 V52.15'
 LOCAL_SAVE_PATH = '/mnt/weathercam'
 LOGS_PATH = os.path.join(LOCAL_SAVE_PATH, 'logs')
 FRAMES_PATH = os.path.join(LOCAL_SAVE_PATH, 'frames')
@@ -206,6 +206,11 @@ TIMELAPSE_FPS = 30
 TIMELAPSE_CRF = 23
 TIMELAPSE_PRESET = 'medium'
 UPLOAD_TIMELAPSE = True
+def _env_flag(name, default=True):
+    value = os.getenv(name)
+    return default if value is None or not value.strip() else value.strip().lower() not in ('0', 'false', 'no', 'off')
+UPLOAD_WEEKLY_TIMELAPSE = _env_flag('HWS_UPLOAD_WEEKLY_TIMELAPSE')
+UPLOAD_MONTHLY_TIMELAPSE = _env_flag('HWS_UPLOAD_MONTHLY_TIMELAPSE')
 TIMELAPSE_START_HOUR = 0
 TIMELAPSE_START_MINUTE = 5
 TIMELAPSE_RETRY_MINUTES = 15
@@ -225,7 +230,7 @@ LOG_ANOMALY_SUMMARY_INTERVAL_MINUTES = 60
 LOG_ANOMALY_CPU_WARNING_C = 70.0
 LOG_ANOMALY_CAPTURE_WARNING_MS = 1500.0
 LOG_ANOMALY_FTP_FAILURE_WARNING = 1
-V51_RELEASE = 'V52.14'
+V51_RELEASE = 'V52.15'
 V50_FTP_WORKER_RESTART_COOLDOWN_SECONDS = 60
 V50_MAX_CAMERA_RESTARTS_PER_HOUR = 6
 V50_TELEMETRY_MAX_CLOCK_SKEW_SECONDS = 300

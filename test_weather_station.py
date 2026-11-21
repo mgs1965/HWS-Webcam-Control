@@ -2,7 +2,7 @@
 import json
 import os
 import tempfile
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import weather_station as ws
 
@@ -14,9 +14,31 @@ NOW = datetime(2026, 11, 20, 17, 59, 40, tzinfo=timezone.utc)
 
 def test_parse_solar_and_uv():
     tokens = SAMPLE.split(' ')
-    tokens[34], tokens[127] = '5.5', '612'
+    tokens[79], tokens[127] = '5.5', '612'
     data = ws.parse_clientraw(' '.join(tokens), NOW)
     assert data['uv_index'] == 5.5 and data['solar_radiation_wm2'] == 612.0
+
+
+def test_parse_lightning_and_gusts():
+    tokens = SAMPLE.split(' ')
+    tokens[33], tokens[71], tokens[114], tokens[118], tokens[133] = '12', '20', '3', '8', '10'
+    data = ws.parse_clientraw(' '.join(tokens), NOW)
+    assert data['lightning_strikes_today'] == 12 and data['lightning_strikes_last_min'] == 3
+    assert data['lightning_distance'] == 8 and data['wind_gust_max_today_mph'] == round(20 * ws.KNOTS_TO_MPH, 2)
+    assert data['wind_gust_max_1h_mph'] == round(10 * ws.KNOTS_TO_MPH, 2)
+
+
+def test_append_series_rolls_and_throttles(tmp_path):
+    path = str(tmp_path / 'series.json')
+    base = datetime(2026, 11, 20, 12, 0, tzinfo=timezone.utc)
+    def sample(minutes, temp):
+        return {'updated': (base + timedelta(minutes=minutes)).isoformat(), 'temperature_c': temp}
+    assert ws.append_series(path, sample(0, 5.0))
+    assert not ws.append_series(path, sample(2, 5.1))
+    assert ws.append_series(path, sample(6, 5.2))
+    assert ws.append_series(path, sample(60 * 25, 4.0))
+    samples = json.load(open(path))['samples']
+    assert [s['temperature_c'] for s in samples] == [4.0]
 
 
 def test_parse_sample():
@@ -82,7 +104,7 @@ def test_update_once_retries_then_succeeds():
 
 def test_run_loop_exits_after_consecutive_failures():
     original = ws.update_once
-    ws.update_once = lambda url, output: None
+    ws.update_once = lambda url, output, **kwargs: None
     try:
         assert ws.run_loop('u', 'o', 60, max_failures=3, sleep=lambda s: None) == 1
     finally:

@@ -748,3 +748,64 @@ def test_dashboard_modules_are_included(tmp_path):
     dashboard = load_source_module('dashboard_modules_source', ROOT / 'weathercam_dashboard/dashboard.py')
     for name in ('weather_series', 'moon_phase', 'recommended_checks', 'quality_summary', 'solar_elevation'):
         assert callable(getattr(dashboard, name))
+
+
+def _dash(tmp_path):
+    dash = load_source_module('dash_insights', ROOT / 'weathercam_dashboard/dashboard.py')
+    dash.LD = tmp_path
+    return dash
+
+
+def test_insights_events_forecast_and_statistics(tmp_path):
+    dash = _dash(tmp_path)
+    now = datetime(2026, 11, 20, 12, 0, tzinfo=timezone.utc)
+    scene = [{'t': now - timedelta(minutes=60 - i), 'fog_index': 5 + i * 1.0, 'humidity_percent': 92 + i * 0.1, 'temperature_c': 8 - i * 0.05,
+              'alerts': [], 'mode': 'DAY', 'cloud_cover_pct': 50.0, 'rain_rate_mm_h': 0.0} for i in range(61)]
+    scene.append({'t': now, 'fog_index': 60.0, 'humidity_percent': 95, 'temperature_c': 5, 'alerts': [], 'mode': 'DAY', 'cloud_cover_pct': 50.0, 'rain_rate_mm_h': 6.0})
+    events = dash.smart_events(scene, [], now)
+    kinds = {e['message'].split(':')[0] for e in events}
+    assert 'Rapid fog formation' in kinds and 'Heavy rain onset' in kinds
+
+    tele = [{'_ts': now - timedelta(minutes=i), 'image_quality_score': str(90 - i * 0.5), 'sharpness_score': '50', 'camera_mode': 'DAY'} for i in range(0, 60)]
+    forecast = dash.quality_forecast(tele, now)
+    assert forecast['next_hour']['label'] and 0 <= forecast['next_hour']['score'] <= 100
+    assert dash.quality_forecast([], now) is None
+
+    low = [{'_ts': now - timedelta(minutes=i), 'image_quality_score': '30'} for i in range(10)]
+    why = dash.quality_explanation(scene, low, now)
+    assert why['status'] == 'POOR' and 'humidity' in why['text']
+
+    corr = dash.correlations(scene, tele, now)
+    assert corr['items'][0]['n'] >= 30 and corr['items'][0]['r'] is not None
+
+    stats_path = tmp_path / 'stats.json'
+    days = dash.update_daily_stats(stats_path, tele, scene, [], now + timedelta(days=1))
+    assert '2026-11-20' in days and stats_path.exists()
+    report = dash.long_term_report(days)
+    assert report['months'][0]['month'] == '2026-11' and report['year'] is None
+
+
+def test_lens_maintenance_learning_and_worsening(tmp_path):
+    dash = _dash(tmp_path)
+    now = datetime(2026, 11, 20, 18, 0, tzinfo=timezone.utc)
+    assert dash.lens_maintenance([], [], now)['status'] == 'LEARNING'
+    tele = []
+    for day in range(14):
+        base = now - timedelta(days=13 - day)
+        for minute in range(30):
+            tele.append({'_ts': base.replace(hour=11) + timedelta(minutes=minute), 'camera_mode': 'DAY',
+                         'image_quality_score': str(90 - day * 1.5), 'sharpness_score': str(60 - day * 2)})
+    result = dash.lens_maintenance([], tele, now)
+    assert result['status'] in ('CLEAN', 'WATCH') and result['days_worsening'] > 0
+
+
+def test_station_status_flags_stale_data(tmp_path):
+    dash = _dash(tmp_path)
+    now = datetime(2026, 11, 20, 12, 0, tzinfo=timezone.utc)
+    assert dash.station_status(now)['known'] is False
+    (tmp_path / 'weather_station.json').write_text(json.dumps({'updated': (now - timedelta(minutes=30)).isoformat()}))
+    assert dash.station_status(now)['stale'] is True
+    (tmp_path / 'weather_station.json').write_text(json.dumps({'updated': now.isoformat(), 'bridge_data_age_s': 700}))
+    assert dash.station_status(now)['stale'] is True
+    (tmp_path / 'weather_station.json').write_text(json.dumps({'updated': now.isoformat(), 'bridge_data_age_s': 5}))
+    assert dash.station_status(now)['stale'] is False

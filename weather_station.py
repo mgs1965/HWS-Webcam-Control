@@ -14,6 +14,7 @@ Usage:
     CLIENTRAW_URL=... python3 weather_station.py --interval 60
 """
 import argparse
+import ftplib
 import json
 import math
 import os
@@ -443,6 +444,85 @@ def update_history_local(history_path, now=None):
     return history
 
 
+LIVE_PATH = None
+LIVE_UPLOAD_SECONDS = 120
+LIVE_RETRY_SECONDS = 300
+LIVE_KEYS = ('updated', 'source', 'temperature_c', 'humidity_percent', 'pressure_hpa', 'wind_speed_mph', 'wind_gust_mph', 'wind_direction_deg', 'dew_point_c',
+             'rain_rate_mm_h', 'rain_today_mm', 'solar_radiation_wm2', 'uv_index', 'heat_index_c', 'wet_bulb_c', 'wind_chill_c', 'lightning_strikes_today',
+             'lightning_distance', 'bridge_data_age_s', 'temp_change_1h_c', 'humidity_change_1h', 'pressure_change_1h_hpa', 'wind_gust_max_1h_mph')
+_live_state = {'next': 0.0}
+
+
+def upload_live(path, name='weather-live.json'):
+    """Upload the live file to the dashboard FTP folder; a temporary name is renamed so readers never see a partial file."""
+    host, user, password = os.getenv('DASHBOARD_FTP_HOST'), os.getenv('DASHBOARD_FTP_USER'), os.getenv('DASHBOARD_FTP_PASSWORD')
+    if not (host and user and password):
+        return None
+    ftp = (ftplib.FTP_TLS if os.getenv('DASHBOARD_FTP_TLS', '0') != '0' else ftplib.FTP)()
+    try:
+        ftp.connect(host, int(os.getenv('DASHBOARD_FTP_PORT', '21')), timeout=15)
+        ftp.login(user, password)
+        if isinstance(ftp, ftplib.FTP_TLS):
+            ftp.prot_p()
+        ftp.cwd(os.getenv('DASHBOARD_FTP_DIR', '/'))
+        with open(path, 'rb') as handle:
+            ftp.storbinary('STOR ' + name + '.uploading', handle)
+        try:
+            ftp.delete(name)
+        except ftplib.error_perm:
+            pass
+        ftp.rename(name + '.uploading', name)
+        ftp.quit()
+        return True
+    except (OSError, ftplib.Error, ValueError) as error:
+        log(f'live upload failed: {error}')
+        return False
+    finally:
+        try:
+            ftp.close()
+        except OSError:
+            pass
+
+
+def publish_live(data, clock=time.monotonic):
+    """Write the small live file and, at most every LIVE_UPLOAD_SECONDS, upload it for the dashboard's live updates."""
+    if not LIVE_PATH or not data:
+        return False
+    try:
+        write_json_atomic(LIVE_PATH, {key: data[key] for key in LIVE_KEYS if data.get(key) is not None})
+    except OSError as error:
+        log(f'could not write {LIVE_PATH}: {error}')
+        return False
+    if LIVE_UPLOAD_SECONDS <= 0 or clock() < _live_state['next']:
+        return True
+    ok = upload_live(LIVE_PATH)
+    if ok is None:
+        _live_state['next'] = clock() + 3600
+    else:
+        _live_state['next'] = clock() + (LIVE_UPLOAD_SECONDS if ok else max(LIVE_UPLOAD_SECONDS, LIVE_RETRY_SECONDS))
+    return True
+
+
+def diagnose(base):
+    """Print the raw Meteobridge reply next to the converted values, for checking units against the console."""
+    url = meteobridge_url(base)
+    if not url:
+        print('no Meteobridge URL')
+        return 1
+    try:
+        text = fetch_text(url, timeout=10, headers=_meteobridge_headers())
+    except (OSError, ValueError) as error:
+        print(f'Meteobridge unavailable: {error}')
+        return 1
+    raw = dict(part.partition('=')[::2] for part in text.replace('\n', ';').split(';') if '=' in part)
+    data = parse_meteobridge(text, datetime.now().astimezone()) or {}
+    print(f"{'field':26} {'raw reply':>12}  {'converted value':>16}")
+    for key, expr in METEOBRIDGE_FIELDS:
+        print(f"{key:26} {raw.get(key, '-').strip():>12}  {data.get(key, '-')!s:>16}  [{expr}]")
+    print('Compare these with the console. Units: wind mph, rain mm, pressure hPa, temperature C.')
+    return 0
+
+
 def sibling_url(url, name):
     """clientraw.txt -> clientrawhour.txt etc.; None if the URL doesn't end in clientraw.txt."""
     return url[:-len('clientraw.txt')] + name if url.lower().endswith('clientraw.txt') else None
@@ -532,6 +612,14 @@ def append_series(path, data):
 
 
 def update_once(url, output_path, attempts=FETCH_ATTEMPTS, retry_delay=RETRY_DELAY_SECONDS, sleep=time.sleep, series_path=None):
+    """Fetch and publish once, then push the small live file for the dashboard."""
+    data = _update_once(url, output_path, attempts, retry_delay, sleep, series_path)
+    if data:
+        publish_live(data)
+    return data
+
+
+def _update_once(url, output_path, attempts, retry_delay, sleep, series_path):
     """Fetch, parse and publish once, retrying transient network errors.
 
     Returns the dict written, or None. Stale or malformed files are not
@@ -730,6 +818,9 @@ def main(argv=None):
     parser.add_argument('--meteobridge', default=os.getenv('HWS_METEOBRIDGE_URL', ''), help='Meteobridge host or template.cgi URL; read first, clientraw is the fallback')
     parser.add_argument('--meteobridge-user', default=os.getenv('HWS_METEOBRIDGE_USER', 'meteobridge'))
     parser.add_argument('--meteobridge-password', default=os.getenv('HWS_METEOBRIDGE_PASSWORD', ''))
+    parser.add_argument('--live-output', default=os.getenv('HWS_WEATHER_LIVE_PATH', '/mnt/weathercam/logs/weather_live.json'))
+    parser.add_argument('--live-upload-seconds', type=int, default=int(os.getenv('HWS_LIVE_UPLOAD_SECONDS', '120') or 0), help='upload the small live file for the dashboard every N seconds (0 = never)')
+    parser.add_argument('--diagnose', action='store_true', help='print the Meteobridge values for checking units against the console, then exit')
     parser.add_argument('--interval', type=int, default=0, help='poll every N seconds (minimum %d); omit for a single run' % MIN_FETCH_INTERVAL_SECONDS)
     parser.add_argument('--once', action='store_true')
     args = parser.parse_args(argv)
@@ -739,12 +830,15 @@ def main(argv=None):
         parser.error('set CLIENTRAW_URL (or HWS_METEOBRIDGE_URL) or pass --url')
     seed_url = args.url
     args.url = args.url or 'http://invalid.invalid/clientraw.txt'
-    global RAW_PATH, COMPARE_PATH, MINUTE_PATH, DAILY_LOG_PATH, CLIENTRAW_ENABLED, METEOBRIDGE_URL, METEOBRIDGE_USER, METEOBRIDGE_PASSWORD
+    global RAW_PATH, COMPARE_PATH, LIVE_PATH, LIVE_UPLOAD_SECONDS, MINUTE_PATH, DAILY_LOG_PATH, CLIENTRAW_ENABLED, METEOBRIDGE_URL, METEOBRIDGE_USER, METEOBRIDGE_PASSWORD
     METEOBRIDGE_USER, METEOBRIDGE_PASSWORD = args.meteobridge_user, args.meteobridge_password
     RAW_PATH = args.raw_output
+    LIVE_PATH, LIVE_UPLOAD_SECONDS = args.live_output, args.live_upload_seconds
     COMPARE_PATH = args.compare_output
     MINUTE_PATH, DAILY_LOG_PATH, CLIENTRAW_ENABLED = args.minute_output, args.daily_log_output, not args.no_clientraw
     METEOBRIDGE_URL = args.meteobridge or None
+    if args.diagnose:
+        return diagnose(args.meteobridge)
     if seed_url and METEOBRIDGE_URL:
         seed_local_history(seed_url)
     if args.once or not args.interval:

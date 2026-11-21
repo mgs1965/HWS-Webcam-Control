@@ -320,7 +320,7 @@ def sync_keogram_archive(limit=7):
    except OSError:pass
  return out
 _PARTS=Path(__file__).resolve().parent
-for _part in ('astronomy.py','analytics.py','station.py','recommendations.py'):
+for _part in ('astronomy.py','analytics.py','station.py','insights.py','recommendations.py'):
   exec(compile((_PARTS/_part).read_text(encoding='utf-8'),str(_PARTS/_part),'exec'),globals())
 def generate(upload=False):
  now=datetime.now(timezone.utc)
@@ -470,7 +470,13 @@ def generate(upload=False):
   })
  for item in log_events:
   events_payload.append({'time':item.get('time'),'severity':item.get('level','INFO'),'message':item.get('message','Operational event')})
- events_payload.extend(weather_events(weather_series(now)))
+ wseries_all=weather_series(now)
+ events_payload.extend(weather_events(wseries_all))
+ scene_rows=scene_records(now,30)
+ smart=smart_events(scene_rows,wseries_all,now)
+ events_payload.extend(smart)
+ daily_stats=update_daily_stats(LD/'dashboard_daily_stats.json',telemetry_rows,scene_rows,report_rows,now)
+ insights={'quality_forecast':quality_forecast(telemetry_rows,now),'quality_explanation':quality_explanation(scene_rows,telemetry_rows,now),'lens_maintenance':lens_maintenance(scene_rows,telemetry_rows,now),'correlations':correlations(scene_rows,telemetry_rows,now),'daily_summaries':daily_summaries(telemetry_rows,scene_rows,report_rows,incident_rows,now),'long_term':long_term_report(daily_stats),'smart_events':smart[-10:]}
  timeline_events=[{
   'time':item.get('timestamp'),
   'severity':str(item.get('severity','INFO')).upper(),
@@ -505,7 +511,8 @@ def generate(upload=False):
  } for row in report_rows[-30:]]
  scene=status_data.get('scene') if isinstance(status_data.get('scene'),dict) else None
  weather=status_data.get('weather') if isinstance(status_data.get('weather'),dict) else None
- actions=recommended_checks(metrics,timelapse,scene)
+ station=station_status(now)
+ actions=recommended_checks(metrics,timelapse,scene,station)
  wseries=weather_series(now);whour=weather_hour();whistory=weather_history();sc=solar_check(weather,scene,now)
  winsight=weather_insight(weather,scene)+frost_notes(weather)+record_notes(weather,whistory)+([sc['note']] if sc and sc.get('note') and sc.get('verdict')!='AGREE' else [])
  schedule=mode_schedule(now)
@@ -524,7 +531,7 @@ def generate(upload=False):
   'timelapse':timelapse,'recommendations':actions,'scene':scene,'periodic':status_data.get('periodic_timelapses') if isinstance(status_data.get('periodic_timelapses'),dict) else {},'weather':weather,'weather_history':whistory,'weather_raw':weather_raw(),'weather_compare':weather_compare(),'weather_series':wseries,'weather_hour':whour,'wind_rose':wind_rose(wseries,whour),'weather_summary':weather_summary(wseries),'solar_check':solar_check(weather,scene,now),'scene_history':scene_history(now),'weather_insight':winsight,'keogram':sync_keogram(),
   'reports':{'latest':daily_history[-1] if daily_history else None,'history':daily_history},
   'gallery':gallery_items,
-  'events':events_payload,'hostname':socket.gethostname(),
+  'events':events_payload,'insights':insights,'station_status':station,'hostname':socket.gethostname(),
   'counts':{'health':len(health_rows),'telemetry':len(telemetry_rows)},
   'config':safe_config,
  }

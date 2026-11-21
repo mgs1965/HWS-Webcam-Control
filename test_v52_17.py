@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parent
 def test_release_identity():
     namespace = {}
     exec((ROOT / 'version.py').read_text(encoding='utf-8'), namespace)
-    assert namespace['VERSION'] == 'V52.16'
+    assert namespace['VERSION'] == 'V52.17'
     assert namespace['TELEMETRY_SCHEMA_VERSION'] == 4
 
 def test_telemetry_schema():
@@ -32,11 +32,11 @@ def test_credentials_are_not_embedded():
     assert "FTP_PASSWORD = os.getenv('HWS_FTP_PASSWORD', '')" in core
     assert 'cGnRUCGhc' not in core
 
-def test_dashboard_v52_16_payload():
+def test_dashboard_v52_17_payload():
     dashboard = (ROOT / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
     template = (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
-    assert "V='52.16'" in dashboard
-    assert "'release':'V52.16'" in dashboard
+    assert "V='52.17'" in dashboard
+    assert "'release':'V52.17'" in dashboard
     assert "for period,hours in (('24h',24),('7d',168),('30d',720))" in dashboard
     assert 'incidents' in dashboard
     assert "'process_memory':('health','memory.process_rss_bytes',1/1048576)" in dashboard
@@ -232,7 +232,7 @@ def test_controller_configuration_fingerprint_tracks_real_limits():
 
 def test_camera_service_unit_and_install_preserve_existing_unit():
     service = (ROOT / 'systemd/weathercam.service').read_text(encoding='utf-8')
-    installer = (ROOT / 'install_v52_16.sh').read_text(encoding='utf-8')
+    installer = (ROOT / 'install_v52_17.sh').read_text(encoding='utf-8')
     assert 'EnvironmentFile=/etc/weathercam/dashboard.env' in service
     assert 'Restart=on-failure' in service
     assert 'TimeoutStopSec=240' in service
@@ -494,6 +494,39 @@ def test_raw_files_are_recorded(tmp_path):
     assert 'id="view-station"' in template and 'data-raw="clientrawextra"' in template
 
 
+def test_station_analytics(tmp_path):
+    dashboard = load_source_module('dashboard_analytics_source', ROOT / 'weathercam_dashboard/dashboard.py')
+    dashboard.LD = tmp_path
+    noon = datetime(2026, 6, 21, 11, 0, tzinfo=timezone.utc)
+    cloudy = dashboard.solar_check({'solar_radiation_wm2': 100}, {'cloud_cover_pct': 5}, noon)
+    assert cloudy['verdict'] == 'CAMERA_CLEARER' and cloudy['solar_cloud_pct'] > 80
+    assert dashboard.solar_check({'solar_radiation_wm2': 100}, {}, datetime(2026, 12, 21, 0, 0, tzinfo=timezone.utc)) is None
+    history = {'year_records': {'temp_max_c': {'value': 30.0}, 'pressure_min_hpa': {'value': 980.0}}}
+    assert dashboard.record_notes({'temperature_c': 31, 'pressure_hpa': 1000}, history)[0].startswith('Year-to-date temperature high')
+    assert dashboard.record_notes({'temperature_c': 20}, history) == []
+    assert 'Freezing' in dashboard.frost_notes({'temperature_c': -1})[0] and 'Frost risk' in dashboard.frost_notes({'temperature_c': 2, 'dew_point_c': 0})[0]
+    assert dashboard.frost_notes({'temperature_c': 10}) == []
+    series = [{'t': (noon + timedelta(minutes=5 * i)).isoformat(), 'wind_direction_deg': 90, 'wind_speed_mph': 4, 'lightning_strikes_today': 0 if i < 2 else 3,
+               'temperature_c': 5, 'dew_point_c': 4.5, 'humidity_percent': 97} for i in range(8)]
+    rose = dashboard.wind_rose(series, {})
+    assert rose['percent'][4] == 100.0
+    messages = [e['message'] for e in dashboard.weather_events(series)]
+    assert any(m.startswith('Lightning') for m in messages) and any(m.startswith('Fog') for m in messages)
+    assert dashboard.weather_summary(series)['lightning_today'] == 3.0
+    tokens = ['1'] * 481
+    tokens[420] = '250'
+    (tmp_path / 'weather_station_raw.json').write_text(json.dumps({'clientrawhour': {'fetched': 't', 'tokens': tokens}}))
+    hour = dashboard.weather_hour()
+    assert hour['solar_wm2'][0] == 250.0 and abs(hour['wind_mph'][0] - 1.15078) < 1e-6
+
+
+def test_overlay_station_extras(tmp_path):
+    format_weather_overlay = load_v52_namespace(tmp_path, 'scene_analysis.py')['format_weather_overlay']
+    text = format_weather_overlay({'temperature_c': 5, 'wind_gust_mph': 20, 'solar_radiation_wm2': 300, 'uv_index': 1.5})
+    assert 'Gust 20mph' in text and 'Solar 300W/m2' in text and 'UV 1.5' in text
+    assert 'Solar' not in format_weather_overlay({'temperature_c': 5, 'solar_radiation_wm2': 0})
+
+
 def test_periodic_upload_switches_are_per_kind():
     timelapse = (ROOT / 'timelapse.py').read_text(encoding='utf-8')
     core = (ROOT / 'core.py').read_text(encoding='utf-8')
@@ -557,14 +590,14 @@ def test_release_zip_extracts_to_matching_directory(tmp_path):
     manifest = json.loads((ROOT / 'manifest.json').read_text(encoding='utf-8'))
     with zipfile.ZipFile(tmp_path / manifest['package']) as archive:
         names = archive.namelist()
-    assert manifest['package'] == 'HWS-Webcam-Control-52.16.zip'
-    assert all(name.startswith('HWS-Webcam-Control-52.16/') for name in names)
-    assert 'HWS-Webcam-Control-52.16/manifest.json' in names
+    assert manifest['package'] == 'HWS-Webcam-Control-52.17.zip'
+    assert all(name.startswith('HWS-Webcam-Control-52.17/') for name in names)
+    assert 'HWS-Webcam-Control-52.17/manifest.json' in names
 
 def _load_dashboard(tmp_path, monkeypatch):
     monkeypatch.setenv('WEATHERCAM_ROOT', str(tmp_path))
     monkeypatch.setenv('DASHBOARD_OUT', str(tmp_path / 'out'))
-    spec = importlib.util.spec_from_file_location('dash52_16', ROOT / 'weathercam_dashboard/dashboard.py')
+    spec = importlib.util.spec_from_file_location('dash52_17', ROOT / 'weathercam_dashboard/dashboard.py')
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -589,7 +622,7 @@ def test_dashboard_moon_and_disk_forecast(tmp_path, monkeypatch):
     assert forecast['percent_per_day'] > 0 and forecast['days_to_full'] > 0
     assert dash.disk_forecast(rows[:5], now) is None
 
-def test_dashboard_v52_16_template_and_event_tag():
+def test_dashboard_v52_17_template_and_event_tag():
     dashboard = (ROOT / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
     template = (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
     assert '[MODE TRANSITION]' in dashboard and '[MODE CHANGE]' not in dashboard

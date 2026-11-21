@@ -1,4 +1,4 @@
-"""V52.16 physical module: scene_analysis.py. Loaded into the shared runtime namespace.
+"""V52.17 physical module: scene_analysis.py. Loaded into the shared runtime namespace.
 Do not import directly; use weather_camera.py.
 
 Observational scene intelligence: sky/cloud estimate, fog and haze, lens
@@ -39,6 +39,7 @@ SCENE_FOCUS_WINDOW = 360
 SCENE_FOCUS_MIN_SAMPLES = 120
 SCENE_FOCUS_DRIFT_RATIO = 0.90
 SCENE_FOCUS_RECOVERY_RATIO = 0.94
+SCENE_OVERLAY_STATION_EXTRAS = os.getenv('HWS_OVERLAY_STATION_EXTRAS', '1') != '0'
 SCENE_WEATHER_DATA_PATH = os.getenv('HWS_WEATHER_DATA_PATH', os.path.join(LOGS_PATH, 'weather_station.json'))
 SCENE_WEATHER_MAX_AGE_SECONDS = 900
 SCENE_WEATHER_CACHE_SECONDS = 30
@@ -269,6 +270,15 @@ def format_weather_overlay(weather):
         parts.append(f"Wind {weather['wind_speed_mph']:.0f}mph")
     if weather.get('rain_rate_mm_h', 0) > 0:
         parts.append(f"Rain {weather['rain_rate_mm_h']:.1f}mm/h")
+    if SCENE_OVERLAY_STATION_EXTRAS:
+        if weather.get('wind_gust_mph') and weather['wind_gust_mph'] >= 10:
+            parts.append(f"Gust {weather['wind_gust_mph']:.0f}mph")
+        if weather.get('solar_radiation_wm2', 0) > 0:
+            parts.append(f"Solar {weather['solar_radiation_wm2']:.0f}W/m2")
+        if weather.get('uv_index', 0) > 0:
+            parts.append(f"UV {weather['uv_index']:.1f}")
+        if weather.get('lightning_strikes_last_min', 0) > 0:
+            parts.append(f"Lightning {weather['lightning_strikes_last_min']:.0f}")
     return ' | '.join(parts) or None
 
 def summarise_scene(result):

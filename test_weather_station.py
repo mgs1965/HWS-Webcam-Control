@@ -228,7 +228,7 @@ def test_seed_local_history_from_clientraw(tmp_path):
         daily[2 + i], daily[33 + i], daily[95 + i] = str(10 + i), str(i), str(990 + i)
     files = {'clientrawhour.txt': ' '.join(hour), 'clientrawdaily.txt': ' '.join(daily)}
     ws.fetch_text = lambda url, timeout=10, headers=None: files[url.rsplit('/', 1)[1]]
-    now = datetime.now().astimezone().replace(microsecond=0)
+    now = datetime.now().astimezone().replace(second=30, microsecond=0)
     try:
         added = ws.seed_local_history('http://c/clientraw.txt', now)
         assert added['minutes'] == 59 and added['days'] == 30

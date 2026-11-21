@@ -217,3 +217,24 @@ def test_clientraw_off_uses_local_history(tmp_path):
     finally:
         ws.datetime = real
         (ws.fetch_text, ws.METEOBRIDGE_URL, ws.COMPARE_PATH, ws.CLIENTRAW_ENABLED, ws.MINUTE_PATH, ws.DAILY_LOG_PATH) = old
+
+
+def test_seed_local_history_from_clientraw(tmp_path):
+    old = (ws.fetch_text, ws.MINUTE_PATH, ws.DAILY_LOG_PATH)
+    ws.MINUTE_PATH, ws.DAILY_LOG_PATH = str(tmp_path / 'm.json'), str(tmp_path / 'd.json')
+    hour = ['12345'] + [str(v) for blk in (10, 12, 180, 5, 80, 1000) for v in [blk] * 60] + ['0'] * 20
+    daily = ['12345', '0'] + ['0'] * 130
+    for i in range(30):
+        daily[2 + i], daily[33 + i], daily[95 + i] = str(10 + i), str(i), str(990 + i)
+    files = {'clientrawhour.txt': ' '.join(hour), 'clientrawdaily.txt': ' '.join(daily)}
+    ws.fetch_text = lambda url, timeout=10, headers=None: files[url.rsplit('/', 1)[1]]
+    now = datetime.now().astimezone().replace(microsecond=0)
+    try:
+        added = ws.seed_local_history('http://c/clientraw.txt', now)
+        assert added['minutes'] == 59 and added['days'] == 30
+        samples = json.loads((tmp_path / 'm.json').read_text())['samples']
+        assert samples[0]['temperature_c'] == 5.0 and abs(samples[0]['wind_speed_mph'] - 10 * ws.KNOTS_TO_MPH) < 0.01
+        assert ws.seed_local_history('http://c/clientraw.txt', now) == {'minutes': 0, 'days': 0}
+        assert len(json.loads((tmp_path / 'd.json').read_text())['days']) == 30
+    finally:
+        ws.fetch_text, ws.MINUTE_PATH, ws.DAILY_LOG_PATH = old

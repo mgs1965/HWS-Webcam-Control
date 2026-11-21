@@ -162,3 +162,23 @@ if __name__ == '__main__':
         if name.startswith('test_'):
             function()
     print('weather_station tests passed')
+
+
+def test_meteobridge_parse_url_and_fallback():
+    import weather_station as ws
+    assert ws.meteobridge_url('192.168.0.65').startswith('http://192.168.0.65/cgi-bin/template.cgi?template=')
+    assert 'wind0wind-act%3Dmph' in ws.meteobridge_url('http://192.168.0.65/')
+    now = datetime.now().astimezone()
+    data = ws.parse_meteobridge('temperature_c=5.6;humidity_percent=85.0;pressure_hpa=1000.7;wind_speed_mph=--;uv_index=0.0;rain_today_mm=1.2;bogus=1', now)
+    assert data['temperature_c'] == 5.6 and data['rain_today_mm'] == 1.2 and data['source'] == 'meteobridge'
+    assert 'wind_speed_mph' not in data and 'bogus' not in data
+    assert ws.parse_meteobridge('temperature_c=--;humidity_percent=--', now) is None
+    old = (ws.fetch_text, ws.METEOBRIDGE_URL)
+    ws.METEOBRIDGE_URL = 'x'
+    ws.fetch_text = lambda url, timeout=10: 'temperature_c=5.6;humidity_percent=85' if 'template.cgi' in url else (_ for _ in ()).throw(OSError('down'))
+    try:
+        with tempfile.TemporaryDirectory() as directory:
+            result = ws.update_once('http://clientraw/clientraw.txt', os.path.join(directory, 'w.json'), sleep=lambda s: None)
+            assert result['temperature_c'] == 5.6
+    finally:
+        ws.fetch_text, ws.METEOBRIDGE_URL = old

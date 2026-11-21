@@ -77,6 +77,12 @@ LIMITS = {
     'lightning_strikes_last_min': (0.0, 100000.0),
     'lightning_strikes_today': (0.0, 1000000.0),
     'lightning_distance': (0.0, 1000.0),
+    'heat_index_c': (-60.0, 80.0),
+    'wet_bulb_c': (-60.0, 60.0),
+    'wind_chill_c': (-80.0, 60.0),
+    'sunshine_hours_today': (0.0, 24.0),
+    'lightning_energy': (0.0, 1e12),
+    'bridge_data_age_s': (0.0, 1e7),
 }
 
 
@@ -218,6 +224,66 @@ def parse_clientrawextra(text):
     return records or None
 
 
+# Meteobridge live-data template: (output key, template expression, scale).
+METEOBRIDGE_FIELDS = (
+    ('temperature_c', 'th0temp-act'), ('humidity_percent', 'th0hum-act'), ('dew_point_c', 'th0dew-act'),
+    ('pressure_hpa', 'thb0seapress-act'), ('wind_speed_mph', 'wind0avgwind-act=mph'), ('wind_gust_mph', 'wind0wind-act=mph'),
+    ('wind_direction_deg', 'wind0dir-act'), ('wind_gust_max_today_mph', 'wind0wind-dmax=mph'),
+    ('rain_rate_mm_h', 'rain0rate-act'), ('rain_today_mm', 'rain0total-daysum'),
+    ('solar_radiation_wm2', 'sol0rad-act'), ('uv_index', 'uv0index-act'), ('sunshine_hours_today', 'sol0total-daysum'),
+    ('lightning_strikes_today', 'lgt0total-daysum'), ('lightning_distance', 'lgt0distance-act'), ('lightning_energy', 'lgt0energy-act'),
+    ('heat_index_c', 'th0heatindex-act'), ('wet_bulb_c', 'th0wetbulb-act'), ('wind_chill_c', 'wind0chill-act'),
+    ('bridge_data_age_s', 'data16num-act'),
+)
+METEOBRIDGE_URL = None
+
+
+def meteobridge_endpoint(base):
+    """Accept 'host', 'http://host' or a full template.cgi URL and return the template.cgi URL."""
+    base = (base or '').strip()
+    if not base:
+        return None
+    if not base.lower().startswith(('http://', 'https://')):
+        base = 'http://' + base
+    return base if 'template.cgi' in base else base.rstrip('/') + '/cgi-bin/template.cgi'
+
+
+def meteobridge_url(base):
+    from urllib.parse import quote
+    template = ';'.join(f'{key}=[{expr}]' for key, expr in METEOBRIDGE_FIELDS)
+    endpoint = meteobridge_endpoint(base)
+    return f"{endpoint.split('?')[0]}?template={quote(template, safe='')}" if endpoint else None
+
+
+def parse_meteobridge(text, now):
+    """Parse the 'key=value;key=value' Meteobridge reply; missing sensors ('--', blank) are dropped."""
+    allowed = {key for key, _ in METEOBRIDGE_FIELDS}
+    raw = {}
+    for part in (text or '').replace('\n', ';').split(';'):
+        key, _, value = part.partition('=')
+        key = key.strip()
+        if key in allowed:
+            raw[key] = _number(value.strip())
+    values = {key: _bounded(key, value) for key, value in raw.items() if key in LIMITS}
+    values = {key: value for key, value in values.items() if value is not None}
+    if not any(key in values for key in ('temperature_c', 'humidity_percent', 'pressure_hpa')):
+        return None
+    values['updated'] = now.isoformat()
+    values['source'] = 'meteobridge'
+    return values
+
+
+def fetch_meteobridge(base):
+    url = meteobridge_url(base)
+    if not url:
+        return None
+    try:
+        return parse_meteobridge(fetch_text(url, timeout=6), datetime.now().astimezone())
+    except (OSError, ValueError) as error:
+        log(f'meteobridge unavailable, using clientraw: {error}')
+        return None
+
+
 def sibling_url(url, name):
     """clientraw.txt -> clientrawhour.txt etc.; None if the URL doesn't end in clientraw.txt."""
     return url[:-len('clientraw.txt')] + name if url.lower().endswith('clientraw.txt') else None
@@ -311,19 +377,24 @@ def update_once(url, output_path, attempts=FETCH_ATTEMPTS, retry_delay=RETRY_DEL
     Returns the dict written, or None. Stale or malformed files are not
     retried (the station itself has to recover) and are never written.
     """
+    live = fetch_meteobridge(METEOBRIDGE_URL) if METEOBRIDGE_URL else None
     for attempt in range(1, attempts + 1):
         try:
             text = fetch_text(url)
         except (OSError, ValueError) as error:
             log(f'fetch failed (attempt {attempt}/{attempts}): {error}')
-            if attempt < attempts:
+            if live is None and attempt < attempts:
                 sleep(retry_delay * attempt)
-            continue
-        data = parse_clientraw(text, datetime.now().astimezone())
-        if data is None:
+            if live is None:
+                continue
+            text = ''
+        data = parse_clientraw(text, datetime.now().astimezone()) if text else None
+        if data is None and live is None:
             log('clientraw malformed or stale; not publishing')
             return None
-        record_raw('clientraw', text)
+        if text and data is not None:
+            record_raw('clientraw', text)
+        data = {**(data or {}), **(live or {})}
         hour_url = sibling_url(url, 'clientrawhour.txt')
         if hour_url:
             try:
@@ -405,13 +476,16 @@ def main(argv=None):
     parser.add_argument('--history-output', default=os.getenv('HWS_WEATHER_HISTORY_PATH', '/mnt/weathercam/logs/weather_station_history.json'))
     parser.add_argument('--series-output', default=os.getenv('HWS_WEATHER_SERIES_PATH', '/mnt/weathercam/logs/weather_station_series.json'))
     parser.add_argument('--raw-output', default=os.getenv('HWS_WEATHER_RAW_PATH', '/mnt/weathercam/logs/weather_station_raw.json'))
+    parser.add_argument('--meteobridge', default=os.getenv('HWS_METEOBRIDGE_URL', ''), help='Meteobridge host or template.cgi URL; read first, clientraw is the fallback')
     parser.add_argument('--interval', type=int, default=0, help='poll every N seconds (minimum %d); omit for a single run' % MIN_FETCH_INTERVAL_SECONDS)
     parser.add_argument('--once', action='store_true')
     args = parser.parse_args(argv)
-    if not args.url:
-        parser.error('set CLIENTRAW_URL or pass --url')
-    global RAW_PATH
+    if not args.url and not args.meteobridge:
+        parser.error('set CLIENTRAW_URL (or HWS_METEOBRIDGE_URL) or pass --url')
+    args.url = args.url or 'http://invalid.invalid/clientraw.txt'
+    global RAW_PATH, METEOBRIDGE_URL
     RAW_PATH = args.raw_output
+    METEOBRIDGE_URL = args.meteobridge or None
     if args.once or not args.interval:
         update_history(args.url, args.history_output)
         return 0 if update_once(args.url, args.output, series_path=args.series_output) else 1

@@ -166,3 +166,12 @@ def weather_compare():
   if key=='wind_direction_deg' and diff is not None:diff=round((diff+180)%360-180,2)
   rows.append({'label':label,'unit':unit,'clientraw':a,'meteobridge':b,'diff':diff,'status':'missing' if diff is None else ('differs' if abs(diff)>tol else 'match')})
  return {'updated':str(d.get('updated',''))[:40],'rows':rows}
+def station_status(now):
+ """Flag weather data that has stopped updating (service stopped, or the Meteobridge has lost the console)."""
+ data=jsonfile(LD/'weather_station.json')
+ if not data:return {'stale':False,'known':False}
+ updated=dt(data.get('updated'));age=(now-updated).total_seconds() if updated else None
+ bridge=num(data.get('bridge_data_age_s'))
+ if age is not None and age>600:return {'stale':True,'known':True,'age_s':round(age),'message':f'Weather data is {age/60:.0f} min old; check the weathercam-weather-station service.'}
+ if bridge is not None and bridge>=600:return {'stale':True,'known':True,'age_s':round(bridge),'message':f'The Meteobridge has had no console data for {bridge/60:.0f} min; check the console link.'}
+ return {'stale':False,'known':True,'age_s':round(age) if age is not None else None}

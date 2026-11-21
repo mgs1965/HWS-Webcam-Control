@@ -238,3 +238,18 @@ def test_seed_local_history_from_clientraw(tmp_path):
         assert len(json.loads((tmp_path / 'd.json').read_text())['days']) == 30
     finally:
         ws.fetch_text, ws.MINUTE_PATH, ws.DAILY_LOG_PATH = old
+
+
+def test_publish_live_writes_subset_and_throttles(tmp_path, monkeypatch):
+    uploads = []
+    monkeypatch.setattr(ws, 'LIVE_PATH', str(tmp_path / 'live.json'))
+    monkeypatch.setattr(ws, 'LIVE_UPLOAD_SECONDS', 120)
+    monkeypatch.setitem(ws._live_state, 'next', 0.0)
+    monkeypatch.setattr(ws, 'upload_live', lambda path: uploads.append(path) or True)
+    data = {'updated': 'x', 'temperature_c': 5.0, 'secret_internal': 1}
+    assert ws.publish_live(data, clock=lambda: 1000.0)
+    assert ws.publish_live(data, clock=lambda: 1060.0)
+    assert ws.publish_live(data, clock=lambda: 1121.0)
+    written = json.load(open(tmp_path / 'live.json'))
+    assert written == {'updated': 'x', 'temperature_c': 5.0}
+    assert len(uploads) == 2

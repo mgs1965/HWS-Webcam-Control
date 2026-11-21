@@ -1,6 +1,8 @@
 # Operator recommendations (included into dashboard.py).
-def recommended_checks(metrics,timelapse,scene=None):
+def recommended_checks(metrics,timelapse,scene=None,station=None):
  checks=[]
+ if station and station.get('stale'):
+  checks.append({'issue':'Weather station data','action':station.get('message') or 'Check the weather-station service and the Meteobridge.'})
  if metrics['capture_state'] in ('WARNING','CRITICAL','UNKNOWN'):
   checks.append({'issue':'Capture stream','action':'Check the camera service and the timestamp of the latest capture.'})
  if metrics['ftp_health'] in ('OUTAGE','DEGRADED','RECOVERING'):

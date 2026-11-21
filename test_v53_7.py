@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parent
 def test_release_identity():
     namespace = {}
     exec((ROOT / 'version.py').read_text(encoding='utf-8'), namespace)
-    assert namespace['VERSION'] == 'V53.6'
+    assert namespace['VERSION'] == 'V53.7'
     assert namespace['TELEMETRY_SCHEMA_VERSION'] == 4
 
 def test_telemetry_schema():
@@ -32,11 +32,11 @@ def test_credentials_are_not_embedded():
     assert "FTP_PASSWORD = os.getenv('HWS_FTP_PASSWORD', '')" in core
     assert 'cGnRUCGhc' not in core
 
-def test_dashboard_v53_6_payload():
+def test_dashboard_v53_7_payload():
     dashboard = (ROOT / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
     template = (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
-    assert "V='53.6'" in dashboard
-    assert "'release':'V53.6'" in dashboard
+    assert "V='53.7'" in dashboard
+    assert "'release':'V53.7'" in dashboard
     assert "for period,hours in (('24h',24),('7d',168),('30d',720))" in dashboard
     assert 'incidents' in dashboard
     assert "'process_memory':('health','memory.process_rss_bytes',1/1048576)" in dashboard
@@ -232,7 +232,7 @@ def test_controller_configuration_fingerprint_tracks_real_limits():
 
 def test_camera_service_unit_and_install_preserve_existing_unit():
     service = (ROOT / 'systemd/weathercam.service').read_text(encoding='utf-8')
-    installer = (ROOT / 'install_v53_6.sh').read_text(encoding='utf-8')
+    installer = (ROOT / 'install_v53_7.sh').read_text(encoding='utf-8')
     assert 'EnvironmentFile=/etc/weathercam/dashboard.env' in service
     assert 'Restart=on-failure' in service
     assert 'TimeoutStopSec=240' in service
@@ -633,14 +633,14 @@ def test_release_zip_extracts_to_matching_directory(tmp_path):
     manifest = json.loads((ROOT / 'manifest.json').read_text(encoding='utf-8'))
     with zipfile.ZipFile(tmp_path / manifest['package']) as archive:
         names = archive.namelist()
-    assert manifest['package'] == 'HWS-Webcam-Control-53.6.zip'
-    assert all(name.startswith('HWS-Webcam-Control-53.6/') for name in names)
-    assert 'HWS-Webcam-Control-53.6/manifest.json' in names
+    assert manifest['package'] == 'HWS-Webcam-Control-53.7.zip'
+    assert all(name.startswith('HWS-Webcam-Control-53.7/') for name in names)
+    assert 'HWS-Webcam-Control-53.7/manifest.json' in names
 
 def _load_dashboard(tmp_path, monkeypatch):
     monkeypatch.setenv('WEATHERCAM_ROOT', str(tmp_path))
     monkeypatch.setenv('DASHBOARD_OUT', str(tmp_path / 'out'))
-    spec = importlib.util.spec_from_file_location('dash53_6', ROOT / 'weathercam_dashboard/dashboard.py')
+    spec = importlib.util.spec_from_file_location('dash53_7', ROOT / 'weathercam_dashboard/dashboard.py')
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -665,7 +665,7 @@ def test_dashboard_moon_and_disk_forecast(tmp_path, monkeypatch):
     assert forecast['percent_per_day'] > 0 and forecast['days_to_full'] > 0
     assert dash.disk_forecast(rows[:5], now) is None
 
-def test_dashboard_v53_6_template_and_event_tag():
+def test_dashboard_v53_7_template_and_event_tag():
     dashboard = (ROOT / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
     template = (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
     assert '[MODE TRANSITION]' in dashboard and '[MODE CHANGE]' not in dashboard
@@ -748,3 +748,64 @@ def test_dashboard_modules_are_included(tmp_path):
     dashboard = load_source_module('dashboard_modules_source', ROOT / 'weathercam_dashboard/dashboard.py')
     for name in ('weather_series', 'moon_phase', 'recommended_checks', 'quality_summary', 'solar_elevation'):
         assert callable(getattr(dashboard, name))
+
+
+def _dash(tmp_path):
+    dash = load_source_module('dash_insights', ROOT / 'weathercam_dashboard/dashboard.py')
+    dash.LD = tmp_path
+    return dash
+
+
+def test_insights_events_forecast_and_statistics(tmp_path):
+    dash = _dash(tmp_path)
+    now = datetime(2026, 11, 20, 12, 0, tzinfo=timezone.utc)
+    scene = [{'t': now - timedelta(minutes=60 - i), 'fog_index': 5 + i * 1.0, 'humidity_percent': 92 + i * 0.1, 'temperature_c': 8 - i * 0.05,
+              'alerts': [], 'mode': 'DAY', 'cloud_cover_pct': 50.0, 'rain_rate_mm_h': 0.0} for i in range(61)]
+    scene.append({'t': now, 'fog_index': 60.0, 'humidity_percent': 95, 'temperature_c': 5, 'alerts': [], 'mode': 'DAY', 'cloud_cover_pct': 50.0, 'rain_rate_mm_h': 6.0})
+    events = dash.smart_events(scene, [], now)
+    kinds = {e['message'].split(':')[0] for e in events}
+    assert 'Rapid fog formation' in kinds and 'Heavy rain onset' in kinds
+
+    tele = [{'_ts': now - timedelta(minutes=i), 'image_quality_score': str(90 - i * 0.5), 'sharpness_score': '50', 'camera_mode': 'DAY'} for i in range(0, 60)]
+    forecast = dash.quality_forecast(tele, now)
+    assert forecast['next_hour']['label'] and 0 <= forecast['next_hour']['score'] <= 100
+    assert dash.quality_forecast([], now) is None
+
+    low = [{'_ts': now - timedelta(minutes=i), 'image_quality_score': '30'} for i in range(10)]
+    why = dash.quality_explanation(scene, low, now)
+    assert why['status'] == 'POOR' and 'humidity' in why['text']
+
+    corr = dash.correlations(scene, tele, now)
+    assert corr['items'][0]['n'] >= 30 and corr['items'][0]['r'] is not None
+
+    stats_path = tmp_path / 'stats.json'
+    days = dash.update_daily_stats(stats_path, tele, scene, [], now + timedelta(days=1))
+    assert '2026-11-20' in days and stats_path.exists()
+    report = dash.long_term_report(days)
+    assert report['months'][0]['month'] == '2026-11' and report['year'] is None
+
+
+def test_lens_maintenance_learning_and_worsening(tmp_path):
+    dash = _dash(tmp_path)
+    now = datetime(2026, 11, 20, 18, 0, tzinfo=timezone.utc)
+    assert dash.lens_maintenance([], [], now)['status'] == 'LEARNING'
+    tele = []
+    for day in range(14):
+        base = now - timedelta(days=13 - day)
+        for minute in range(30):
+            tele.append({'_ts': base.replace(hour=11) + timedelta(minutes=minute), 'camera_mode': 'DAY',
+                         'image_quality_score': str(90 - day * 1.5), 'sharpness_score': str(60 - day * 2)})
+    result = dash.lens_maintenance([], tele, now)
+    assert result['status'] in ('CLEAN', 'WATCH') and result['days_worsening'] > 0
+
+
+def test_station_status_flags_stale_data(tmp_path):
+    dash = _dash(tmp_path)
+    now = datetime(2026, 11, 20, 12, 0, tzinfo=timezone.utc)
+    assert dash.station_status(now)['known'] is False
+    (tmp_path / 'weather_station.json').write_text(json.dumps({'updated': (now - timedelta(minutes=30)).isoformat()}))
+    assert dash.station_status(now)['stale'] is True
+    (tmp_path / 'weather_station.json').write_text(json.dumps({'updated': now.isoformat(), 'bridge_data_age_s': 700}))
+    assert dash.station_status(now)['stale'] is True
+    (tmp_path / 'weather_station.json').write_text(json.dumps({'updated': now.isoformat(), 'bridge_data_age_s': 5}))
+    assert dash.station_status(now)['stale'] is False

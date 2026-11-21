@@ -250,9 +250,9 @@ def meteobridge_endpoint(base):
     return base if 'template.cgi' in base else base.rstrip('/') + '/cgi-bin/template.cgi'
 
 
-def meteobridge_url(base):
+def meteobridge_url(base, fields=None):
     from urllib.parse import quote
-    template = ';'.join(f'{key}=[{expr}]' for key, expr in METEOBRIDGE_FIELDS)
+    template = ';'.join(f'{key}=[{expr}]' for key, expr in (fields or METEOBRIDGE_FIELDS))
     endpoint = meteobridge_endpoint(base)
     return f"{endpoint.split('?')[0]}?template={quote(template, safe='')}" if endpoint else None
 
@@ -275,20 +275,172 @@ def parse_meteobridge(text, now):
     return values
 
 
+def _meteobridge_headers():
+    if not METEOBRIDGE_PASSWORD:
+        return {}
+    import base64
+    return {'Authorization': 'Basic ' + base64.b64encode(f'{METEOBRIDGE_USER}:{METEOBRIDGE_PASSWORD}'.encode()).decode()}
+
+
 def fetch_meteobridge(base):
     url = meteobridge_url(base)
     if not url:
         return None
     try:
-        headers = {}
-        if METEOBRIDGE_PASSWORD:
-            import base64
-            headers['Authorization'] = 'Basic ' + base64.b64encode(f'{METEOBRIDGE_USER}:{METEOBRIDGE_PASSWORD}'.encode()).decode()
-        return parse_meteobridge(fetch_text(url, timeout=6, headers=headers), datetime.now().astimezone())
+        return parse_meteobridge(fetch_text(url, timeout=6, headers=_meteobridge_headers()), datetime.now().astimezone())
     except (OSError, ValueError) as error:
         hint = ' (set HWS_METEOBRIDGE_USER / HWS_METEOBRIDGE_PASSWORD)' if '401' in str(error) else ''
-        log(f'meteobridge unavailable, using clientraw: {error}{hint}')
+        log(f'meteobridge unavailable{", using clientraw" if CLIENTRAW_ENABLED else ""}: {error}{hint}')
         return None
+
+
+# Year-to-date extremes use aggregate suffixes that are requested separately, so an unsupported one cannot break the live reading.
+YEAR_FIELDS = (('temp_max_c', 'th0temp-ymax', -60.0, 60.0), ('temp_min_c', 'th0temp-ymin', -60.0, 60.0),
+               ('pressure_max_hpa', 'thb0seapress-ymax', 850.0, 1100.0), ('pressure_min_hpa', 'thb0seapress-ymin', 850.0, 1100.0))
+
+
+def fetch_year_records(base):
+    url = meteobridge_url(base, [(key, expr) for key, expr, _, _ in YEAR_FIELDS])
+    if not url:
+        return {}
+    try:
+        text = fetch_text(url, timeout=6, headers=_meteobridge_headers())
+    except (OSError, ValueError) as error:
+        log(f'meteobridge year records unavailable: {error}')
+        return {}
+    values = {}
+    for part in text.replace('\n', ';').split(';'):
+        key, _, value = part.partition('=')
+        values[key.strip()] = _number(value.strip())
+    records = {}
+    for key, _, low, high in YEAR_FIELDS:
+        value = values.get(key)
+        if value is not None and low <= value <= high:
+            records[key] = {'value': value, 'when': ''}
+    return records
+
+
+# Local history kept from the Meteobridge readings so the clientraw files can be switched off.
+CLIENTRAW_ENABLED = True
+MINUTE_PATH = None
+DAILY_LOG_PATH = None
+MINUTE_INTERVAL_SECONDS = 55
+MINUTE_KEEP_MINUTES = 90
+MINUTE_KEYS = ('temperature_c', 'humidity_percent', 'pressure_hpa', 'wind_speed_mph', 'wind_gust_mph', 'wind_direction_deg', 'solar_radiation_wm2')
+DAILY_LOG_DAYS = 400
+
+
+def _load_json(path, default):
+    try:
+        with open(path, encoding='utf-8') as handle:
+            data = json.load(handle)
+    except (OSError, ValueError):
+        return default
+    return data if isinstance(data, type(default)) else default
+
+
+def record_minute(data, path=None):
+    """Append a reading to the rolling minute log; returns the retained samples (oldest first)."""
+    path = path or MINUTE_PATH
+    if not path:
+        return []
+    stamp = datetime.fromisoformat(data['updated'])
+    cutoff = stamp - timedelta(minutes=MINUTE_KEEP_MINUTES)
+    samples = []
+    for sample in _load_json(path, {}).get('samples', []):
+        try:
+            if isinstance(sample, dict) and datetime.fromisoformat(sample['t']) >= cutoff:
+                samples.append(sample)
+        except (KeyError, TypeError, ValueError):
+            pass
+    try:
+        gap = (stamp - datetime.fromisoformat(samples[-1]['t'])).total_seconds() if samples else None
+    except ValueError:
+        gap = None
+    if gap is None or gap >= MINUTE_INTERVAL_SECONDS or gap < 0:
+        samples.append({'t': data['updated'], **{key: data.get(key) for key in MINUTE_KEYS}})
+        try:
+            write_json_atomic(path, {'updated': data['updated'], 'samples': samples})
+        except OSError as error:
+            log(f'could not write {path}: {error}')
+    return samples
+
+
+def local_trends(samples):
+    """1-hour changes and max gust from the minute log; omitted unless the log spans at least 40 minutes."""
+    points = []
+    for sample in samples:
+        try:
+            points.append((datetime.fromisoformat(sample['t']), sample))
+        except (KeyError, TypeError, ValueError):
+            pass
+    if len(points) < 10:
+        return {}
+    end = points[-1][0]
+    recent = [(t, sample) for t, sample in points if (end - t).total_seconds() <= 3600]
+    trends = {}
+    for key, name in (('temperature_c', 'temp_change_1h_c'), ('humidity_percent', 'humidity_change_1h'), ('pressure_hpa', 'pressure_change_1h_hpa')):
+        valid = [(t, sample[key]) for t, sample in recent if sample.get(key) is not None]
+        if len(valid) >= 10 and (valid[-1][0] - valid[0][0]).total_seconds() >= 2400:
+            trends[name] = _bounded(name, valid[-1][1] - valid[0][1])
+    gusts = [sample['wind_gust_mph'] for _, sample in recent if sample.get('wind_gust_mph') is not None]
+    if len(gusts) >= 10:
+        trends['wind_gust_max_1h_mph'] = _bounded('wind_gust_max_1h_mph', max(gusts))
+    return {key: value for key, value in trends.items() if value is not None}
+
+
+def record_daily(data, path=None):
+    """Track each day's temperature and pressure extremes from the readings."""
+    path = path or DAILY_LOG_PATH
+    if not path:
+        return
+    days = _load_json(path, {}).get('days')
+    days = days if isinstance(days, dict) else {}
+    today = days.setdefault(str(data['updated'])[:10], {})
+    before = dict(today)
+    temperature, pressure = data.get('temperature_c'), data.get('pressure_hpa')
+    if temperature is not None:
+        today['temp_max_c'] = max(today.get('temp_max_c', temperature), temperature)
+        today['temp_min_c'] = min(today.get('temp_min_c', temperature), temperature)
+    if pressure is not None:
+        today['pressure_min_hpa'] = min(today.get('pressure_min_hpa', pressure), pressure)
+    if today != before or len(days) > DAILY_LOG_DAYS:
+        days = {day: days[day] for day in sorted(days)[-DAILY_LOG_DAYS:]}
+        try:
+            write_json_atomic(path, {'days': days})
+        except OSError as error:
+            log(f'could not write {path}: {error}')
+
+
+def update_history_local(history_path, now=None):
+    """Write the history JSON from the local daily log (used when the clientraw files are off)."""
+    now = now or datetime.now().astimezone()
+    days = _load_json(DAILY_LOG_PATH, {}).get('days') if DAILY_LOG_PATH else None
+    days = days if isinstance(days, dict) else {}
+    first = (now.date() - timedelta(days=DAILY_DAYS)).isoformat()
+    merged = {}
+    previous = _load_json(history_path, {}).get('daily')
+    for entry in previous if isinstance(previous, list) else []:
+        if isinstance(entry, dict) and isinstance(entry.get('date'), str):
+            merged[entry['date']] = entry
+    for day, values in days.items():
+        if isinstance(values, dict):
+            merged[day] = {'date': day, **values}
+    daily = [merged[day] for day in sorted(merged) if first <= day < now.date().isoformat()]
+    history = {'updated': now.isoformat()}
+    if daily:
+        history['daily'] = daily
+    records = fetch_year_records(METEOBRIDGE_URL) if METEOBRIDGE_URL else {}
+    if records:
+        history['year_records'] = records
+    if len(history) == 1:
+        return None
+    try:
+        write_json_atomic(history_path, history)
+    except OSError as error:
+        log(f'could not write {history_path}: {error}')
+        return None
+    return history
 
 
 def sibling_url(url, name):
@@ -386,6 +538,26 @@ def update_once(url, output_path, attempts=FETCH_ATTEMPTS, retry_delay=RETRY_DEL
     retried (the station itself has to recover) and are never written.
     """
     live = fetch_meteobridge(METEOBRIDGE_URL) if METEOBRIDGE_URL else None
+    if live:
+        samples = record_minute(live)
+        record_daily(live)
+        if not CLIENTRAW_ENABLED:
+            live.update(local_trends(samples))
+    if not CLIENTRAW_ENABLED:
+        if live is None:
+            log('meteobridge reading unavailable; not publishing (clientraw is switched off)')
+            return None
+        try:
+            write_json_atomic(output_path, live)
+        except OSError as error:
+            log(f'could not write {output_path}: {error}')
+            return None
+        if series_path:
+            try:
+                append_series(series_path, live)
+            except OSError as error:
+                log(f'could not write {series_path}: {error}')
+        return live
     for attempt in range(1, attempts + 1):
         try:
             text = fetch_text(url)
@@ -434,6 +606,8 @@ def update_once(url, output_path, attempts=FETCH_ATTEMPTS, retry_delay=RETRY_DEL
 def update_history(url, history_path, now=None):
     """Fetch the daily and extra files and write the history JSON. Returns the dict or None."""
     now = now or datetime.now().astimezone()
+    if not CLIENTRAW_ENABLED:
+        return update_history_local(history_path, now)
     history = {'updated': now.isoformat()}
     for name, parse, key in (('clientrawdaily.txt', lambda text: parse_clientrawdaily(text, now.date()), 'daily'),
                              ('clientrawextra.txt', parse_clientrawextra, 'year_records')):
@@ -490,19 +664,25 @@ def main(argv=None):
     parser.add_argument('--series-output', default=os.getenv('HWS_WEATHER_SERIES_PATH', '/mnt/weathercam/logs/weather_station_series.json'))
     parser.add_argument('--raw-output', default=os.getenv('HWS_WEATHER_RAW_PATH', '/mnt/weathercam/logs/weather_station_raw.json'))
     parser.add_argument('--compare-output', default=os.getenv('HWS_WEATHER_COMPARE_PATH', '/mnt/weathercam/logs/weather_station_compare.json'))
+    parser.add_argument('--minute-output', default=os.getenv('HWS_WEATHER_MINUTE_PATH', '/mnt/weathercam/logs/weather_station_minute.json'))
+    parser.add_argument('--daily-log-output', default=os.getenv('HWS_WEATHER_DAILY_LOG_PATH', '/mnt/weathercam/logs/weather_station_daily_log.json'))
+    parser.add_argument('--no-clientraw', action='store_true', default=os.getenv('HWS_CLIENTRAW_ENABLED', '1').strip().lower() in ('0', 'false', 'no', 'off'), help='use only the Meteobridge; the clientraw files are not fetched')
     parser.add_argument('--meteobridge', default=os.getenv('HWS_METEOBRIDGE_URL', ''), help='Meteobridge host or template.cgi URL; read first, clientraw is the fallback')
     parser.add_argument('--meteobridge-user', default=os.getenv('HWS_METEOBRIDGE_USER', 'meteobridge'))
     parser.add_argument('--meteobridge-password', default=os.getenv('HWS_METEOBRIDGE_PASSWORD', ''))
     parser.add_argument('--interval', type=int, default=0, help='poll every N seconds (minimum %d); omit for a single run' % MIN_FETCH_INTERVAL_SECONDS)
     parser.add_argument('--once', action='store_true')
     args = parser.parse_args(argv)
+    if args.no_clientraw and not args.meteobridge:
+        parser.error('HWS_CLIENTRAW_ENABLED=0 needs HWS_METEOBRIDGE_URL')
     if not args.url and not args.meteobridge:
         parser.error('set CLIENTRAW_URL (or HWS_METEOBRIDGE_URL) or pass --url')
     args.url = args.url or 'http://invalid.invalid/clientraw.txt'
-    global RAW_PATH, COMPARE_PATH, METEOBRIDGE_URL, METEOBRIDGE_USER, METEOBRIDGE_PASSWORD
+    global RAW_PATH, COMPARE_PATH, MINUTE_PATH, DAILY_LOG_PATH, CLIENTRAW_ENABLED, METEOBRIDGE_URL, METEOBRIDGE_USER, METEOBRIDGE_PASSWORD
     METEOBRIDGE_USER, METEOBRIDGE_PASSWORD = args.meteobridge_user, args.meteobridge_password
     RAW_PATH = args.raw_output
     COMPARE_PATH = args.compare_output
+    MINUTE_PATH, DAILY_LOG_PATH, CLIENTRAW_ENABLED = args.minute_output, args.daily_log_output, not args.no_clientraw
     METEOBRIDGE_URL = args.meteobridge or None
     if args.once or not args.interval:
         update_history(args.url, args.history_output)

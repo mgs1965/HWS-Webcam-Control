@@ -131,3 +131,16 @@ def weather_insight(weather,scene):
  r=num(w.get('rain_rate_mm_h'))
  if r is not None and r>0:reasons.append(f'Rain reported ({r:.1f} mm/h); droplets on the lens are likely.')
  return reasons
+COMPARE_FIELDS=(('temperature_c','Temperature','°C',0.5),('humidity_percent','Humidity','%',3),('pressure_hpa','Pressure','hPa',1.5),('wind_speed_mph','Wind speed','mph',2),('wind_gust_mph','Wind gust','mph',3),('wind_direction_deg','Wind direction','°',20),('dew_point_c','Dew point','°C',0.7),('rain_rate_mm_h','Rain rate','mm/h',0.5),('rain_today_mm','Rain today','mm',0.3),('uv_index','UV index','',0.3),('solar_radiation_wm2','Solar','W/m²',30),('wind_gust_max_today_mph','Max gust today','mph',3),('lightning_strikes_today','Lightning today','',0))
+def weather_compare():
+ try:d=json.loads((LD/'weather_station_compare.json').read_text(errors='ignore'))
+ except (OSError,ValueError):return {}
+ if not isinstance(d,dict) or not isinstance(d.get('clientraw'),dict) or not isinstance(d.get('meteobridge'),dict):return {}
+ rows=[]
+ for key,label,unit,tol in COMPARE_FIELDS:
+  a=num(d['clientraw'].get(key));b=num(d['meteobridge'].get(key))
+  if a is None and b is None:continue
+  diff=None if a is None or b is None else round(b-a,2)
+  if key=='wind_direction_deg' and diff is not None:diff=round((diff+180)%360-180,2)
+  rows.append({'label':label,'unit':unit,'clientraw':a,'meteobridge':b,'diff':diff,'status':'missing' if diff is None else ('differs' if abs(diff)>tol else 'match')})
+ return {'updated':str(d.get('updated',''))[:40],'rows':rows}

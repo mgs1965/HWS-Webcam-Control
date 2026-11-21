@@ -1,3 +1,7 @@
+#### V53.4 - 2026-11-21
+- Weather: new "Source comparison" table on the Weather tab showing the clientraw value, the Meteobridge value, the difference and a match/differs result for each shared field (temperature, humidity, pressure, wind, gust, direction, dew point, rain, UV, solar, max gust, lightning). Useful for checking units.
+- Weather station: saves both readings to `weather_station_compare.json` (`HWS_WEATHER_COMPARE_PATH`, `--compare-output`) whenever both sources are available. Restart the weather service after installing.
+
 #### V53.3 - 2026-11-21
 - Weather station: Meteobridge login support. Set `HWS_METEOBRIDGE_PASSWORD` (and `HWS_METEOBRIDGE_USER`, default `meteobridge`) in `/etc/weathercam/dashboard.env` when the Meteobridge answers HTTP 401; the log now hints at this.
 

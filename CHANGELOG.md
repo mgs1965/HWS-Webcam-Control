@@ -1,3 +1,8 @@
+#### V53.0 - 2026-11-22
+- Scene analysis: with the sun below 10 degrees the cloud estimate now counts only pixels that depart from their own row's median red/blue ratio, so a warm clear sunset sky no longer reads as ~40-50% cloud (the reported sunset image drops from 52% to 2%).
+- Dashboard: `dashboard.py` split into `astronomy.py`, `analytics.py`, `station.py` and `recommendations.py` (loaded by `dashboard.py`; no behaviour change).
+- Tests: added coverage for the low-sun cloud estimate and the module split. Live-data items still to confirm on the Pi: midday UV, hour-file minute order, lightning distance unit, gust-record unit.
+
 #### V52.17 - 2026-11-21
 - Dashboard: solar cloud cross-check (clear-sky estimate from sun elevation vs measured solar W/m2, compared with the camera's cloud cover; a large disagreement suggests a dirty or fogged lens).
 - Dashboard: 30-day charts (daily high, low, lowest pressure), last-hour minute charts (wind, gust, temperature, solar) from the hour file, wind rose, and a 24-hour station summary.

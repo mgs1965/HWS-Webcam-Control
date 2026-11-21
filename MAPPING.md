@@ -1,6 +1,6 @@
 # Function map
 
-Current release: V52.17. The dashboard template is rendered by `weathercam_dashboard/dashboard.py` and is not deployed with its `__DATA__` placeholder intact.
+Current release: V53.0. The dashboard template is rendered by `weathercam_dashboard/dashboard.py` and is not deployed with its `__DATA__` placeholder intact.
 
 ## camera.py
 - `CameraAcquisitionError`
@@ -159,10 +159,10 @@ Current release: V52.17. The dashboard template is rendered by `weathercam_dashb
 - Reads dashboard data from the `dashboard-data` JSON block; the source template remains navigable before data injection.
 
 ## Release and package files
-- `version.py` contains the V52.17 release identity and telemetry schema version.
+- `version.py` contains the V53.0 release identity and telemetry schema version.
 - `manifest.json` records the release baseline, package filename and release file inventory.
-- `verify_v52_17.py` validates release identity, telemetry contract, dashboard structure and release guards.
-- `test_v52_17.py` contains focused dashboard-data and runtime regression checks.
-- `install_v52_17.sh` installs the release; `rollback_v52_17.sh` restores its recorded previous target.
+- `verify_v53_0.py` validates release identity, telemetry contract, dashboard structure and release guards.
+- `test_v53_0.py` contains focused dashboard-data and runtime regression checks.
+- `install_v53_0.sh` installs the release; `rollback_v53_0.sh` restores its recorded previous target.
 - `build_release.py` builds `HWS-Webcam-Control-<version>.zip` (top-level directory `HWS-Webcam-Control-<version>/`) from `manifest.json`.
 - `systemd/weathercam.service` provides the camera runtime unit on clean installs; the installer leaves an existing unit untouched.

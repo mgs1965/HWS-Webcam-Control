@@ -15,13 +15,13 @@ for filename in modules:
 
 version = {}
 exec((root / 'version.py').read_text(encoding='utf-8'), version)
-assert version['VERSION'] == 'V52.17'
+assert version['VERSION'] == 'V53.0'
 assert version['TELEMETRY_SCHEMA_VERSION'] == 4
 
 manifest = json.loads((root / 'manifest.json').read_text(encoding='utf-8'))
-assert manifest['release'] == 'V52.17'
+assert manifest['release'] == 'V53.0'
 assert manifest['baseline'] == 'V51.0.2'
-assert manifest['package'] == 'HWS-Webcam-Control-52.17.zip'
+assert manifest['package'] == 'HWS-Webcam-Control-53.0.zip'
 assert manifest['package'] == f"HWS-Webcam-Control-{version['VERSION'][1:]}.zip"
 assert manifest['package_directory'] == manifest['package'][:-4]
 assert all((root / filename).exists() for filename in manifest['files'])
@@ -36,20 +36,20 @@ assignment = next(
 assert len(ast.literal_eval(assignment.value)) == 58
 
 core = (root / 'core.py').read_text(encoding='utf-8')
-assert "SCRIPT_VERSION = '2026-11-20 V52.17'" in core
-assert "V51_RELEASE = 'V52.17'" in core
+assert "SCRIPT_VERSION = '2026-11-20 V53.0'" in core
+assert "V51_RELEASE = 'V53.0'" in core
 assert "FTP_PASSWORD = os.getenv('HWS_FTP_PASSWORD', '')" in core
 
 dashboard = (root / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
 template = (root / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
-assert "V='52.17'" in dashboard
-assert "'release':'V52.17'" in dashboard
+assert "V='53.0'" in dashboard
+assert "'release':'V53.0'" in dashboard
 assert "for period,hours in (('24h',24),('7d',168),('30d',720))" in dashboard
 assert 'older_index%5==0' in dashboard
 assert "'timeline_events':timeline_events" in dashboard
 assert "'coverage':chart_coverage" in dashboard
 assert "'timelapse':timelapse," in dashboard
-assert 'def recommended_checks' in dashboard
+assert 'def recommended_checks' in (root / 'weathercam_dashboard/recommendations.py').read_text(encoding='utf-8')
 assert template.count('__DATA__') == 1
 assert "dataText.startsWith('{')?JSON.parse(dataText):{}" in template
 assert "D.series?.[period]?.[key]" in template
@@ -89,16 +89,16 @@ assert 'ExecStart=/usr/bin/python3 /mnt/weathercam/app/current/weather_camera.py
 station_service = (root / 'systemd/weathercam-weather-station.service').read_text(encoding='utf-8')
 assert 'weather_station.py --interval 60' in station_service and 'Restart=on-failure' in station_service
 assert (root / 'weather_station.py').is_file()
-installer = (root / 'install_v52_17.sh').read_text(encoding='utf-8')
-rollback = (root / 'rollback_v52_17.sh').read_text(encoding='utf-8')
-assert 'HarpendenWeatherCamera-V52.17' in installer
-assert 'verify_v52_17.py' in installer
+installer = (root / 'install_v53_0.sh').read_text(encoding='utf-8')
+rollback = (root / 'rollback_v53_0.sh').read_text(encoding='utf-8')
+assert 'HarpendenWeatherCamera-V53.0' in installer
+assert 'verify_v53_0.py' in installer
 assert 'weathercam-weather-station.service' in installer
 assert 'systemctl cat weathercam.service' in installer
 assert 'refusing to overwrite it' in installer
-assert 'v52_17-rollback-target' in rollback
+assert 'v53_0-rollback-target' in rollback
 
-print('PASS: V52.17 release identity, manifest and telemetry-v4 contract')
+print('PASS: V53.0 release identity, manifest and telemetry-v4 contract')
 for feature in ('eventFilters', 'staleBanner', 'overlayLegend', 'qualitySummaryRows', 'timelapsePreview'):
     assert f'id="{feature}"' in template
 for feature in ("'sun':sun_events(now)", "'modes':chart_modes", "DASHBOARD_CAPTURE_CRITICAL_SECONDS", "PREVIEW_NAME"):

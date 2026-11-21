@@ -62,7 +62,7 @@ def weather_hour():
  except (OSError,ValueError):return {}
  info=raw.get('clientrawhour') if isinstance(raw,dict) else None;tokens=info.get('tokens') if isinstance(info,dict) else None
  if not isinstance(tokens,list) or len(tokens)<480:return {}
- return {'fetched':str(info.get('fetched',''))[:40],'wind_mph':_hour_block(tokens,1,1.15078),'gust_mph':_hour_block(tokens,61,1.15078),'direction_deg':_hour_block(tokens,121),'temperature_c':_hour_block(tokens,181),'solar_wm2':_hour_block(tokens,421)}
+ return {'fetched':str(info.get('fetched',''))[:40],'wind_mph':_hour_block(tokens,1,1.15078),'gust_mph':_hour_block(tokens,61,1.15078),'direction_deg':_hour_block(tokens,121),'temperature_c':_hour_block(tokens,181),'humidity_percent':_hour_block(tokens,241),'pressure_hpa':_hour_block(tokens,301),'solar_wm2':_hour_block(tokens,421)}
 def wind_rose(series,hour):
  pts=[(num(p.get('wind_direction_deg')),num(p.get('wind_speed_mph')) or 0) for p in series]
  source='24 h'
@@ -108,7 +108,7 @@ def scene_history(now,hours=24,limit=144):
    except (ValueError,TypeError):continue
    if t.tzinfo is None:t=t.replace(tzinfo=now.tzinfo)
    if t<cutoff or t>now:continue
-   out.append({'t':t.isoformat(),**{k:num(r.get(k)) for k in ('cloud_cover_pct','fog_index','temperature_c','humidity_percent','solar_radiation_wm2','uv_index')}})
+   out.append({'t':t.isoformat(),**{k:num(r.get(k)) for k in ('cloud_cover_pct','sky_clarity_pct','fog_index','droplet_score','temperature_c','humidity_percent','solar_radiation_wm2','uv_index')}})
  if len(out)>limit:out=[out[round(i*(len(out)-1)/(limit-1))] for i in range(limit)]
  return out
 def weather_insight(weather,scene):

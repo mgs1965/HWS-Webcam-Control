@@ -1,3 +1,7 @@
+#### V53.1 - 2026-11-21
+- Dashboard: the weather station panel moves from the Live page to its own "Weather" tab (the raw clientraw tab stays as "Weather data").
+- Dashboard: new graphs for dew point, rain today, wind direction, lightning today, sky clarity and droplet score (24 h), and humidity and pressure for the last hour.
+
 #### V53.0 - 2026-11-22
 - Scene analysis: with the sun below 10 degrees the cloud estimate now counts only pixels that depart from their own row's median red/blue ratio, so a warm clear sunset sky no longer reads as ~40-50% cloud (the reported sunset image drops from 52% to 2%).
 - Dashboard: `dashboard.py` split into `astronomy.py`, `analytics.py`, `station.py` and `recommendations.py` (loaded by `dashboard.py`; no behaviour change).

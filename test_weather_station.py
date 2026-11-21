@@ -173,12 +173,15 @@ def test_meteobridge_parse_url_and_fallback():
     assert data['temperature_c'] == 5.6 and data['rain_today_mm'] == 1.2 and data['source'] == 'meteobridge'
     assert 'wind_speed_mph' not in data and 'bogus' not in data
     assert ws.parse_meteobridge('temperature_c=--;humidity_percent=--', now) is None
-    old = (ws.fetch_text, ws.METEOBRIDGE_URL)
+    old = (ws.fetch_text, ws.METEOBRIDGE_URL, ws.METEOBRIDGE_PASSWORD)
     ws.METEOBRIDGE_URL = 'x'
-    ws.fetch_text = lambda url, timeout=10: 'temperature_c=5.6;humidity_percent=85' if 'template.cgi' in url else (_ for _ in ()).throw(OSError('down'))
+    ws.METEOBRIDGE_PASSWORD = 'pw'
+    seen = []
+    ws.fetch_text = lambda url, timeout=10, headers=None: seen.append(headers) or 'temperature_c=5.6;humidity_percent=85' if 'template.cgi' in url else (_ for _ in ()).throw(OSError('down'))
     try:
         with tempfile.TemporaryDirectory() as directory:
             result = ws.update_once('http://clientraw/clientraw.txt', os.path.join(directory, 'w.json'), sleep=lambda s: None)
             assert result['temperature_c'] == 5.6
+            assert seen[0]['Authorization'] == 'Basic bWV0ZW9icmlkZ2U6cHc='
     finally:
-        ws.fetch_text, ws.METEOBRIDGE_URL = old
+        ws.fetch_text, ws.METEOBRIDGE_URL, ws.METEOBRIDGE_PASSWORD = old

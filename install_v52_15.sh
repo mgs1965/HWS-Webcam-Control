@@ -2,9 +2,9 @@
 set -euo pipefail
 SRC=$(cd "$(dirname "$0")" && pwd -P)
 BASE=/mnt/weathercam/app
-DEST=$BASE/releases/HarpendenWeatherCamera-V52.14
-REC=/etc/weathercam/v52_14-rollback-target
-python3 "$SRC/verify_v52_14.py"
+DEST=$BASE/releases/HarpendenWeatherCamera-V52.15
+REC=/etc/weathercam/v52_15-rollback-target
+python3 "$SRC/verify_v52_15.py"
 if [ "$SRC" = "$DEST" ]; then
   echo "Run the installer from an extracted staging directory, not the active release."
   exit 1
@@ -28,7 +28,7 @@ fi
 if [ -L "$BASE/current" ]; then
   PREVIOUS=$(readlink -f "$BASE/current")
 elif [ -d "$BASE/current" ]; then
-  PREVIOUS="$BASE/current-pre-v52.14-$(date +%Y%m%d-%H%M%S)"
+  PREVIOUS="$BASE/current-pre-v52.15-$(date +%Y%m%d-%H%M%S)"
   sudo systemctl stop weathercam-dashboard.timer 2>/dev/null || true
   sudo systemctl stop weathercam.service 2>/dev/null || true
   sudo mv "$BASE/current" "$PREVIOUS"
@@ -40,7 +40,7 @@ sudo systemctl stop weathercam-dashboard.timer 2>/dev/null || true
 sudo systemctl stop weathercam.service 2>/dev/null || true
 sudo rm -rf "$DEST"
 sudo cp -a "$SRC" "$DEST"
-python3 "$DEST/verify_v52_14.py"
+python3 "$DEST/verify_v52_15.py"
 sudo install -m 0644 "$DEST/systemd/weathercam-dashboard.service" /etc/systemd/system/weathercam-dashboard.service
 sudo install -m 0644 "$DEST/systemd/weathercam-dashboard.timer" /etc/systemd/system/weathercam-dashboard.timer
 if [ "$INSTALL_CAMERA_UNIT" -eq 1 ]; then
@@ -56,7 +56,7 @@ fi
 sudo systemctl start weathercam.service
 sleep 8
 if ! systemctl is-active --quiet weathercam.service; then
-  echo "Camera failed to start. Run sudo bash /mnt/weathercam/app/current/rollback_v52_14.sh"
+  echo "Camera failed to start. Run sudo bash /mnt/weathercam/app/current/rollback_v52_15.sh"
   exit 1
 fi
 if sudo grep -Eq '^CLIENTRAW_URL=.+$' /etc/weathercam/dashboard.env; then
@@ -67,4 +67,4 @@ else
 fi
 sudo -u mgs /usr/bin/python3 "$BASE/current/weathercam_dashboard/dashboard.py"
 sudo systemctl enable --now weathercam-dashboard.timer
-echo "Installed V52.14 -> $(readlink -f "$BASE/current")"
+echo "Installed V52.15 -> $(readlink -f "$BASE/current")"

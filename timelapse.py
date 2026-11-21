@@ -761,7 +761,8 @@ def join_daily_videos(files, infos, output, frames, label, kind):
 def build_periodic_timelapse(kind, today):
     """Join the existing daily videos of the previous full week/month; True when nothing remains to do."""
     first, last, output = periodic_period(kind, today)
-    if os.path.exists(output) and (not UPLOAD_TIMELAPSE or os.path.exists(periodic_uploaded_marker(output))):
+    upload = UPLOAD_TIMELAPSE and (UPLOAD_WEEKLY_TIMELAPSE if kind == 'weekly' else UPLOAD_MONTHLY_TIMELAPSE)
+    if os.path.exists(output) and (not upload or os.path.exists(periodic_uploaded_marker(output))):
         set_periodic_status(kind, 'complete', first, os.path.basename(output))
         return True
     if not os.path.exists(output):
@@ -779,7 +780,7 @@ def build_periodic_timelapse(kind, today):
             set_periodic_status(kind, 'failed', first, 'join failed')
             return False
         audit_event(f'{kind}_timelapse_completed', first_day=first.isoformat(), last_day=last.isoformat(), daily_files=len(files), frames=frames)
-    if UPLOAD_TIMELAPSE:
+    if upload:
         if not (upload_to_ftp(output, os.path.basename(output)) and upload_to_ftp(output, PERIODIC_LATEST_REMOTE[kind])):
             set_periodic_status(kind, 'failed', first, 'upload failed')
             return False

@@ -35,12 +35,17 @@ IDX_TEMP_C, IDX_HUMIDITY, IDX_PRESSURE_HPA = 4, 5, 6
 IDX_RAIN_TODAY_MM, IDX_RAIN_RATE = 7, 10
 IDX_HOUR, IDX_MINUTE, IDX_SECOND, IDX_STATION = 29, 30, 31, 32
 IDX_DEW_POINT_C, IDX_DATE = 72, 74
-IDX_UV_INDEX, IDX_SOLAR_WM2 = 34, 127
+IDX_UV_INDEX, IDX_SOLAR_WM2 = 79, 127
+IDX_GUST_MAX_TODAY_KT, IDX_GUST_MAX_HOUR_KT = 71, 133
+IDX_LIGHTNING_TODAY, IDX_LIGHTNING_LAST_MIN, IDX_LIGHTNING_DISTANCE = 33, 114, 118
 
 # clientraw reports rain rate per minute; the camera expects mm/h.
 RAIN_RATE_TO_MM_H = 60.0
 
 HISTORY_INTERVAL_SECONDS = 1800
+SERIES_INTERVAL_SECONDS = 300
+SERIES_HOURS = 24
+SERIES_KEYS = ('temperature_c', 'humidity_percent', 'pressure_hpa', 'wind_speed_mph', 'wind_gust_mph', 'solar_radiation_wm2', 'uv_index')
 HOUR_BLOCK = 60
 # clientrawhour.txt: consecutive 60-minute blocks, oldest first, '-' = no sample.
 HOUR_BLOCKS = {'wind_kt': 1, 'gust_kt': 61, 'wind_dir': 121, 'temp_c': 181, 'humidity': 241, 'pressure_hpa': 301}
@@ -67,6 +72,10 @@ LIMITS = {
     'humidity_change_1h': (-100.0, 100.0),
     'pressure_change_1h_hpa': (-50.0, 50.0),
     'wind_gust_max_1h_mph': (0.0, 250.0),
+    'wind_gust_max_today_mph': (0.0, 250.0),
+    'lightning_strikes_last_min': (0.0, 100000.0),
+    'lightning_strikes_today': (0.0, 1000000.0),
+    'lightning_distance': (0.0, 1000.0),
 }
 
 
@@ -123,7 +132,14 @@ def parse_clientraw(text, now):
         'dew_point_c': field(IDX_DEW_POINT_C),
         'uv_index': field(IDX_UV_INDEX),
         'solar_radiation_wm2': field(IDX_SOLAR_WM2),
+        'wind_gust_max_today_mph': scaled(IDX_GUST_MAX_TODAY_KT, KNOTS_TO_MPH),
+        'wind_gust_max_1h_mph': scaled(IDX_GUST_MAX_HOUR_KT, KNOTS_TO_MPH),
+        'lightning_strikes_last_min': field(IDX_LIGHTNING_LAST_MIN),
+        'lightning_strikes_today': field(IDX_LIGHTNING_TODAY),
+        'lightning_distance': field(IDX_LIGHTNING_DISTANCE),
     }
+    if raw['wind_gust_max_today_mph'] is not None and raw['wind_gust_max_1h_mph'] is not None:
+        raw['wind_gust_max_today_mph'] = max(raw['wind_gust_max_today_mph'], raw['wind_gust_max_1h_mph'])
     values = {key: _bounded(key, value) for key, value in raw.items()}
     values = {key: value for key, value in values.items() if value is not None}
     if not any(key in values for key in ('temperature_c', 'humidity_percent', 'pressure_hpa')):
@@ -239,7 +255,37 @@ def log(message):
     print(f'[WEATHER STATION] {message}', file=sys.stderr, flush=True)
 
 
-def update_once(url, output_path, attempts=FETCH_ATTEMPTS, retry_delay=RETRY_DELAY_SECONDS, sleep=time.sleep):
+def append_series(path, data):
+    """Add a sample to the rolling 24-hour series file, at most one per SERIES_INTERVAL_SECONDS."""
+    try:
+        stamp = datetime.fromisoformat(data['updated'])
+        with open(path, encoding='utf-8') as handle:
+            samples = json.load(handle).get('samples', [])
+    except FileNotFoundError:
+        samples = []
+    except (OSError, ValueError, KeyError, AttributeError):
+        samples = []
+    samples = [s for s in samples if isinstance(s, dict) and isinstance(s.get('t'), str)]
+    try:
+        last = datetime.fromisoformat(samples[-1]['t']) if samples else None
+    except ValueError:
+        last, samples = None, []
+    if last and 0 <= (stamp - last).total_seconds() < SERIES_INTERVAL_SECONDS:
+        return False
+    cutoff = stamp - timedelta(hours=SERIES_HOURS)
+    kept = []
+    for sample in samples:
+        try:
+            if datetime.fromisoformat(sample['t']) >= cutoff:
+                kept.append(sample)
+        except ValueError:
+            pass
+    kept.append({'t': data['updated'], **{key: data.get(key) for key in SERIES_KEYS}})
+    write_json_atomic(path, {'updated': data['updated'], 'samples': kept})
+    return True
+
+
+def update_once(url, output_path, attempts=FETCH_ATTEMPTS, retry_delay=RETRY_DELAY_SECONDS, sleep=time.sleep, series_path=None):
     """Fetch, parse and publish once, retrying transient network errors.
 
     Returns the dict written, or None. Stale or malformed files are not
@@ -268,6 +314,11 @@ def update_once(url, output_path, attempts=FETCH_ATTEMPTS, retry_delay=RETRY_DEL
         except OSError as error:
             log(f'could not write {output_path}: {error}')
             return None
+        if series_path:
+            try:
+                append_series(series_path, data)
+            except OSError as error:
+                log(f'could not write {series_path}: {error}')
         return data
     return None
 
@@ -300,7 +351,7 @@ def update_history(url, history_path, now=None):
     return history
 
 
-def run_loop(url, output_path, interval, max_failures=MAX_CONSECUTIVE_FAILURES, sleep=time.sleep, history_path=None):
+def run_loop(url, output_path, interval, max_failures=MAX_CONSECUTIVE_FAILURES, sleep=time.sleep, history_path=None, series_path=None):
     """Poll forever; return 1 after max_failures consecutive failures so systemd restarts us."""
     failures = 0
     next_history = 0.0
@@ -308,7 +359,7 @@ def run_loop(url, output_path, interval, max_failures=MAX_CONSECUTIVE_FAILURES, 
         if history_path and time.monotonic() >= next_history:
             next_history = time.monotonic() + HISTORY_INTERVAL_SECONDS
             update_history(url, history_path)
-        if update_once(url, output_path):
+        if update_once(url, output_path, series_path=series_path):
             if failures:
                 log(f'recovered after {failures} failed cycle(s)')
             failures = 0
@@ -325,6 +376,7 @@ def main(argv=None):
     parser.add_argument('--url', default=os.getenv('CLIENTRAW_URL'))
     parser.add_argument('--output', default=os.getenv('HWS_WEATHER_DATA_PATH', '/mnt/weathercam/logs/weather_station.json'))
     parser.add_argument('--history-output', default=os.getenv('HWS_WEATHER_HISTORY_PATH', '/mnt/weathercam/logs/weather_station_history.json'))
+    parser.add_argument('--series-output', default=os.getenv('HWS_WEATHER_SERIES_PATH', '/mnt/weathercam/logs/weather_station_series.json'))
     parser.add_argument('--interval', type=int, default=0, help='poll every N seconds (minimum %d); omit for a single run' % MIN_FETCH_INTERVAL_SECONDS)
     parser.add_argument('--once', action='store_true')
     args = parser.parse_args(argv)
@@ -332,8 +384,8 @@ def main(argv=None):
         parser.error('set CLIENTRAW_URL or pass --url')
     if args.once or not args.interval:
         update_history(args.url, args.history_output)
-        return 0 if update_once(args.url, args.output) else 1
-    return run_loop(args.url, args.output, max(MIN_FETCH_INTERVAL_SECONDS, args.interval), history_path=args.history_output)
+        return 0 if update_once(args.url, args.output, series_path=args.series_output) else 1
+    return run_loop(args.url, args.output, max(MIN_FETCH_INTERVAL_SECONDS, args.interval), history_path=args.history_output, series_path=args.series_output)
 
 
 if __name__ == '__main__':

@@ -1,3 +1,9 @@
+#### V52.15 - 2026-11-21
+- Timelapse: weekly and monthly videos have separate upload switches (`HWS_UPLOAD_WEEKLY_TIMELAPSE`, `HWS_UPLOAD_MONTHLY_TIMELAPSE`, default on). When off, the video is still created and kept, just not uploaded; daily uploads are unaffected.
+- Weather station: UV index now read from the documented token 79 (V52.13 wrongly used token 34, which is solar percent of maximum). Added lightning counts, last-strike distance and maximum gusts (today and last hour).
+- Weather station: new rolling 24-hour `weather_station_series.json`; the dashboard graphs (temperature, humidity, pressure, wind, gust, solar, UV) now draw from it instead of the scene logs, with scene logs as fallback. Cloud cover and fog index still come from the camera.
+- Dashboard: lightning and strong-gust notes in the weather insight list; max gust and lightning metrics on the card. The 1-hour gust note previously never appeared because the value was filtered out; fixed.
+
 #### V52.14 - 2026-11-20
 - Dashboard: weather station graphs now have value scales (max/mid/min) and a time axis with grid lines.
 

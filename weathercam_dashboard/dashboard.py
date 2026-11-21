@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse,csv,ftplib,json,math,os,re,shutil,socket,tempfile
 from datetime import datetime,timedelta,timezone
 from pathlib import Path
-V='52.15'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
+V='52.16'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
 IMG=Path(os.getenv('WEATHERCAM_LATEST_IMAGE',str(ROOT/'frames/latest.jpg'))); HD=Path(os.getenv('WEATHERCAM_HEALTH_DIR',str(ROOT/'telemetry/health'))); TD=Path(os.getenv('WEATHERCAM_TELEMETRY_DIR',str(ROOT/'logs'))); LD=Path(os.getenv('WEATHERCAM_LOG_DIR',str(ROOT/'logs')))
 def envnum(name,default):
  try:
@@ -121,6 +121,15 @@ def weather_series(now,hours=24):
   except (ValueError,TypeError,AttributeError):continue
   if t.tzinfo is None:t=t.replace(tzinfo=now.tzinfo)
   if cutoff<=t<=now:out.append({'t':t.isoformat(),**{k:num(r.get(k)) for k in ('temperature_c','humidity_percent','pressure_hpa','wind_speed_mph','wind_gust_mph','solar_radiation_wm2','uv_index')}})
+ return out
+def weather_raw():
+ try:raw=json.loads((LD/'weather_station_raw.json').read_text(errors='ignore'));labels=json.loads((Path(__file__).resolve().parent/'weather_labels.json').read_text())
+ except (OSError,ValueError):return {}
+ out={}
+ for name,info in (raw.items() if isinstance(raw,dict) else []):
+  if not isinstance(info,dict) or not isinstance(info.get('tokens'),list):continue
+  names=labels.get(name,{})
+  out[name]={'fetched':str(info.get('fetched',''))[:40],'rows':[[i,(names.get(str(i)) or {}).get('l',''),(names.get(str(i)) or {}).get('u',''),str(v)[:24]] for i,v in enumerate(info['tokens'],1)]}
  return out
 def scene_history(now,hours=24,limit=144):
  out=[]
@@ -698,7 +707,7 @@ def generate(upload=False):
  actions=recommended_checks(metrics,timelapse,scene)
  schedule=mode_schedule(now)
  safe_config={
-  'release':'V52.15','telemetry_schema':4,'dashboard_refresh_minutes':5,
+  'release':'V52.16','telemetry_schema':4,'dashboard_refresh_minutes':5,
   'capture_interval_seconds':10,'ftp_configured':bool(os.getenv('DASHBOARD_FTP_HOST')),
   'ftp_tls':os.getenv('DASHBOARD_FTP_TLS','0')!='0',
   'thresholds':TH,'stale_after_minutes':TH['dashboard_stale_minutes'],
@@ -709,7 +718,7 @@ def generate(upload=False):
   'series':chart_series,'coverage':chart_coverage,'modes':chart_modes,'sun':sun_events(now),'quality_summary':quality_summary(telemetry_rows,now),'timeline_events':timeline_events,
   'mode_performance':mode_effectiveness(telemetry_rows,now),
   'sun_moon':sun_moon(now),'mode_schedule':schedule,'next_mode':next_mode_change(now,schedule),'calendar':day_calendar(report_rows),'timelapse_library':timelapse_library(),'keogram_archive':sync_keogram_archive(),'disk_forecast':disk_forecast(health_rows,now),
-  'timelapse':timelapse,'recommendations':actions,'scene':scene,'periodic':status_data.get('periodic_timelapses') if isinstance(status_data.get('periodic_timelapses'),dict) else {},'weather':weather,'weather_history':weather_history(),'weather_series':weather_series(now),'scene_history':scene_history(now),'weather_insight':weather_insight(weather,scene),'keogram':sync_keogram(),
+  'timelapse':timelapse,'recommendations':actions,'scene':scene,'periodic':status_data.get('periodic_timelapses') if isinstance(status_data.get('periodic_timelapses'),dict) else {},'weather':weather,'weather_history':weather_history(),'weather_raw':weather_raw(),'weather_series':weather_series(now),'scene_history':scene_history(now),'weather_insight':weather_insight(weather,scene),'keogram':sync_keogram(),
   'reports':{'latest':daily_history[-1] if daily_history else None,'history':daily_history},
   'gallery':gallery_items,
   'events':events_payload,'hostname':socket.gethostname(),

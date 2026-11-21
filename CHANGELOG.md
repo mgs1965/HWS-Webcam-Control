@@ -1,3 +1,7 @@
+#### V52.16 - 2026-11-21
+- Dashboard: new "Weather data" tab with sub-tabs for the live, hour, daily and extra clientraw files, showing every field number, label, value and unit (knots also shown in mph) with a filter box. Labels come from `weathercam_dashboard/weather_labels.json`.
+- Weather station: the raw tokens of all four files are written to `weather_station_raw.json` (`HWS_WEATHER_RAW_PATH`, `--raw-output`) for the tab. The tab fills in after the weather service restarts.
+
 #### V52.15 - 2026-11-21
 - Timelapse: weekly and monthly videos have separate upload switches (`HWS_UPLOAD_WEEKLY_TIMELAPSE`, `HWS_UPLOAD_MONTHLY_TIMELAPSE`, default on). When off, the video is still created and kept, just not uploaded; daily uploads are unaffected.
 - Weather station: UV index now read from the documented token 79 (V52.13 wrongly used token 34, which is solar percent of maximum). Added lightning counts, last-strike distance and maximum gusts (today and last hour).

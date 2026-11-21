@@ -1,3 +1,6 @@
+#### V53.3 - 2026-11-21
+- Weather station: Meteobridge login support. Set `HWS_METEOBRIDGE_PASSWORD` (and `HWS_METEOBRIDGE_USER`, default `meteobridge`) in `/etc/weathercam/dashboard.env` when the Meteobridge answers HTTP 401; the log now hints at this.
+
 #### V53.2 - 2026-11-21
 - Weather station: can read the Meteobridge directly (`HWS_METEOBRIDGE_URL=192.168.0.65` or `--meteobridge`) using its template.cgi live-data API, with the clientraw files kept as the fallback and for the hour/daily/extra data. Live values override clientraw where both exist.
 - New values from the Meteobridge: heat index, wet bulb, wind chill, sunshine hours, lightning energy and the bridge's data age, shown on the Weather tab.

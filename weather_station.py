@@ -236,6 +236,8 @@ METEOBRIDGE_FIELDS = (
     ('bridge_data_age_s', 'data16num-act'),
 )
 METEOBRIDGE_URL = None
+METEOBRIDGE_USER = 'meteobridge'
+METEOBRIDGE_PASSWORD = ''
 
 
 def meteobridge_endpoint(base):
@@ -278,9 +280,14 @@ def fetch_meteobridge(base):
     if not url:
         return None
     try:
-        return parse_meteobridge(fetch_text(url, timeout=6), datetime.now().astimezone())
+        headers = {}
+        if METEOBRIDGE_PASSWORD:
+            import base64
+            headers['Authorization'] = 'Basic ' + base64.b64encode(f'{METEOBRIDGE_USER}:{METEOBRIDGE_PASSWORD}'.encode()).decode()
+        return parse_meteobridge(fetch_text(url, timeout=6, headers=headers), datetime.now().astimezone())
     except (OSError, ValueError) as error:
-        log(f'meteobridge unavailable, using clientraw: {error}')
+        hint = ' (set HWS_METEOBRIDGE_USER / HWS_METEOBRIDGE_PASSWORD)' if '401' in str(error) else ''
+        log(f'meteobridge unavailable, using clientraw: {error}{hint}')
         return None
 
 
@@ -289,10 +296,10 @@ def sibling_url(url, name):
     return url[:-len('clientraw.txt')] + name if url.lower().endswith('clientraw.txt') else None
 
 
-def fetch_text(url, timeout=10):
+def fetch_text(url, timeout=10, headers=None):
     if not url.lower().startswith(('http://', 'https://')):
         raise ValueError('CLIENTRAW_URL must be http(s)')
-    request = urllib.request.Request(url, headers={'User-Agent': 'HWS-Webcam-Control weather_station/1'})
+    request = urllib.request.Request(url, headers={'User-Agent': 'HWS-Webcam-Control weather_station/1', **(headers or {})})
     with urllib.request.urlopen(request, timeout=timeout) as response:
         return response.read(MAX_BYTES).decode('utf-8', errors='replace')
 
@@ -477,13 +484,16 @@ def main(argv=None):
     parser.add_argument('--series-output', default=os.getenv('HWS_WEATHER_SERIES_PATH', '/mnt/weathercam/logs/weather_station_series.json'))
     parser.add_argument('--raw-output', default=os.getenv('HWS_WEATHER_RAW_PATH', '/mnt/weathercam/logs/weather_station_raw.json'))
     parser.add_argument('--meteobridge', default=os.getenv('HWS_METEOBRIDGE_URL', ''), help='Meteobridge host or template.cgi URL; read first, clientraw is the fallback')
+    parser.add_argument('--meteobridge-user', default=os.getenv('HWS_METEOBRIDGE_USER', 'meteobridge'))
+    parser.add_argument('--meteobridge-password', default=os.getenv('HWS_METEOBRIDGE_PASSWORD', ''))
     parser.add_argument('--interval', type=int, default=0, help='poll every N seconds (minimum %d); omit for a single run' % MIN_FETCH_INTERVAL_SECONDS)
     parser.add_argument('--once', action='store_true')
     args = parser.parse_args(argv)
     if not args.url and not args.meteobridge:
         parser.error('set CLIENTRAW_URL (or HWS_METEOBRIDGE_URL) or pass --url')
     args.url = args.url or 'http://invalid.invalid/clientraw.txt'
-    global RAW_PATH, METEOBRIDGE_URL
+    global RAW_PATH, METEOBRIDGE_URL, METEOBRIDGE_USER, METEOBRIDGE_PASSWORD
+    METEOBRIDGE_USER, METEOBRIDGE_PASSWORD = args.meteobridge_user, args.meteobridge_password
     RAW_PATH = args.raw_output
     METEOBRIDGE_URL = args.meteobridge or None
     if args.once or not args.interval:

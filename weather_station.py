@@ -321,6 +321,7 @@ def write_json_atomic(path, data):
 
 
 RAW_PATH = None
+COMPARE_PATH = None
 RAW_FILES = {}
 
 
@@ -401,6 +402,11 @@ def update_once(url, output_path, attempts=FETCH_ATTEMPTS, retry_delay=RETRY_DEL
             return None
         if text and data is not None:
             record_raw('clientraw', text)
+        if data and live and COMPARE_PATH:
+            try:
+                write_json_atomic(COMPARE_PATH, {'updated': live['updated'], 'clientraw': data, 'meteobridge': live})
+            except OSError as error:
+                log(f'could not write {COMPARE_PATH}: {error}')
         data = {**(data or {}), **(live or {})}
         hour_url = sibling_url(url, 'clientrawhour.txt')
         if hour_url:
@@ -483,6 +489,7 @@ def main(argv=None):
     parser.add_argument('--history-output', default=os.getenv('HWS_WEATHER_HISTORY_PATH', '/mnt/weathercam/logs/weather_station_history.json'))
     parser.add_argument('--series-output', default=os.getenv('HWS_WEATHER_SERIES_PATH', '/mnt/weathercam/logs/weather_station_series.json'))
     parser.add_argument('--raw-output', default=os.getenv('HWS_WEATHER_RAW_PATH', '/mnt/weathercam/logs/weather_station_raw.json'))
+    parser.add_argument('--compare-output', default=os.getenv('HWS_WEATHER_COMPARE_PATH', '/mnt/weathercam/logs/weather_station_compare.json'))
     parser.add_argument('--meteobridge', default=os.getenv('HWS_METEOBRIDGE_URL', ''), help='Meteobridge host or template.cgi URL; read first, clientraw is the fallback')
     parser.add_argument('--meteobridge-user', default=os.getenv('HWS_METEOBRIDGE_USER', 'meteobridge'))
     parser.add_argument('--meteobridge-password', default=os.getenv('HWS_METEOBRIDGE_PASSWORD', ''))
@@ -492,9 +499,10 @@ def main(argv=None):
     if not args.url and not args.meteobridge:
         parser.error('set CLIENTRAW_URL (or HWS_METEOBRIDGE_URL) or pass --url')
     args.url = args.url or 'http://invalid.invalid/clientraw.txt'
-    global RAW_PATH, METEOBRIDGE_URL, METEOBRIDGE_USER, METEOBRIDGE_PASSWORD
+    global RAW_PATH, COMPARE_PATH, METEOBRIDGE_URL, METEOBRIDGE_USER, METEOBRIDGE_PASSWORD
     METEOBRIDGE_USER, METEOBRIDGE_PASSWORD = args.meteobridge_user, args.meteobridge_password
     RAW_PATH = args.raw_output
+    COMPARE_PATH = args.compare_output
     METEOBRIDGE_URL = args.meteobridge or None
     if args.once or not args.interval:
         update_history(args.url, args.history_output)

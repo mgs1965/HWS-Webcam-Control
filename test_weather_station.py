@@ -176,6 +176,7 @@ def test_meteobridge_parse_url_and_fallback():
     old = (ws.fetch_text, ws.METEOBRIDGE_URL, ws.METEOBRIDGE_PASSWORD)
     ws.METEOBRIDGE_URL = 'x'
     ws.METEOBRIDGE_PASSWORD = 'pw'
+    ws.COMPARE_PATH = None
     seen = []
     ws.fetch_text = lambda url, timeout=10, headers=None: seen.append(headers) or 'temperature_c=5.6;humidity_percent=85' if 'template.cgi' in url else (_ for _ in ()).throw(OSError('down'))
     try:

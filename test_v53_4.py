@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parent
 def test_release_identity():
     namespace = {}
     exec((ROOT / 'version.py').read_text(encoding='utf-8'), namespace)
-    assert namespace['VERSION'] == 'V53.3'
+    assert namespace['VERSION'] == 'V53.4'
     assert namespace['TELEMETRY_SCHEMA_VERSION'] == 4
 
 def test_telemetry_schema():
@@ -32,11 +32,11 @@ def test_credentials_are_not_embedded():
     assert "FTP_PASSWORD = os.getenv('HWS_FTP_PASSWORD', '')" in core
     assert 'cGnRUCGhc' not in core
 
-def test_dashboard_v53_3_payload():
+def test_dashboard_v53_4_payload():
     dashboard = (ROOT / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
     template = (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
-    assert "V='53.3'" in dashboard
-    assert "'release':'V53.3'" in dashboard
+    assert "V='53.4'" in dashboard
+    assert "'release':'V53.4'" in dashboard
     assert "for period,hours in (('24h',24),('7d',168),('30d',720))" in dashboard
     assert 'incidents' in dashboard
     assert "'process_memory':('health','memory.process_rss_bytes',1/1048576)" in dashboard
@@ -232,7 +232,7 @@ def test_controller_configuration_fingerprint_tracks_real_limits():
 
 def test_camera_service_unit_and_install_preserve_existing_unit():
     service = (ROOT / 'systemd/weathercam.service').read_text(encoding='utf-8')
-    installer = (ROOT / 'install_v53_3.sh').read_text(encoding='utf-8')
+    installer = (ROOT / 'install_v53_4.sh').read_text(encoding='utf-8')
     assert 'EnvironmentFile=/etc/weathercam/dashboard.env' in service
     assert 'Restart=on-failure' in service
     assert 'TimeoutStopSec=240' in service
@@ -477,6 +477,38 @@ def test_dashboard_weather_raw_rows(tmp_path):
     assert raw['clientraw']['rows'][0][1].startswith('Average Windspeed') and raw['clientraw']['rows'][1][3] == '3.1'
 
 
+def test_dashboard_weather_compare(tmp_path):
+    dashboard = load_source_module('dashboard_compare_source', ROOT / 'weathercam_dashboard/dashboard.py')
+    dashboard.LD = tmp_path
+    assert dashboard.weather_compare() == {}
+    (tmp_path / 'weather_station_compare.json').write_text(json.dumps({
+        'updated': 't', 'clientraw': {'temperature_c': 5.0, 'wind_direction_deg': 350, 'uv_index': 0.0},
+        'meteobridge': {'temperature_c': 6.2, 'wind_direction_deg': 10, 'solar_radiation_wm2': 4.0}}))
+    rows = {r['label']: r for r in dashboard.weather_compare()['rows']}
+    assert rows['Temperature']['status'] == 'differs' and rows['Temperature']['diff'] == 1.2
+    assert rows['Wind direction']['diff'] == 20 and rows['Wind direction']['status'] == 'match'
+    assert rows['UV index']['status'] == 'missing' and rows['Solar']['clientraw'] is None
+
+
+def test_compare_file_written(tmp_path):
+    import weather_station as ws
+    old = (ws.fetch_text, ws.METEOBRIDGE_URL, ws.COMPARE_PATH)
+    ws.METEOBRIDGE_URL = 'x'
+    ws.COMPARE_PATH = str(tmp_path / 'c.json')
+    now = ws.datetime.now().astimezone()
+    stamp = now.strftime('%m/%d/%Y')
+    tokens = ['0'] * 168
+    tokens[0] = '12345'; tokens[4] = '5.0'; tokens[5] = '80'; tokens[6] = '1000'
+    tokens[29] = str(now.hour); tokens[30] = str(now.minute); tokens[31] = str(now.second); tokens[74] = stamp
+    ws.fetch_text = lambda url, timeout=10, headers=None: 'temperature_c=6.0;humidity_percent=80' if 'template.cgi' in url else ' '.join(tokens)
+    try:
+        assert ws.update_once('http://c/clientraw.txt', str(tmp_path / 'w.json'), sleep=lambda s: None)
+        data = json.loads((tmp_path / 'c.json').read_text())
+        assert data['clientraw']['temperature_c'] == 5.0 and data['meteobridge']['temperature_c'] == 6.0
+    finally:
+        ws.fetch_text, ws.METEOBRIDGE_URL, ws.COMPARE_PATH = old
+
+
 def test_raw_files_are_recorded(tmp_path):
     import weather_station as ws
     ws.RAW_FILES.clear()
@@ -590,14 +622,14 @@ def test_release_zip_extracts_to_matching_directory(tmp_path):
     manifest = json.loads((ROOT / 'manifest.json').read_text(encoding='utf-8'))
     with zipfile.ZipFile(tmp_path / manifest['package']) as archive:
         names = archive.namelist()
-    assert manifest['package'] == 'HWS-Webcam-Control-53.3.zip'
-    assert all(name.startswith('HWS-Webcam-Control-53.3/') for name in names)
-    assert 'HWS-Webcam-Control-53.3/manifest.json' in names
+    assert manifest['package'] == 'HWS-Webcam-Control-53.4.zip'
+    assert all(name.startswith('HWS-Webcam-Control-53.4/') for name in names)
+    assert 'HWS-Webcam-Control-53.4/manifest.json' in names
 
 def _load_dashboard(tmp_path, monkeypatch):
     monkeypatch.setenv('WEATHERCAM_ROOT', str(tmp_path))
     monkeypatch.setenv('DASHBOARD_OUT', str(tmp_path / 'out'))
-    spec = importlib.util.spec_from_file_location('dash53_3', ROOT / 'weathercam_dashboard/dashboard.py')
+    spec = importlib.util.spec_from_file_location('dash53_4', ROOT / 'weathercam_dashboard/dashboard.py')
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -622,7 +654,7 @@ def test_dashboard_moon_and_disk_forecast(tmp_path, monkeypatch):
     assert forecast['percent_per_day'] > 0 and forecast['days_to_full'] > 0
     assert dash.disk_forecast(rows[:5], now) is None
 
-def test_dashboard_v53_3_template_and_event_tag():
+def test_dashboard_v53_4_template_and_event_tag():
     dashboard = (ROOT / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
     template = (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
     assert '[MODE TRANSITION]' in dashboard and '[MODE CHANGE]' not in dashboard

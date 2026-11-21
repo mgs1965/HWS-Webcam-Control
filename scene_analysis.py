@@ -1,4 +1,4 @@
-"""V52.17 physical module: scene_analysis.py. Loaded into the shared runtime namespace.
+"""V53.0 physical module: scene_analysis.py. Loaded into the shared runtime namespace.
 Do not import directly; use weather_camera.py.
 
 Observational scene intelligence: sky/cloud estimate, fog and haze, lens
@@ -18,6 +18,9 @@ SCENE_SKY_FRACTION = 0.55
 SCENE_SKY_MIN_LUMINANCE = 50.0
 SCENE_SKY_MIN_VALID_FRACTION = 0.3
 SCENE_CLOUD_RBR_THRESHOLD = 0.80
+SCENE_CLOUD_LOW_SUN_ELEVATION = 10.0
+SCENE_CLOUD_LOW_SUN_DEVIATION = 0.08
+SCENE_CLOUD_LOW_SUN_MIN_ROW_PIXELS = 20
 SCENE_OVERCAST_UNIFORM_STD = 0.04
 SCENE_OVERCAST_MIN_MEAN_RBR = 0.5
 SCENE_FROZEN_STEP = 32
@@ -103,8 +106,13 @@ def classify_cloud_cover(cloud_pct):
         return 'MOSTLY CLOUDY'
     return 'OVERCAST'
 
-def estimate_cloud_cover(sample):
-    """Return the cloudy share of valid sky pixels (red/blue ratio method) or None."""
+def estimate_cloud_cover(sample, low_sun=False):
+    """Return the cloudy share of valid sky pixels (red/blue ratio method) or None.
+
+    With the sun low, a clear sky is warm near the horizon and passes the fixed
+    ratio test, so clouds are instead the pixels whose ratio departs from the
+    median of their own row (a clear sky varies mostly with height).
+    """
     sky = sample[:max(1, int(sample.shape[0] * SCENE_SKY_FRACTION))]
     valid = _scene_luminance(sky) >= SCENE_SKY_MIN_LUMINANCE
     if float(valid.mean()) < SCENE_SKY_MIN_VALID_FRACTION:
@@ -114,6 +122,16 @@ def estimate_cloud_cover(sample):
     ratio = red / np.maximum(blue, 1.0)
     if float(ratio.std()) < SCENE_OVERCAST_UNIFORM_STD and float(ratio.mean()) > SCENE_OVERCAST_MIN_MEAN_RBR:
         return 100.0
+    if low_sun:
+        ratios = sky[:, :, 0] / np.maximum(sky[:, :, 2], 1.0)
+        cloudy = total = 0
+        for row, ok in zip(ratios, valid):
+            if int(ok.sum()) < SCENE_CLOUD_LOW_SUN_MIN_ROW_PIXELS:
+                continue
+            values = row[ok]
+            cloudy += int(np.sum(np.abs(values - np.median(values)) > SCENE_CLOUD_LOW_SUN_DEVIATION))
+            total += values.size
+        return float(cloudy / total * 100.0) if total else None
     return float(np.mean(ratio > SCENE_CLOUD_RBR_THRESHOLD) * 100.0)
 
 def estimate_fog_index(measurement):
@@ -308,7 +326,8 @@ def update_scene_analysis(image_array, measurement):
     daytime = current_camera_mode == 'DAY'
     sample = image_array[::METERING_STEP, ::METERING_STEP, :3].astype(np.float32)
     if daytime:
-        cloud_pct = estimate_cloud_cover(sample)
+        elevation = globals().get('current_solar_elevation')
+        cloud_pct = estimate_cloud_cover(sample, low_sun=elevation is not None and elevation < SCENE_CLOUD_LOW_SUN_ELEVATION)
         fog_value = estimate_fog_index(measurement)
         if fog_value is not None:
             scene_fog_index = fog_value if scene_fog_index is None else scene_fog_index + SCENE_FOG_SMOOTHING * (fog_value - scene_fog_index)

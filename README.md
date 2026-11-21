@@ -1,6 +1,6 @@
-# Harpenden Weather Camera V52.17
+# Harpenden Weather Camera V53.0
 
-V52.17 adds camera and image intelligence: scene analysis (cloud cover, fog, lens droplets, frozen/blocked view, focus drift), an optional weather-station overlay, a daily keogram, and weekly/monthly timelapses. Camera-control behavior and telemetry-v4 (58 fields) remain unchanged.
+V53.0 adds camera and image intelligence: scene analysis (cloud cover, fog, lens droplets, frozen/blocked view, focus drift), an optional weather-station overlay, a daily keogram, and weekly/monthly timelapses. Camera-control behavior and telemetry-v4 (58 fields) remain unchanged.
 
 ## Camera and image features
 
@@ -25,10 +25,10 @@ Trend history is kept bounded for Raspberry Pi memory: the most recent 24 hours 
 Create `/etc/weathercam/dashboard.env` from `dashboard.env.example` and set `HWS_FTP_PASSWORD` before installing on a new host.
 
 ```bash
-unzip HWS-Webcam-Control-52.17.zip
-cd HWS-Webcam-Control-52.17
-python3 verify_v52_17.py
-sudo bash ./install_v52_17.sh
+unzip HWS-Webcam-Control-53.0.zip
+cd HWS-Webcam-Control-53.0
+python3 verify_v53_0.py
+sudo bash ./install_v53_0.sh
 ```
 
 The installer preserves an existing `weathercam.service`; on a clean installation it installs the included unit after credential preflight.
@@ -42,5 +42,5 @@ sudo bash -c 'set -a; . /etc/weathercam/dashboard.env; set +a; exec sudo -u mgs 
 ## Rollback
 
 ```bash
-sudo bash /mnt/weathercam/app/current/rollback_v52_17.sh
+sudo bash /mnt/weathercam/app/current/rollback_v53_0.sh
 ```

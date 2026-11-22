@@ -324,8 +324,8 @@ for _part in ('astronomy.py','analytics.py','station.py','insights.py','recommen
   exec(compile((_PARTS/_part).read_text(encoding='utf-8'),str(_PARTS/_part),'exec'),globals())
 SITE_PAGES=(('index.html','Site chooser'),('indexnew.html','Home'),('console.html','Live'),('graphs.html','Graphs'),('rainfall.html','Rainfall'),('wind.html','Wind'),('forecast.html','Forecast'),('webcam.html','Webcam'),('radar.html','Radar'),('records.html','Records'),('reports.html','Reports'),('almanac.html','Almanac'),('news.html','News'),('data.html','Data'),('health.html','Webcam health'),('mbhealth.html','Meteobridge'),('pihealth.html','Pi health'),('station.html','Station'),('about.html','About'),('mobile.html','Mobile'),('dashboard.html','Camera dashboard'))
 SITE_NAV=' · '.join(f'<a href="{h}">{t}</a>' for h,t in SITE_PAGES if h!='index.html')
-SITE_ASSETS=('site.css','site.js','favicon.svg','logo.svg')
-SITE_HEAD='<link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="site.css"><script src="site.js"></script></head>'
+SITE_ASSETS=('site.css','site.js','favicon.svg','favicon.png','logo.svg','logo.png')
+SITE_HEAD='<link rel="icon" href="favicon.png" type="image/png"><link rel="apple-touch-icon" href="logo.png"><link rel="stylesheet" href="site.css"><script src="site.js"></script></head>'
 def generate(upload=False):
  now=datetime.now(timezone.utc)
  status_data=status()
@@ -549,7 +549,9 @@ def generate(upload=False):
  def page(name,data,out=None):
   text=(Path(__file__).resolve().parent/'templates'/name).read_text().replace('__NAV__',SITE_NAV).replace('</head>',SITE_HEAD,1)
   atomic(OUT/(out or name),text.replace('__DATA__',json.dumps(data,separators=(',',':')).replace('</','<\\/'),1))
- for asset in SITE_ASSETS:atomic(OUT/asset,(Path(__file__).resolve().parent/'templates'/asset).read_text())
+ for asset in SITE_ASSETS:
+  src=Path(__file__).resolve().parent/'templates'/asset;dest=OUT/asset;dest.parent.mkdir(parents=True,exist_ok=True)
+  tmp_asset=dest.with_name(dest.name+'.tmp');tmp_asset.write_bytes(src.read_bytes());os.replace(tmp_asset,dest)
  daily=graphs.get('daily') or []
  media=os.getenv('DASHBOARD_MEDIA_BASE','').strip();media=media+('/' if media and not media.endswith('/') else '')
  page('console.html',{k:payload.get(k) for k in ('weather','weather_series','weather_history','wind_rose','sun_moon','config')})

@@ -891,7 +891,7 @@ def test_site_pages_assets_records_and_almanac(tmp_path, monkeypatch):
     assert 'indexold.php' in chooser and 'indexnew.html' in chooser and 'mailto:info@harpendenweatherstation.co.uk' in chooser
     assert '© 2026 Mark Sanders' in (out / 'site.js').read_text()
     assert 'site.js' in (out / 'dashboard.html').read_text()
-    assert (out / 'site.css').is_file() and (out / 'favicon.svg').is_file()
+    assert (out / 'site.css').is_file() and (out / 'favicon.png').is_file() and (out / 'logo.png').is_file()
     assert not (out / 'redirects.htaccess').exists()
     monkeypatch.setenv('DASHBOARD_WRITE_REDIRECTS', '1')
     dash.generate(False)

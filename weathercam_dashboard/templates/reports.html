@@ -2,7 +2,7 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Weather reports</title>
 <style>:root{color-scheme:dark;--bg:#071827;--card:#0e273b;--line:#2a4960;--text:#edf6ff;--muted:#a9bdce;--blue:#4ea9ff;--amber:#ffd166;--green:#4bd66a;--red:#ff6075}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,"Segoe UI",sans-serif}a{color:var(--blue)}.muted{color:var(--muted)}</style></head><body><div class="s-page">
 <header class="s-head"><h1>Weather reports</h1><div class="s-nav muted">__NAV__</div></header>
-<div class="s-tabs" id="tabs"></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><select id="pick" class="s-btn" aria-label="Period"></select><button class="s-btn" id="csv">Download CSV</button></div><div class="s-card s-scroll"><table class="s-table" id="tbl"></table></div>
+<div class="s-tabs" id="tabs"></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><select id="pick" class="s-btn" aria-label="Period"></select><button class="s-btn" id="csv">Download CSV</button><button class="s-btn" id="prt" onclick="window.print()">Print / save as PDF</button></div><div class="s-card s-scroll"><table class="s-table" id="tbl"></table></div>
 <script type="application/json" id="data">__DATA__</script>
 <script>
 const raw=document.getElementById('data').textContent.trim(),D=raw.startsWith('{')?JSON.parse(raw):{},$=id=>document.getElementById(id),has=v=>v!==null&&v!==undefined&&v!==''&&isFinite(Number(v));

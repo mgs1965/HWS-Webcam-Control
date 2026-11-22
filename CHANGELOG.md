@@ -1,3 +1,12 @@
+#### V54.2
+
+- Home page loads live weather immediately, shows a "data is N minutes old" warning when the station goes quiet, trend arrows with 24 h high/low on temperature and pressure, live alert banner, and a "Share today's weather" link.
+- Weather alerts for frost, strong gusts and heavy rain, by email (SMTP) and/or ntfy push, once per 6 hours per alert; thresholds and settings in `dashboard.env.example`.
+- `share.png`: auto-generated 1200x630 social card of the current weather (needs Pillow).
+- New `compare.html`: overlay any two months or years (daily highs, cumulative rain, summary table).
+- Reports can be printed or saved as PDF; print stylesheet for all pages.
+- Mobile layout polish; PNG logo and favicon.
+
 #### V54.1
 
 - New `index.html` site chooser in the racing-green theme: tiles for the original site (`indexold.php`) and the new site (`indexnew.html`), a short note that the new site is under development, and a feedback box that emails info@harpendenweatherstation.co.uk. Rename the old site's `index.php` to `indexold.php` on the server.

@@ -565,6 +565,48 @@ def create_timelapse(day):
     frames = get_day_frames(day)
     return create_timelapse_from_frames(frames, os.path.join(TIMELAPSE_PATH, f'timelapse_{day:%Y%m%d}.mp4'), f'fallback-{day:%Y%m%d}')
 
+def select_highlight_frames(frames, center, minutes, limit=600):
+    """Frames within +/- `minutes` of `center` (naive local time), thinned evenly to at most `limit`."""
+    start, end = center - timedelta(minutes=minutes), center + timedelta(minutes=minutes)
+    picked = []
+    for frame in frames:
+        try:
+            taken = datetime.strptime(os.path.basename(frame)[6:21], '%Y%m%d_%H%M%S')
+        except ValueError:
+            continue
+        if start <= taken <= end:
+            picked.append(frame)
+    if len(picked) > limit:
+        step = len(picked) / limit
+        picked = [picked[int(i * step)] for i in range(limit)]
+    return picked
+
+def build_sun_highlights(day):
+    """Short clips around sunrise and sunset for the website home page; failures never affect the daily timelapse."""
+    try:
+        minutes = int(os.environ.get('HWS_HIGHLIGHT_MINUTES', '60'))
+    except ValueError:
+        minutes = 60
+    frames = get_day_frames(day)
+    for name, is_sunrise in (('sunrise', True), ('sunset', False)):
+        try:
+            moment = calculate_sun_time(day, HARPENDEN_LATITUDE, HARPENDEN_LONGITUDE, is_sunrise)
+            if moment is None:
+                continue
+            chosen = select_highlight_frames(frames, moment.replace(tzinfo=None), minutes)
+            if len(chosen) < 10:
+                logger.info('[SUN HIGHLIGHT] SKIP | %s | Date=%s | Frames=%d', name, day, len(chosen))
+                continue
+            output = os.path.join(TIMELAPSE_PATH, f'{name}_{day:%Y%m%d}.mp4')
+            if not create_timelapse_from_frames(chosen, output, f'{name}_highlight'):
+                continue
+            logger.info('[SUN HIGHLIGHT] COMPLETE | %s | Date=%s | Frames=%d', name, day, len(chosen))
+            if UPLOAD_TIMELAPSE:
+                if upload_to_ftp(output, os.path.basename(output)):
+                    upload_to_ftp(output, f'latest_{name}.mp4')
+        except Exception:
+            logger.exception('[SUN HIGHLIGHT] FAILED | %s | Date=%s', name, day)
+
 def process_timelapse(day):
     """Repair missing hours, concatenate available segments, and publish yesterday."""
     global last_timelapse_completed_for, next_timelapse_retry_time
@@ -611,6 +653,7 @@ def process_timelapse(day):
         save_controller_state(force=True)
         logger.info('[DAILY TIMELAPSE] COMPLETE | Date=%s | Method=%s | Segments=%d | Frames=%d | Gaps=%d | Elapsed=%.1fs', day, last_timelapse_build_method, len(segments), last_timelapse_expected_frames, len(gaps), time.monotonic() - started)
         audit_event('daily_timelapse_completed', day=day.isoformat(), method=last_timelapse_build_method, segments=len(segments), expected_frames=last_timelapse_expected_frames, source_gaps=gaps, uploaded=UPLOAD_TIMELAPSE)
+        build_sun_highlights(day)
         return True
     except Exception:
         logger.exception('[DAILY TIMELAPSE] FAILED | Date=%s', day)

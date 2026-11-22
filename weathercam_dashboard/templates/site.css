@@ -1,3 +1,7 @@
+html[data-theme=green]{color-scheme:dark;--bg:#04261a;--card:#0a3a27;--line:#1f6b49;--text:#eef7f0;--muted:#a8c9b6;--blue:#7fd1a0;--amber:#ffd166;--green:#6fe08f;--red:#ff7a6b;--purple:#c3a6ff}
+html[data-theme=green] body{background:linear-gradient(180deg,#063b28,#04261a 320px,#04261a) fixed}
+html[data-theme=green] .s-head h1,html[data-theme=green] h1{color:#ffd166;font-family:Georgia,'Times New Roman',serif}
+html[data-theme=green] .s-card,html[data-theme=green] .s-tile{box-shadow:0 1px 0 rgba(255,209,102,.12) inset}
 html[data-theme=light]{color-scheme:light;--bg:#eef3f8;--card:#fff;--line:#c5d3df;--text:#12263a;--muted:#546a7d;--blue:#0b63c5;--amber:#a86b00;--green:#14803a;--red:#c42a3f;--grey:#5f6f7c;--purple:#6b4bc2}
 html[data-theme=light] .row,html[data-theme=light] th,html[data-theme=light] td{border-color:#d7e1ea!important}
 html[data-theme=light] .banner{background:#fff3d6!important}

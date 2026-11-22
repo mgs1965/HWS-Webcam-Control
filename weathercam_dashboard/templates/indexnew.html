@@ -1,18 +1,23 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Harpenden Weather Station</title>
 <style>:root{color-scheme:dark;--bg:#071827;--card:#0e273b;--line:#2a4960;--text:#edf6ff;--muted:#a9bdce;--blue:#4ea9ff;--amber:#ffd166;--green:#4bd66a;--red:#ff6075}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,"Segoe UI",sans-serif}a{color:var(--blue)}.muted{color:var(--muted)}.hero{display:flex;flex-wrap:wrap;gap:12px;align-items:stretch}.hero>*{flex:1 1 320px}.fc{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}.fc>div{text-align:center;border:1px solid var(--line);border-radius:10px;padding:8px}.fc .i{font-size:28px}</style></head><body><div class="s-page">
-<header class="s-head"><h1>Harpenden Weather Station</h1><div class="s-nav muted">__NAV__</div></header>
+<header class="s-head"><h1><img src="logo.svg" alt="" style="height:56px;vertical-align:middle;margin-right:12px">Harpenden Weather Station</h1><div class="s-nav muted">__NAV__</div></header>
+<a id="kgbanner" href="webcam.html" style="display:none;margin-bottom:12px"><img id="kgimg" alt="Today's sky keogram" style="width:100%;height:170px;object-fit:cover;border-radius:12px;border:1px solid var(--line);display:block"><span class="muted" id="kgnote"></span></a>
 <div class="muted" style="margin:-6px 0 10px"><span id="dot" class="s-dot off"></span><span id="status">Waiting for data</span></div>
+<div class="s-card" id="today" hidden><h2>Today in Harpenden</h2><p id="todaytxt" style="margin:0"></p></div>
 <div class="s-tiles" id="tiles"></div>
 <div class="hero"><div class="s-card s-media"><h2>Latest from the camera</h2><img src="latest.jpg" alt="Latest weather camera image" id="cam" onerror="this.hidden=true"><div class="muted" id="camnote" style="margin-top:6px"></div></div>
 <div class="s-card"><h2>Temperature, last 24 hours</h2><div id="spark"></div><h2 style="margin-top:14px">Sun and moon</h2><div id="sun"></div></div></div>
 <div class="s-card"><h2>Forecast</h2><div class="fc" id="fc"></div><p class="muted"><a href="forecast.html">Full forecast</a></p></div>
+<div class="s-card" id="sunclips" hidden><h2>Sunrise and sunset highlights</h2><div class="s-grid"><div><div class="muted">Sunrise</div><video id="vrise" muted loop playsinline controls preload="none" style="width:100%;border-radius:8px"></video></div><div><div class="muted">Sunset</div><video id="vset" muted loop playsinline controls preload="none" style="width:100%;border-radius:8px"></video></div></div></div>
+<div class="s-card" id="newsbox" hidden><h2>Latest news</h2><div id="newslist"></div><p class="muted"><a href="news.html">All news</a></p></div>
 <div class="s-card" id="notes" hidden><h2>Conditions</h2><ul id="notelist"></ul></div>
 <div class="s-card"><h2>More</h2><div class="s-tabs" id="links"></div></div>
 <script type="application/json" id="data">__DATA__</script>
 <script>
 const raw=document.getElementById('data').textContent.trim(),D=raw.startsWith('{')?JSON.parse(raw):{},$=id=>document.getElementById(id),has=v=>v!==null&&v!==undefined&&v!==''&&isFinite(Number(v));
 const el=(tag,cls,text,parent)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;if(parent)parent.append(e);return e};
+if(D.keogram&&D.keogram.filename){$('kgimg').src=D.keogram.filename;$('kgnote').textContent='Sky keogram, '+(D.keogram.date||'latest');$('kgbanner').style.display='block'}
 const F=(v,d,u,delta)=>HWS.fmt(v,d,u,delta),day=s=>new Date(s+'T12:00:00'),hm=s=>s?new Date(s).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'–';
 const tile=(box,k,v)=>{const t=el('div','s-tile',undefined,box);el('div','k',k,t);el('div','v',v,t)};
 const W=D.weather||{},S=D.site||{};
@@ -25,7 +30,14 @@ const sm=D.sun_moon||{},sb=$('sun');for(const[k,v]of[['Sunrise',hm(sm.sunrise)],
 const fc=$('fc');for(const d of((D.forecast||{}).daily||[]).slice(0,6)){const e=el('div','',undefined,fc);el('div','muted',day(d.date).toLocaleDateString([],{weekday:'short'}),e);el('div','i',icon(d.symbol),e);el('div','',F(d.temp_max_c,0,'°')+' / '+F(d.temp_min_c,0,'°'),e)}if(!fc.children.length)fc.textContent='The forecast is not available yet.';
 if((D.insights||[]).length){$('notes').hidden=false;for(const n of D.insights)el('li','',typeof n==='string'?n:(n.text||n.message||JSON.stringify(n)),$('notelist'))}
 $('camnote').textContent=D.capture_time?'Captured '+D.capture_time:'';
-for(const[h,l]of[['console.html','Live console'],['graphs.html','Graphs'],['webcam.html','Webcam and timelapse'],['radar.html','Rain radar'],['records.html','Records'],['reports.html','Reports'],['almanac.html','Almanac'],['about.html','About']]){const a=el('a','s-btn',l,$('links'));a.href=h}
+const TD=D.today||{},tp=[],dl=TD.day_length_seconds;
+if(has(dl)){const ch=TD.day_length_change_seconds;tp.push('Day length '+Math.floor(dl/3600)+'h '+String(Math.round(dl%3600/60)).padStart(2,'0')+'m'+(has(ch)?' ('+(ch>=0?'+':'-')+Math.floor(Math.abs(ch)/60)+'m '+String(Math.abs(ch)%60).padStart(2,'0')+'s vs yesterday)':'')+'.')}
+if(TD.hottest)tp.push('Warmest '+HWS.fmt(TD.hottest.value,1,'°C')+' ('+TD.hottest.year+'), coldest '+(TD.coldest?HWS.fmt(TD.coldest.value,1,'°C')+' ('+TD.coldest.year+')':'–')+' on this date since 2023.');
+if(TD.wettest)tp.push('Wettest '+HWS.fmt(TD.wettest.value,1,' mm')+' ('+TD.wettest.year+').');
+if(tp.length){$('today').hidden=false;$('todaytxt').textContent=tp.join(' ')}
+if((D.news||[]).length){$('newsbox').hidden=false;for(const n of D.news){const d=el('div','',undefined,$('newslist'));el('b','',n.title||'Update',d);el('span','muted',' '+n.date,d);const t=String(n.text);el('div','muted',t.length>200?t.slice(0,200)+'…':t,d)}}
+if(location.protocol!=='file:'){for(const[id,f]of[['vrise','latest_sunrise.mp4'],['vset','latest_sunset.mp4']]){const v=$(id);v.addEventListener('loadedmetadata',()=>{$('sunclips').hidden=false});v.preload='metadata';v.src=(D.media_base||'')+f}}
+for(const[h,l]of[['console.html','Live console'],['graphs.html','Graphs'],['rainfall.html','Rainfall'],['wind.html','Wind rose'],['news.html','News'],['mbhealth.html','Meteobridge health'],['pihealth.html','Pi health'],['webcam.html','Webcam and timelapse'],['radar.html','Rain radar'],['records.html','Records'],['reports.html','Reports'],['almanac.html','Almanac'],['about.html','About']]){const a=el('a','s-btn',l,$('links'));a.href=h}
 function poll(){if(location.protocol==='file:'||document.hidden)return;fetch('weather-live.json?ts='+Date.now(),{cache:'no-store'}).then(r=>r.ok?r.json():null).then(w=>{if(w&&typeof w==='object'){Object.assign(W,w);render()}}).catch(()=>{})}
 setInterval(poll,30000);setInterval(()=>{const i=$('cam');if(i&&!i.hidden)i.src='latest.jpg?ts='+Date.now()},300000);
 </script></div></body></html>

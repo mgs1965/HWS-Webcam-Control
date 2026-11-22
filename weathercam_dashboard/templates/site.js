@@ -1,6 +1,6 @@
 (function(){
 const get=(k,d)=>{try{return localStorage.getItem(k)||d}catch(e){return d}},set=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
-const theme=get('hws-theme','dark'),units=get('hws-units','uk'),root=document.documentElement;
+const theme=get('hws-theme','green'),units=get('hws-units','uk'),root=document.documentElement;
 const resolved=theme==='auto'?(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):theme;root.dataset.theme=resolved;
 const has=v=>v!==null&&v!==undefined&&v!==''&&isFinite(Number(v));
 // Each rule: unit text -> [unit system -> [factor, offset, new label, minimum digits]]
@@ -15,6 +15,6 @@ const HWS={units,theme,
 window.HWS=HWS;
 function bar(){if(document.getElementById('hws-bar'))return;const b=document.createElement('div');b.id='hws-bar';
  const mk=(label,key,cur,opts)=>{const s=document.createElement('select');s.setAttribute('aria-label',label);for(const[v,t]of opts){const o=document.createElement('option');o.value=v;o.textContent=t;if(v===cur)o.selected=true;s.append(o)}s.addEventListener('change',()=>{set(key,s.value);location.reload()});b.append(s)};
- mk('Units','hws-units',units,[['uk','°C · mph'],['metric','°C · km/h'],['us','°F · inHg']]);mk('Theme','hws-theme',theme,[['dark','Dark'],['light','Light'],['auto','Auto']]);document.body.append(b)}
+ mk('Units','hws-units',units,[['uk','°C · mph'],['metric','°C · km/h'],['us','°F · inHg']]);mk('Theme','hws-theme',theme,[['green','Racing green'],['dark','Navy'],['light','Light'],['auto','Auto']]);document.body.append(b)}
 if(document.body)bar();else document.addEventListener('DOMContentLoaded',bar);
 })();

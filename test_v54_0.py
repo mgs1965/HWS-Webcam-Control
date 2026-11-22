@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parent
 def test_release_identity():
     namespace = {}
     exec((ROOT / 'version.py').read_text(encoding='utf-8'), namespace)
-    assert namespace['VERSION'] == 'V53.9'
+    assert namespace['VERSION'] == 'V54.0'
     assert namespace['TELEMETRY_SCHEMA_VERSION'] == 4
 
 def test_telemetry_schema():
@@ -32,11 +32,11 @@ def test_credentials_are_not_embedded():
     assert "FTP_PASSWORD = os.getenv('HWS_FTP_PASSWORD', '')" in core
     assert 'cGnRUCGhc' not in core
 
-def test_dashboard_v53_9_payload():
+def test_dashboard_v54_0_payload():
     dashboard = (ROOT / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
     template = (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
-    assert "V='53.9'" in dashboard
-    assert "'release':'V53.9'" in dashboard
+    assert "V='54.0'" in dashboard
+    assert "'release':'V54.0'" in dashboard
     assert "for period,hours in (('24h',24),('7d',168),('30d',720))" in dashboard
     assert 'incidents' in dashboard
     assert "'process_memory':('health','memory.process_rss_bytes',1/1048576)" in dashboard
@@ -232,7 +232,7 @@ def test_controller_configuration_fingerprint_tracks_real_limits():
 
 def test_camera_service_unit_and_install_preserve_existing_unit():
     service = (ROOT / 'systemd/weathercam.service').read_text(encoding='utf-8')
-    installer = (ROOT / 'install_v53_9.sh').read_text(encoding='utf-8')
+    installer = (ROOT / 'install_v54_0.sh').read_text(encoding='utf-8')
     assert 'EnvironmentFile=/etc/weathercam/dashboard.env' in service
     assert 'Restart=on-failure' in service
     assert 'TimeoutStopSec=240' in service
@@ -633,14 +633,14 @@ def test_release_zip_extracts_to_matching_directory(tmp_path):
     manifest = json.loads((ROOT / 'manifest.json').read_text(encoding='utf-8'))
     with zipfile.ZipFile(tmp_path / manifest['package']) as archive:
         names = archive.namelist()
-    assert manifest['package'] == 'HWS-Webcam-Control-53.9.zip'
-    assert all(name.startswith('HWS-Webcam-Control-53.9/') for name in names)
-    assert 'HWS-Webcam-Control-53.9/manifest.json' in names
+    assert manifest['package'] == 'HWS-Webcam-Control-54.0.zip'
+    assert all(name.startswith('HWS-Webcam-Control-54.0/') for name in names)
+    assert 'HWS-Webcam-Control-54.0/manifest.json' in names
 
 def _load_dashboard(tmp_path, monkeypatch):
     monkeypatch.setenv('WEATHERCAM_ROOT', str(tmp_path))
     monkeypatch.setenv('DASHBOARD_OUT', str(tmp_path / 'out'))
-    spec = importlib.util.spec_from_file_location('dash53_9', ROOT / 'weathercam_dashboard/dashboard.py')
+    spec = importlib.util.spec_from_file_location('dash54_0', ROOT / 'weathercam_dashboard/dashboard.py')
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -665,7 +665,7 @@ def test_dashboard_moon_and_disk_forecast(tmp_path, monkeypatch):
     assert forecast['percent_per_day'] > 0 and forecast['days_to_full'] > 0
     assert dash.disk_forecast(rows[:5], now) is None
 
-def test_dashboard_v53_9_template_and_event_tag():
+def test_dashboard_v54_0_template_and_event_tag():
     dashboard = (ROOT / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
     template = (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
     assert '[MODE TRANSITION]' in dashboard and '[MODE CHANGE]' not in dashboard
@@ -884,11 +884,14 @@ def test_site_pages_assets_records_and_almanac(tmp_path, monkeypatch):
     monkeypatch.setattr(dash, 'OUT', tmp_path / 'out')
     dash.generate(False)
     out = tmp_path / 'out'
-    for name in ('index.html', 'webcam.html', 'radar.html', 'records.html', 'reports.html', 'almanac.html', 'data.html', 'health.html'):
+    for name in ('indexnew.html', 'webcam.html', 'radar.html', 'records.html', 'reports.html', 'almanac.html', 'data.html', 'health.html', 'rainfall.html', 'wind.html', 'news.html', 'mbhealth.html', 'pihealth.html'):
         page = (out / name).read_text()
         assert '__DATA__' not in page and '__NAV__' not in page and 'site.js' in page and 'reports.html' in page
     assert 'site.js' in (out / 'dashboard.html').read_text()
     assert (out / 'site.css').is_file() and (out / 'favicon.svg').is_file()
+    assert not (out / 'redirects.htaccess').exists()
+    monkeypatch.setenv('DASHBOARD_WRITE_REDIRECTS', '1')
+    dash.generate(False)
     assert 'RewriteRule ^about\\.php$ about.html [R=301,L]' in (out / 'redirects.htaccess').read_text()
     now = datetime(2026, 11, 22, 12, 0, tzinfo=timezone.utc)
     daily = [{'date': '2026-11-20', 'temp_max_c': 9.0, 'temp_min_c': 2.0, 'rain_mm': 0.0}, {'date': '2026-11-21', 'temp_max_c': 11.5, 'temp_min_c': -1.0, 'rain_mm': 7.4, 'wind_gust_mph': 31},
@@ -922,3 +925,30 @@ def test_backfill_from_meteobridge_and_archive_merge(tmp_path):
     graphs = dash.graph_data(now, [], [], {'2026-11-21': {'temp_max_c': 5.0}}, None, archive)
     by_day = {d['date']: d for d in graphs['daily']}
     assert by_day['2026-11-21']['temp_max_c'] == 5.0 and by_day['2026-11-20']['temp_max_c'] == 12.0 and by_day['2026-11-20']['rain_mm'] == 0.5
+
+
+def test_v54_news_today_wind_and_meteobridge_health(tmp_path):
+    dash = _dash(tmp_path)
+    now = datetime(2026, 11, 22, 12, 0, tzinfo=timezone.utc)
+    news = dash.news_items({'news': [{'date': '2030-11-01', 'title': 'Mine', 'text': 'x'}]})
+    assert news[0]['title'] == 'Mine' and len(news) > 40 and news == sorted(news, key=lambda n: (n['date'], n['time']), reverse=True)
+    daily = [{'date': '2025-11-22', 'temp_max_c': 10.0, 'temp_min_c': 3.0, 'rain_mm': 4.0}, {'date': '2024-11-22', 'temp_max_c': 12.0, 'temp_min_c': -2.0, 'rain_mm': 0.0}]
+    today = dash.today_in_harpenden(now, daily)
+    assert today['hottest'] == {'value': 12.0, 'year': '2024'} and today['coldest']['value'] == -2.0 and today['wettest']['year'] == '2025' and today['day_length_change_seconds'] < 0
+    points = [{'wind_direction_deg': 270, 'wind_speed_mph': 12}] * 8 + [{'wind_direction_deg': 0, 'wind_speed_mph': 0.1}] * 2
+    rose = dash.wind_rose_periods(now, points, [])
+    assert list(rose) == ['24h'] and rose['24h']['calm_percent'] == 20.0 and rose['24h']['percent'][12][2] == 80.0
+    health = dash.meteobridge_health(now, {'updated': now.isoformat(), 'bridge_data_age_s': 20}, {}, {'rows': [{'label': 'Temp', 'status': 'differs'}]}, [{'date': '2026-11-21', 'rain_mm': 1.0}], {'2026-11-21': {}})
+    status = {c['name']: c['status'] for c in health['checks']}
+    assert status['Latest reading'] == 'ok' and status['Meteobridge vs clientraw'] == 'warn' and status['Daily history (30 days)'] == 'bad'
+
+
+def test_sun_highlight_frame_selection():
+    source = (ROOT / 'timelapse.py').read_text(encoding='utf-8')
+    function = next(n for n in ast.parse(source).body if isinstance(n, ast.FunctionDef) and n.name == 'select_highlight_frames')
+    namespace = {'datetime': datetime, 'timedelta': __import__('datetime').timedelta, 'os': os}
+    exec(compile(ast.Module(body=[function], type_ignores=[]), '<hl>', 'exec'), namespace)
+    frames = [f'/f/frame_20261122_{h:02d}{m:02d}00.jpg' for h in range(6, 10) for m in range(0, 60)]
+    chosen = namespace['select_highlight_frames'](frames, datetime(2026, 11, 22, 8, 0), 30)
+    assert chosen[0].endswith('073000.jpg') and chosen[-1].endswith('083000.jpg') and len(chosen) == 61
+    assert len(namespace['select_highlight_frames'](frames, datetime(2026, 11, 22, 8, 0), 120, limit=50)) == 50

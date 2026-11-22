@@ -1,3 +1,11 @@
+#### V54.0
+
+- New pages: `news.html` (49 entries imported from the old site, plus your own via `DASHBOARD_SITE_CONTENT` `news`), `rainfall.html` (rain rate, daily, monthly, cumulative by year, year table, wettest days, built from the Meteobridge backfill), `wind.html` (speed-banded wind rose for 24 h, 7 d, 30 d), `mbhealth.html` (Meteobridge link, clientraw comparison, history coverage) and `pihealth.html` (CPU, memory, disk, uptime and trends).
+- Home page (`indexnew.html`): "Today in Harpenden" line (day length and this date in earlier years), latest news, sunrise and sunset highlight videos, racing-green theme, logo and keogram banner.
+- Daily timelapse now also builds `sunrise_YYYYMMDD.mp4` and `sunset_YYYYMMDD.mp4` (±60 min, `HWS_HIGHLIGHT_MINUTES`) and uploads them with `latest_sunrise.mp4`/`latest_sunset.mp4`.
+- Scene log records wind direction and gust, so the 7 and 30 day wind roses build up over time.
+- Records page shows earlier records from the old site; `indexnew.html` stays unpublished-as-index and redirects stay opt-in.
+
 #### V53.9
 
 - Site pages to replace the old website: `index.html` (home), `webcam.html`, `radar.html`, `records.html`, `reports.html` (day, month and year tables with CSV), `almanac.html`, `data.html`, `health.html`; About shows news and donate text.

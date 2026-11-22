@@ -403,6 +403,9 @@ def record_daily(data, path=None):
     if temperature is not None:
         today['temp_max_c'] = max(today.get('temp_max_c', temperature), temperature)
         today['temp_min_c'] = min(today.get('temp_min_c', temperature), temperature)
+    rain = data.get('rain_today_mm')
+    if rain is not None:
+        today['rain_mm'] = max(today.get('rain_mm', rain), rain)
     if pressure is not None:
         today['pressure_min_hpa'] = min(today.get('pressure_min_hpa', pressure), pressure)
     if today != before or len(days) > DAILY_LOG_DAYS:
@@ -449,7 +452,7 @@ LIVE_UPLOAD_SECONDS = 120
 LIVE_RETRY_SECONDS = 300
 LIVE_KEYS = ('updated', 'source', 'temperature_c', 'humidity_percent', 'pressure_hpa', 'wind_speed_mph', 'wind_gust_mph', 'wind_direction_deg', 'dew_point_c',
              'rain_rate_mm_h', 'rain_today_mm', 'solar_radiation_wm2', 'uv_index', 'heat_index_c', 'wet_bulb_c', 'wind_chill_c', 'lightning_strikes_today',
-             'lightning_distance', 'bridge_data_age_s', 'temp_change_1h_c', 'humidity_change_1h', 'pressure_change_1h_hpa', 'wind_gust_max_1h_mph')
+             'lightning_distance', 'bridge_data_age_s', 'temp_change_1h_c', 'humidity_change_1h', 'pressure_change_1h_hpa', 'wind_gust_max_1h_mph', 'wind_gust_max_today_mph', 'sunshine_hours_today', 'lightning_energy')
 _live_state = {'next': 0.0}
 
 

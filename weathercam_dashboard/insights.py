@@ -1,6 +1,6 @@
 # Predictive analytics, event detection, daily summaries and long-term statistics (included into dashboard.py).
 QUALITY_BANDS=((75,'GOOD'),(60,'FAIR'),(40,'WARNING'))
-SCENE_FIELDS=('cloud_cover_pct','sky_clarity_pct','fog_index','visibility','droplet_score','lens_condition','focus','alerts','fog_risk','mode','temperature_c','humidity_percent','pressure_hpa','wind_speed_mph','rain_rate_mm_h','dew_point_c','solar_radiation_wm2')
+SCENE_FIELDS=('cloud_cover_pct','sky_clarity_pct','fog_index','visibility','droplet_score','lens_condition','focus','alerts','fog_risk','mode','temperature_c','humidity_percent','pressure_hpa','wind_speed_mph','rain_rate_mm_h','rain_today_mm','dew_point_c','solar_radiation_wm2')
 FOG_WARNING_INDEX=35.0
 DAILY_STATS_DAYS=1200
 def quality_label(value):
@@ -327,7 +327,7 @@ def _day_stats(day,tele,scene,report):
  rows=[r for r in tele if r.get('_ts') and r['_ts'].date()==day];recs=[r for r in scene if r['t'].date()==day]
  q=[v for _,v in _telemetry_points(rows,'image_quality_score')];out={}
  if q:out['quality_avg']=round(_mean(q),2);out['quality_n']=len(q)
- for key,field,fn in (('fog_avg','fog_index',_mean),('fog_max','fog_index',max),('cloud_avg','cloud_cover_pct',_mean),('clarity_avg','sky_clarity_pct',_mean),('temp_min_c','temperature_c',min),('temp_max_c','temperature_c',max),('rain_max_mm_h','rain_rate_mm_h',max),('humidity_avg','humidity_percent',_mean)):
+ for key,field,fn in (('fog_avg','fog_index',_mean),('fog_max','fog_index',max),('cloud_avg','cloud_cover_pct',_mean),('clarity_avg','sky_clarity_pct',_mean),('temp_min_c','temperature_c',min),('temp_max_c','temperature_c',max),('rain_max_mm_h','rain_rate_mm_h',max),('rain_mm','rain_today_mm',max),('humidity_avg','humidity_percent',_mean)):
   v=[r[field] for r in recs if r.get(field) is not None]
   if v:out[key]=round(fn(v),2)
  if recs:out['scene_n']=len(recs)
@@ -389,3 +389,31 @@ def long_term_report(days):
   year['foggy_days']=sum(1 for _,s in items if (s.get('fog_max') or 0)>=FOG_WARNING_INDEX)
   year['rainy_days']=sum(1 for _,s in items if (s.get('rain_max_mm_h') or 0)>0)
  return {'days_tracked':len(days),'first_day':min(days) if days else None,'months':report,'year':year}
+GRAPH_FIELDS=(('temperature_c','mean'),('dew_point_c','mean'),('humidity_percent','mean'),('pressure_hpa','mean'),('wind_speed_mph','mean'),('wind_gust_mph','max'),('rain_rate_mm_h','max'),('rain_today_mm','last'),('solar_radiation_wm2','mean'))
+def bucket_series(rows,now,hours,step_minutes):
+ """Aggregate [(time, {field: value})] into fixed time buckets: mean, max or last value per field."""
+ start=now-timedelta(hours=hours);step=step_minutes*60;buckets={}
+ for stamp,values in rows:
+  if stamp<start or stamp>now:continue
+  buckets.setdefault(int(stamp.timestamp()//step),[]).append(values)
+ out={'t':[]}
+ for field,_ in GRAPH_FIELDS:out[field]=[]
+ for key in sorted(buckets):
+  group=buckets[key];out['t'].append(datetime.fromtimestamp(key*step+step/2,timezone.utc).isoformat())
+  for field,how in GRAPH_FIELDS:
+   vals=[v[field] for v in group if v.get(field) is not None]
+   out[field].append(None if not vals else round(max(vals) if how=='max' else vals[-1] if how=='last' else sum(vals)/len(vals),2))
+ return out
+def graph_data(now,wseries,scene,days,history=None):
+ """Chart data for the graphs page: 24 h (5 min), 7 days (hourly), 30 days (3-hourly) and daily highs/lows for the year."""
+ live=[(dt(p.get('t')),{k:num(p.get(k)) for k,_ in GRAPH_FIELDS}) for p in wseries or []]
+ live=[(t,v) for t,v in live if t]
+ hist=[(r['t'],{**{k:r.get(k) for k,_ in GRAPH_FIELDS},'rain_rate_mm_h':r.get('rain_rate_mm_h')}) for r in scene]
+ merged={d:dict(v) for d,v in days.items()}
+ for row in (history or {}).get('daily') or []:
+  if isinstance(row,dict) and row.get('date'):
+   entry=merged.setdefault(str(row['date'])[:10],{})
+   for key in ('temp_max_c','temp_min_c','rain_mm'):
+    if entry.get(key) is None and num(row.get(key)) is not None:entry[key]=num(row.get(key))
+ daily=[{'date':d,'temp_max_c':s.get('temp_max_c'),'temp_min_c':s.get('temp_min_c'),'humidity_avg':s.get('humidity_avg'),'rain_max_mm_h':s.get('rain_max_mm_h'),'rain_mm':s.get('rain_mm')} for d,s in sorted(merged.items())[-366:]]
+ return {'24h':bucket_series(live,now,24,5),'7d':bucket_series(hist,now,168,60),'30d':bucket_series(hist,now,720,180),'daily':daily}

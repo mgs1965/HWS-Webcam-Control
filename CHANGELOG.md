@@ -1,3 +1,10 @@
+#### V53.9
+
+- Site pages to replace the old website: `index.html` (home), `webcam.html`, `radar.html`, `records.html`, `reports.html` (day, month and year tables with CSV), `almanac.html`, `data.html`, `health.html`; About shows news and donate text.
+- Unit toolbar (°C/°F, mph/km/h, hPa/inHg) and dark/light theme, favicon, and a generated `redirects.htaccess` for old `.php` URLs.
+- `weather_station.py --backfill` imports old Meteobridge daily history into `weather_station_archive.json`; graphs and records use it, keeping up to about 11 years of daily rows.
+- `DEPLOYMENT.md` documents the cut-over from the old site.
+
 #### V53.8
 
 - Wind direction is shown as 16-point compass names (N, NNE, NE ...) in the live strip, Weather tab, sparkline and source comparison.

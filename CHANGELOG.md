@@ -1,3 +1,8 @@
+#### V54.1
+
+- New `index.html` site chooser in the racing-green theme: tiles for the original site (`indexold.php`) and the new site (`indexnew.html`), a short note that the new site is under development, and a feedback box that emails info@harpendenweatherstation.co.uk. Rename the old site's `index.php` to `indexold.php` on the server.
+- Copyright footer "© 2026 Mark Sanders · Contact Me" on every page, including the camera dashboard.
+
 #### V54.0
 
 - New pages: `news.html` (49 entries imported from the old site, plus your own via `DASHBOARD_SITE_CONTENT` `news`), `rainfall.html` (rain rate, daily, monthly, cumulative by year, year table, wettest days, built from the Meteobridge backfill), `wind.html` (speed-banded wind rose for 24 h, 7 d, 30 d), `mbhealth.html` (Meteobridge link, clientraw comparison, history coverage) and `pihealth.html` (CPU, memory, disk, uptime and trends).

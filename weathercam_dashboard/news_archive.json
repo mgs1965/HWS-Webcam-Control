@@ -1,0 +1,296 @@
+[
+ {
+  "date": "2026-11-20",
+  "time": "10:15",
+  "title": "Webcam Health Changes",
+  "text": "Added more statistics and webcam health data, also added a daily Keogram page to the site, it may be interesting to see if it is useful or not. Only Time will tell."
+ },
+ {
+  "date": "2026-11-19",
+  "time": "09:40",
+  "title": "Added Meteobridge and Webcam Health Pages",
+  "text": "Added Meteobridge and Webcam Health Pages\n\nWebcam Health Dashboard - This shows the current state of the image capture process, camera settings and the general health of the system driving this."
+ },
+ {
+  "date": "2026-11-02",
+  "time": "19:17",
+  "title": "Added Webcam Back Again",
+  "text": "Website updated again and I have added the Webcam back in to the system.\n\nIf you spot any errors please let me know.\n\nThanks\n\nMark"
+ },
+ {
+  "date": "2026-11-01",
+  "time": "14:51",
+  "title": "Website Updated",
+  "text": "Website updated I have converted to the new Meteobridge Aurora Meteobridge 2026 template from the old 2023/2024 Weather34 template for displaying the console data.\n\nIf you spot any errors please let me know.\n\nThanks\n\nMark"
+ },
+ {
+  "date": "2026-07-05",
+  "time": "09:15",
+  "title": "Website Updated",
+  "text": "Website needed a well overdue update had to find and re-install the software but hey ho it still works.\n\nIf you spot any errors please let me know.\n\nThanks\n\nMark"
+ },
+ {
+  "date": "2024-02-24",
+  "time": "15:00",
+  "title": "Weather Station Resited/Moved",
+  "text": "Over the last few weeks it has become apparent that the rainfall being measured on the weather station has been under reporting. The weather has not been conducive to getting up on the roof to check the station out.\n\nToday, the weather was kind to me and I found the rain collector blocked and full of water. I decided to bite the bullet and move the ISS sensor station to make it alot easier to clean and unblock if it happens again. When doing this I noticed the FARS did not seem to be working, I will have to keep an eye on it over the next few days to see what is what, another reason for moving it."
+ },
+ {
+  "date": "2023-05-27",
+  "time": "19:01",
+  "title": "FARS checked out and Batteries Replaced",
+  "text": "The FARS unit was checked out while I had the weather station down from the roof, the fan still runs but is a little noisy. Also checked the charging electronics and solar panel all were functioning ok, but the rechargeable batteries were dead, replaced these so hopefully all ok for the summer."
+ },
+ {
+  "date": "2023-05-27",
+  "time": "18:00",
+  "title": "Added Ecowitt Lightning Sensor",
+  "text": "Added a  Ecowitt Wh57 Lightning Sensor to the Ecowitt GW 2000 gateway along with the Wittboy Weather Station. Hopefully I will be able to Graph the Lightning Data over time all depending on if it detects any Lightning that is :-)."
+ },
+ {
+  "date": "2023-05-27",
+  "time": "16:00",
+  "title": "Added Ecowitt Whittboy Weather Station",
+  "text": "Added a  Ecowitt Weather Station to my setup, which provides a 7 in 1 sensor array that provides/measures Outdoor Temperature and humidity, wind speed, gust speed, wind direction, rainfall rate, and totals, along with Solar light intensity and UV index. It will be interesting to see how accurate it is over time. I might add some comparison graphs once I have some data to make meaningful comparisons.\n\nweather-station-features-2"
+ },
+ {
+  "date": "2023-05-07",
+  "time": "21:59",
+  "title": "Added Visitor Logs",
+  "text": "Updated Website to add visitor counters and logs to the website pages."
+ },
+ {
+  "date": "2023-04-27",
+  "time": "18:41",
+  "title": "General Tidy Up",
+  "text": "Updated Website to include 7 Day History Graph and corrected the Tags page to make the site consistent again."
+ },
+ {
+  "date": "2023-04-18",
+  "time": "21:17",
+  "title": "UPS Added to the Meteobridge PRO2",
+  "text": "Added a Waveshare UPS Module 3S to the Meteobridge PRO2 to provide in excess of 24 hours battery backup if the power goes out. Over 24 hours may seem a bit excessive but that's the optimum assuming the batteries live up to their 9000mah power rating."
+ },
+ {
+  "date": "2023-04-03",
+  "time": "19:09",
+  "title": "Records Page Updated & Graphs Amendments",
+  "text": "Records page updated to format date and Time correctly added a few more mins and max entries.\n\nUpdated graphs to make them more readable and adjusted scales to show the data more clearly."
+ },
+ {
+  "date": "2023-04-01",
+  "time": "00:00",
+  "title": "Weather Display Data Collection Retired",
+  "text": "Weather Display Data collection and PC Now turned off. Updated Website Re-Implemented Meteobrige Pro 2 and only imported 2023 data to date plus some of the historic records."
+ },
+ {
+  "date": "2023-03-25",
+  "time": "13:29",
+  "title": "General Tidy Up and Minor Website Changes",
+  "text": "Updated Website to include Metrobridge info etc. And a general tidy up! Plus playing with some of the Meteobridge Templates on the Tags Page of the site to see what info I can extract and display."
+ },
+ {
+  "date": "2023-03-19",
+  "time": "19:12",
+  "title": "Re-Added Webcam Page",
+  "text": "Re-Added Webcam Page and Started importing data in to Meteobridge. 2011-2013 imported."
+ },
+ {
+  "date": "2023-03-13",
+  "time": "17:43",
+  "title": "Added History Page",
+  "text": "Added Meteobridge Graphs to the Website and cleaned out all old files on the Website. Hopefully over time I can Migrate data from Weather Display so that I can build up the history to be displayed in the new format. Watch this space!"
+ },
+ {
+  "date": "2023-03-09",
+  "time": "17:08",
+  "title": "Added Meteobridge PRO2 and Weather34 Templates",
+  "text": "Started the process of converting my weather station setup and website to use Meteobridge and the Weather34 Aurora MKII template to record and display the Weather Data. These changes replace the 2011 original implementation of the Weather Display software and other data display utilities like iWDL for mobile devices and Fresh WDL for Console data display. Over time I hope to migrate the historic data as well but for now history will build up from March 2023."
+ },
+ {
+  "date": "2022-04-14",
+  "time": "17:55",
+  "title": "New Webcam Installed",
+  "text": "Amcrest IP4M-1041 Webcam installed looking South East to do daily and hourly weather monitoring along with more frequent snapshot capture. All using Weather Display to generate the Video and JPG Snapshots. The Existing camera has been moved to look North East and provide point in time snapshots only."
+ },
+ {
+  "date": "2022-04-02",
+  "time": "14:56",
+  "title": "Website Updated",
+  "text": "New page for Sun and Moon data publishing."
+ },
+ {
+  "date": "2022-03-29",
+  "time": "18:21",
+  "title": "New Webcam Installed",
+  "text": "Amcrest IP2M-841-V3 ProHD 1080p Webcam installed to do daily and hourly weather monitoring along with more frequent snapshot capture. All using Weather Display to generate the Video and JPG Snapshots.\n\nNew pages for reviewing video and current Webcam snapshot images added."
+ },
+ {
+  "date": "2022-03-25",
+  "time": "18:34",
+  "title": "Website Updated",
+  "text": "New About Blog page created to document changes to the Website and Weather Station.\n\nNew History page added to display the history over the years, it makes use of Weather Display custom tags to build the list of months. All very clever Thanks Brian!\n\nNew Tags page to test out future custom tags to be used and alike, so a work in progress.\n\nRe-config of Weather display to Create correct webpages and remove the support for the decommissioned Webcam only took nearly 3 year to get round to it and work out how to switch it off!"
+ },
+ {
+  "date": "2022-03-24",
+  "time": "12:00",
+  "title": "Weather Station Maintenance",
+  "text": "Repaired Soil Temperature 2 sensor connection terminals and Switched back from Soil Temperature Sensor 3 setting to Soil Temperature 2 setting to report Greenhouse temperature. Changed colours on Weather Display main graph page.\n\nLight Green => ISS Temp on Roof\nWhite => Extra Temp Sensor 1 at Ground Level\nOrange => Greenhouse Mid Level Temp"
+ },
+ {
+  "date": "2022-03-23",
+  "time": "12:00",
+  "title": "Website Updated",
+  "text": "Major revisions to Website made over a few days, covering navigation and other improvements plus adding Mobile device support  via iWDL scripting app."
+ },
+ {
+  "date": "2022-03-21",
+  "time": "12:00",
+  "title": "Installed Software",
+  "text": "Rapidweaver license purchased now able to create websites with more than 3 pages :-)"
+ },
+ {
+  "date": "2022-03-20",
+  "time": "12:00",
+  "title": "Weather Station Maintenance",
+  "text": "Weather Station taken down from the roof and cleaned as rain bucket was clogged and stopped reporting correctly. Taking advantage of getting the ISS Sensor unit down battery replaced just in case and rain gauge re calibrated, so rainfall on 20th March 2022 is incorrectly reported!\n\nLet's hope the rainfall figures in the future report more accurately in Weather Display!"
+ },
+ {
+  "date": "2022-03-18",
+  "time": "12:00",
+  "title": "Website Updated",
+  "text": "Harpenden Weather Station web site revamped with new look and feel. New site created with Rapidweaver 8 software on trial/demo license."
+ },
+ {
+  "date": "2021-07-25",
+  "time": "12:00",
+  "title": "Weather Station Update",
+  "text": "Super-capacitor replacement is working well as I have not had to replace a battery now for nearly two years."
+ },
+ {
+  "date": "2020-05-20",
+  "time": "12:00",
+  "title": "Weather Station Upgrade",
+  "text": "Davis AeroCone Rain Collector Cone Replacement Kit 6462 added to the station setup."
+ },
+ {
+  "date": "2020-03-20",
+  "time": "12:00",
+  "title": "Weather Station Upgrade",
+  "text": "Davis Vantage Pro 2 Rain Tipping Spoon 7345 installed to replace the standard tipping spoon."
+ },
+ {
+  "date": "2019-09-15",
+  "time": "12:00",
+  "title": "Weather Station Maintenance",
+  "text": "Anemometer moved back to report via the main ISS instead of via a seperate transmitter, makes everything easier to manage and support.\n\nSuper-capacitor changed on the ISS unit and other transmitters to increase Solar Storage capacity in an attempt to reduce the number of battery changes needed, especially In the winter when less Sun/Solar power available."
+ },
+ {
+  "date": "2019-07-18",
+  "time": "17:34",
+  "title": "Webcam Decommisioned",
+  "text": "Webcam removed from the setup as a Potential Security risk on EOL/EOS Webcam."
+ },
+ {
+  "date": "2018-01-02",
+  "time": "12:00",
+  "title": "Weather Station Upgrade",
+  "text": "Added Temperature 2 to the Temp and Soil Sensor Station to monitor Greenhouse Temperature."
+ },
+ {
+  "date": "2015-03-08",
+  "time": "12:00",
+  "title": "Weather Station Upgraded",
+  "text": "Added Soil Temperature 1 and Soil Moisture 1 Sensors at a depth of 10cm."
+ },
+ {
+  "date": "2015-01-18",
+  "time": "12:00",
+  "title": "Weather Station Upgraded",
+  "text": "Added FARS to the Weather Station and moved Extra Temperature sensor 1."
+ },
+ {
+  "date": "2014-12-08",
+  "time": "12:00",
+  "title": "Webcam Changed",
+  "text": "Axis P1344 camera added to site to replace the Panasonic BL140-C."
+ },
+ {
+  "date": "2014-11-07",
+  "time": "12:00",
+  "title": "Web Site Updated",
+  "text": "Web Site updated with new pressure charts and Forecast Page plus new Social Media Links."
+ },
+ {
+  "date": "2013-01-21",
+  "time": "12:00",
+  "title": "Added Webcam",
+  "text": "Added Panasonic BL-C140 Network Camera to the site looking North - North North East."
+ },
+ {
+  "date": "2012-11-25",
+  "time": "12:00",
+  "title": "Weather Station Moved Location",
+  "text": "Weather Station moved to Wood End area, All sensors re positioned and working correctly."
+ },
+ {
+  "date": "2012-02-14",
+  "time": "12:00",
+  "title": "Added Sensor",
+  "text": "Added Extra Temperature sensor 1 in a radiation shield outdoors."
+ },
+ {
+  "date": "2012-01-10",
+  "time": "12:00",
+  "title": "Web Site Changes",
+  "text": "Changes to Web Site to include Live Maps & Weather Display Live Updates."
+ },
+ {
+  "date": "2011-02-03",
+  "time": "12:00",
+  "title": "Web Site Changes",
+  "text": "Changes to Web Site to include Satellite and radar info."
+ },
+ {
+  "date": "2011-01-31",
+  "time": "12:00",
+  "title": "Software Removal",
+  "text": "Switched off VirtualVP and Weatherlink as I do not think I will use going forward."
+ },
+ {
+  "date": "2011-01-29",
+  "time": "12:00",
+  "title": "Davis VP2 Install",
+  "text": "VP2 UV and Solar setup. All seems to be working fine."
+ },
+ {
+  "date": "2011-01-28",
+  "time": "12:00",
+  "title": "Software Install",
+  "text": "Initial station setup of VirtualVP to enable Weather Display and WeatherLink Software."
+ },
+ {
+  "date": "2011-01-12",
+  "time": "12:00",
+  "title": "Web Site Setup",
+  "text": "Setup of First Harpenden Weather Station Web Site."
+ },
+ {
+  "date": "2011-01-05",
+  "time": "12:00",
+  "title": "Install of Software",
+  "text": "Install of Weather Display Live."
+ },
+ {
+  "date": "2011-01-02",
+  "time": "12:00",
+  "title": "Initial Weather Station Setup",
+  "text": "Initial setup  of  Weather Display on the  OS100N Station."
+ },
+ {
+  "date": "1999-01-01",
+  "time": "00:00",
+  "title": "Planned Work / Work Needed",
+  "text": "Things to do in the future when time and funds allow:-\n\n0. Keep a Weather Eye! On the FARS to see if it starts to woke on a sunny day a sure indicator the batteries are not charging, if its not working on a sunny day the solar panel or charging ICB may be the fault.\n\n1. Think about Importing Historic Data again, not sure what went wrong last time I tried to do it! Perhaps my data is not as good as I had hoped it to be."
+ }
+]

@@ -17,5 +17,6 @@ for(const[k,l]of SCOPES){const r=R[k]||{},c=el('section','s-card',undefined,$('g
  if(r.rain_total_mm!==undefined){add('Total rain',F(r.rain_total_mm,1,' mm'));add('Rain days (0.2 mm+)',String(r.rain_days))}
  if(!t.rows.length)el('p','muted','No data yet',c)}
 $('intro').textContent='Records come from the daily values stored by the dashboard'+(R.all&&R.all.first?' since '+R.all.first:'')+'. Import older Meteobridge history with weather_station.py --backfill to extend them.';
+if((D.legacy||[]).length){const c=el('section','s-card',undefined,$('grid'));el('h2','','Earlier records (from the old site)',c);const t=el('table','s-table',undefined,c);for(const r of D.legacy){const x=t.insertRow();x.insertCell().textContent=r.label;x.insertCell().textContent=F(r.value,1,' '+r.unit);x.insertCell().textContent=r.date}}
 const Y=D.year_records;if(Y&&Object.keys(Y).length){$('yr').hidden=false;const t=el('table','s-table',undefined,$('yrbody'));for(const[k,l,u]of[['temp_max_c','Hottest','°C'],['temp_min_c','Coldest','°C'],['pressure_max_hpa','Highest pressure','hPa'],['pressure_min_hpa','Lowest pressure','hPa']])if(Y[k]){const r=t.insertRow();r.insertCell().textContent=l;r.insertCell().textContent=F(Y[k].value,1,' '+u);r.insertCell().textContent=String(Y[k].when||'').slice(0,10)}}
 </script></div></body></html>

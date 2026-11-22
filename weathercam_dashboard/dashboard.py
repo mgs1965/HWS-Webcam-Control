@@ -320,9 +320,9 @@ def sync_keogram_archive(limit=7):
    except OSError:pass
  return out
 _PARTS=Path(__file__).resolve().parent
-for _part in ('astronomy.py','analytics.py','station.py','insights.py','recommendations.py','forecast.py'):
+for _part in ('astronomy.py','analytics.py','station.py','insights.py','recommendations.py','forecast.py','extras.py'):
   exec(compile((_PARTS/_part).read_text(encoding='utf-8'),str(_PARTS/_part),'exec'),globals())
-SITE_PAGES=(('indexnew.html','Home'),('console.html','Live'),('graphs.html','Graphs'),('forecast.html','Forecast'),('webcam.html','Webcam'),('radar.html','Radar'),('records.html','Records'),('reports.html','Reports'),('almanac.html','Almanac'),('data.html','Data'),('health.html','Health'),('station.html','Station'),('about.html','About'),('mobile.html','Mobile'),('dashboard.html','Camera dashboard'))
+SITE_PAGES=(('indexnew.html','Home'),('console.html','Live'),('graphs.html','Graphs'),('rainfall.html','Rainfall'),('wind.html','Wind'),('forecast.html','Forecast'),('webcam.html','Webcam'),('radar.html','Radar'),('records.html','Records'),('reports.html','Reports'),('almanac.html','Almanac'),('news.html','News'),('data.html','Data'),('health.html','Webcam health'),('mbhealth.html','Meteobridge'),('pihealth.html','Pi health'),('station.html','Station'),('about.html','About'),('mobile.html','Mobile'),('dashboard.html','Camera dashboard'))
 SITE_NAV=' · '.join(f'<a href="{h}">{t}</a>' for h,t in SITE_PAGES)
 SITE_ASSETS=('site.css','site.js','favicon.svg','logo.svg')
 SITE_HEAD='<link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="site.css"><script src="site.js"></script></head>'
@@ -557,10 +557,16 @@ def generate(upload=False):
  page('forecast.html',{'forecast':forecast})
  page('mobile.html',{'weather':weather,'forecast':forecast})
  for kind in ('about','station'):page('info.html',{'kind':kind,'site':site,'weather':weather},kind+'.html')
- page('indexnew.html',{'keogram':payload.get('keogram'),'weather':weather,'forecast':forecast,'sun_moon':payload['sun_moon'],'weather_series':wseries,'site':site,'state':state,'capture_time':capture_text,'insights':winsight[:3]})
+ today=today_in_harpenden(now,daily);rose=wind_rose_periods(now,wseries_all,scene_rows);news=news_items(site)
+ page('indexnew.html',{'today':today,'news':news[:3],'media_base':media,'keogram':payload.get('keogram'),'weather':weather,'forecast':forecast,'sun_moon':payload['sun_moon'],'weather_series':wseries,'site':site,'state':state,'capture_time':capture_text,'insights':winsight[:3]})
  page('webcam.html',{k:payload.get(k) for k in ('timelapse_library','keogram','keogram_archive','gallery','state','capture_time','mode')}|{'media_base':media})
  page('radar.html',{'site':site})
- page('records.html',{'records':records_data(daily,now),'year_records':(whistory or {}).get('year_records')})
+ page('rainfall.html',{'graphs':{k:graphs.get(k) for k in ('24h','7d','daily')},'generated':now.isoformat()})
+ page('wind.html',{'rose':rose,'weather':weather,'generated':now.isoformat()})
+ page('news.html',{'news':news})
+ page('mbhealth.html',{'health':meteobridge_health(now,weather,station,payload['weather_compare'],daily,weather_archive()),'weather':weather,'compare':payload['weather_compare'],'station_status':station,'generated':now.isoformat()})
+ page('pihealth.html',{k:payload.get(k) for k in ('metrics','series','disk_forecast','hostname','version','generated','state')})
+ page('records.html',{'legacy':LEGACY_RECORDS,'records':records_data(daily,now),'year_records':(whistory or {}).get('year_records')})
  page('reports.html',{'daily':daily})
  page('almanac.html',{'sun_moon':payload['sun_moon'],'almanac':almanac_data(now),'weather':weather,'scene':scene})
  page('data.html',{'weather':weather,'weather_raw':payload['weather_raw']})

@@ -1,6 +1,6 @@
 # Predictive analytics, event detection, daily summaries and long-term statistics (included into dashboard.py).
 QUALITY_BANDS=((75,'GOOD'),(60,'FAIR'),(40,'WARNING'))
-SCENE_FIELDS=('cloud_cover_pct','sky_clarity_pct','fog_index','visibility','droplet_score','lens_condition','focus','alerts','fog_risk','mode','temperature_c','humidity_percent','pressure_hpa','wind_speed_mph','rain_rate_mm_h','rain_today_mm','dew_point_c','solar_radiation_wm2')
+SCENE_FIELDS=('cloud_cover_pct','sky_clarity_pct','fog_index','visibility','droplet_score','lens_condition','focus','alerts','fog_risk','mode','temperature_c','humidity_percent','pressure_hpa','wind_speed_mph','rain_rate_mm_h','rain_today_mm','dew_point_c','solar_radiation_wm2','wind_direction_deg','wind_gust_mph')
 FOG_WARNING_INDEX=35.0
 DAILY_STATS_DAYS=1200
 def quality_label(value):

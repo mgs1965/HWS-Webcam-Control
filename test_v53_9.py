@@ -884,7 +884,7 @@ def test_site_pages_assets_records_and_almanac(tmp_path, monkeypatch):
     monkeypatch.setattr(dash, 'OUT', tmp_path / 'out')
     dash.generate(False)
     out = tmp_path / 'out'
-    for name in ('indexnew.html', 'webcam.html', 'radar.html', 'records.html', 'reports.html', 'almanac.html', 'data.html', 'health.html'):
+    for name in ('indexnew.html', 'webcam.html', 'radar.html', 'records.html', 'reports.html', 'almanac.html', 'data.html', 'health.html', 'rainfall.html', 'wind.html', 'news.html', 'mbhealth.html', 'pihealth.html'):
         page = (out / name).read_text()
         assert '__DATA__' not in page and '__NAV__' not in page and 'site.js' in page and 'reports.html' in page
     assert 'site.js' in (out / 'dashboard.html').read_text()
@@ -925,3 +925,30 @@ def test_backfill_from_meteobridge_and_archive_merge(tmp_path):
     graphs = dash.graph_data(now, [], [], {'2026-11-21': {'temp_max_c': 5.0}}, None, archive)
     by_day = {d['date']: d for d in graphs['daily']}
     assert by_day['2026-11-21']['temp_max_c'] == 5.0 and by_day['2026-11-20']['temp_max_c'] == 12.0 and by_day['2026-11-20']['rain_mm'] == 0.5
+
+
+def test_v54_news_today_wind_and_meteobridge_health(tmp_path):
+    dash = _dash(tmp_path)
+    now = datetime(2026, 11, 22, 12, 0, tzinfo=timezone.utc)
+    news = dash.news_items({'news': [{'date': '2030-11-01', 'title': 'Mine', 'text': 'x'}]})
+    assert news[0]['title'] == 'Mine' and len(news) > 40 and news == sorted(news, key=lambda n: (n['date'], n['time']), reverse=True)
+    daily = [{'date': '2025-11-22', 'temp_max_c': 10.0, 'temp_min_c': 3.0, 'rain_mm': 4.0}, {'date': '2024-11-22', 'temp_max_c': 12.0, 'temp_min_c': -2.0, 'rain_mm': 0.0}]
+    today = dash.today_in_harpenden(now, daily)
+    assert today['hottest'] == {'value': 12.0, 'year': '2024'} and today['coldest']['value'] == -2.0 and today['wettest']['year'] == '2025' and today['day_length_change_seconds'] < 0
+    points = [{'wind_direction_deg': 270, 'wind_speed_mph': 12}] * 8 + [{'wind_direction_deg': 0, 'wind_speed_mph': 0.1}] * 2
+    rose = dash.wind_rose_periods(now, points, [])
+    assert list(rose) == ['24h'] and rose['24h']['calm_percent'] == 20.0 and rose['24h']['percent'][12][2] == 80.0
+    health = dash.meteobridge_health(now, {'updated': now.isoformat(), 'bridge_data_age_s': 20}, {}, {'rows': [{'label': 'Temp', 'status': 'differs'}]}, [{'date': '2026-11-21', 'rain_mm': 1.0}], {'2026-11-21': {}})
+    status = {c['name']: c['status'] for c in health['checks']}
+    assert status['Latest reading'] == 'ok' and status['Meteobridge vs clientraw'] == 'warn' and status['Daily history (30 days)'] == 'bad'
+
+
+def test_sun_highlight_frame_selection():
+    source = (ROOT / 'timelapse.py').read_text(encoding='utf-8')
+    function = next(n for n in ast.parse(source).body if isinstance(n, ast.FunctionDef) and n.name == 'select_highlight_frames')
+    namespace = {'datetime': datetime, 'timedelta': __import__('datetime').timedelta, 'os': os}
+    exec(compile(ast.Module(body=[function], type_ignores=[]), '<hl>', 'exec'), namespace)
+    frames = [f'/f/frame_20261122_{h:02d}{m:02d}00.jpg' for h in range(6, 10) for m in range(0, 60)]
+    chosen = namespace['select_highlight_frames'](frames, datetime(2026, 11, 22, 8, 0), 30)
+    assert chosen[0].endswith('073000.jpg') and chosen[-1].endswith('083000.jpg') and len(chosen) == 61
+    assert len(namespace['select_highlight_frames'](frames, datetime(2026, 11, 22, 8, 0), 120, limit=50)) == 50

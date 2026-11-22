@@ -396,7 +396,7 @@ def record_scene_history(capture_time, measurement):
     weather = measurement.get('weather') or {}
     record = {'timestamp': capture_time.isoformat(), 'mode': current_camera_mode}
     record.update({key: scene.get(key) for key in ('cloud_cover_pct', 'sky_clarity_pct', 'fog_index', 'visibility', 'droplet_score', 'lens_condition', 'focus', 'alerts', 'fog_risk')})
-    record.update({key: weather.get(key) for key in ('temperature_c', 'humidity_percent', 'pressure_hpa', 'wind_speed_mph', 'rain_rate_mm_h', 'rain_today_mm', 'dew_point_c', 'uv_index', 'solar_radiation_wm2', 'temp_change_1h_c', 'humidity_change_1h', 'pressure_change_1h_hpa')})
+    record.update({key: weather.get(key) for key in ('temperature_c', 'humidity_percent', 'pressure_hpa', 'wind_speed_mph', 'wind_direction_deg', 'wind_gust_mph', 'rain_rate_mm_h', 'rain_today_mm', 'dew_point_c', 'uv_index', 'solar_radiation_wm2', 'temp_change_1h_c', 'humidity_change_1h', 'pressure_change_1h_hpa')})
     filename = os.path.join(SCENE_HISTORY_PATH, f'scene_{capture_time:%Y%m%d}.jsonl')
     try:
         with open(filename, 'a', encoding='utf-8') as output:

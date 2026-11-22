@@ -1,3 +1,11 @@
+#### V54.3
+
+- Rainfall page fixed: 24 h rain-rate chart reads the right data; `--backfill` falls back to `rain0total-daysum` and refills days missing rain (re-run `weather_station.py --backfill`).
+- Reports: monthly/yearly rain-days total is now a sum. Records, tiles and mobile no longer overspill.
+- Pi health: axis scales on charts and a readable disk forecast. Mobile page polls live data immediately.
+- Camera dashboard tiles follow the site theme. Station page shows Davis Vantage Pro 2 Plus with UV and Solar sensors.
+- New Donate page with PayPal button (`DASHBOARD_PAYPAL_BUTTON_ID` to override); `donate.php` redirects to it.
+
 #### V54.2
 
 - Home page loads live weather immediately, shows a "data is N minutes old" warning when the station goes quiet, trend arrows with 24 h high/low on temperature and pressure, live alert banner, and a "Share today's weather" link.

@@ -809,3 +809,11 @@ def test_station_status_flags_stale_data(tmp_path):
     assert dash.station_status(now)['stale'] is True
     (tmp_path / 'weather_station.json').write_text(json.dumps({'updated': now.isoformat(), 'bridge_data_age_s': 5}))
     assert dash.station_status(now)['stale'] is False
+
+
+def test_console_page_is_generated(tmp_path, monkeypatch):
+    dash = _dash(tmp_path)
+    monkeypatch.setattr(dash, 'OUT', tmp_path / 'out')
+    dash.generate(False)
+    page = (tmp_path / 'out' / 'console.html').read_text()
+    assert 'Wind compass' in page and '__DATA__' not in page and 'weather-live.json' in page

@@ -291,7 +291,7 @@ def publish_with(ftp,host,user,pw,remote,desired):
   try:ftp.voidcmd('TYPE I');remote_size=ftp.size(KEOGRAM_NAME)
   except (ftplib.error_perm,ftplib.error_reply,AttributeError):remote_size=None
   if remote_size!=keogram.stat().st_size:atomic_send(keogram,KEOGRAM_NAME)
- for name in ('latest.jpg','dashboard-data.json','dashboard.html'):
+ for name in ('latest.jpg','dashboard-data.json','console.html','dashboard.html'):
   local=OUT/name
   if local.is_file():atomic_send(local,name)
  ftp.quit()
@@ -517,7 +517,7 @@ def generate(upload=False):
  winsight=weather_insight(weather,scene)+frost_notes(weather)+record_notes(weather,whistory)+([sc['note']] if sc and sc.get('note') and sc.get('verdict')!='AGREE' else [])
  schedule=mode_schedule(now)
  safe_config={
-  'release':'V53.7','telemetry_schema':4,'dashboard_refresh_minutes':5,
+  'release':'V53.7','telemetry_schema':4,'dashboard_refresh_minutes':5,'console_poll_seconds':30,
   'capture_interval_seconds':10,'ftp_configured':bool(os.getenv('DASHBOARD_FTP_HOST')),
   'ftp_tls':os.getenv('DASHBOARD_FTP_TLS','0')!='0',
   'thresholds':TH,'stale_after_minutes':TH['dashboard_stale_minutes'],
@@ -539,6 +539,9 @@ def generate(upload=False):
  if template.count('__DATA__') != 1:raise RuntimeError('Dashboard template must contain exactly one data placeholder')
  template=template.replace('__DATA__',json.dumps(payload,separators=(',',':')).replace('</','<\\/'),1)
  atomic(OUT/'dashboard.html',template)
+ console=(Path(__file__).resolve().parent/'templates/console.html').read_text()
+ console_data={k:payload.get(k) for k in ('weather','weather_series','weather_history','wind_rose','sun_moon','config')}
+ atomic(OUT/'console.html',console.replace('__DATA__',json.dumps(console_data,separators=(',',':')).replace('</','<\\/'),1))
  atomic(OUT/'dashboard-data.json',json.dumps(payload,indent=2))
  result=publish() if upload else 'generated'
  print(json.dumps({'result':result,'state':state,'mode':mode,'capture_age_seconds':capture_age,'health_records':len(health_rows),'telemetry_records':len(telemetry_rows)}))

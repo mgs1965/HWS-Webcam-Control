@@ -16,5 +16,7 @@ window.HWS=HWS;
 function bar(){if(document.getElementById('hws-bar'))return;const b=document.createElement('div');b.id='hws-bar';
  const mk=(label,key,cur,opts)=>{const s=document.createElement('select');s.setAttribute('aria-label',label);for(const[v,t]of opts){const o=document.createElement('option');o.value=v;o.textContent=t;if(v===cur)o.selected=true;s.append(o)}s.addEventListener('change',()=>{set(key,s.value);location.reload()});b.append(s)};
  mk('Units','hws-units',units,[['uk','°C · mph'],['metric','°C · km/h'],['us','°F · inHg']]);mk('Theme','hws-theme',theme,[['green','Racing green'],['dark','Navy'],['light','Light'],['auto','Auto']]);document.body.append(b)}
+function foot(){if(document.getElementById('hws-foot'))return;const f=document.createElement('footer');f.id='hws-foot';f.style.cssText='text-align:center;padding:24px 12px 60px;opacity:.8;font-size:13px';f.innerHTML='© 2026 Mark Sanders &nbsp; <a href="mailto:info@harpendenweatherstation.co.uk">Contact Me</a>';document.body.append(f)}
+if(document.body){foot();bar()}else document.addEventListener('DOMContentLoaded',foot);
 if(document.body)bar();else document.addEventListener('DOMContentLoaded',bar);
 })();

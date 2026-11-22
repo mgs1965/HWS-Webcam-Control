@@ -267,6 +267,8 @@ def parse_meteobridge(text, now):
         key = key.strip()
         if key in allowed:
             raw[key] = _number(value.strip())
+    if raw.get('sunshine_hours_today') is not None and raw['sunshine_hours_today'] > 24:
+        raw['sunshine_hours_today'] /= 60.0  # Meteobridge reports sunshine in minutes
     values = {key: _bounded(key, value) for key, value in raw.items() if key in LIMITS}
     values = {key: value for key, value in values.items() if value is not None}
     if not any(key in values for key in ('temperature_c', 'humidity_percent', 'pressure_hpa')):

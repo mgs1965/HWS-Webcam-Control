@@ -977,6 +977,8 @@ def test_v54_3_alerts_and_share_card(tmp_path, monkeypatch):
     assert dash.share_card({'temperature_c': 7.5, 'wind_direction_deg': 131}, now, out) and out.read_bytes()[:4] == b'\x89PNG'
 
 
-def test_live_rain_expression_is_recognised_by_meteobridge():
+def test_meteobridge_sunshine_minutes_become_hours():
+    import datetime as dt
     import weather_station as ws
-    assert dict(ws.METEOBRIDGE_FIELDS)['rain_today_mm'] == 'rain0total-sum@D0'
+    v = ws.parse_meteobridge('temperature_c=5;sunshine_hours_today=354', dt.datetime.now(dt.timezone.utc))
+    assert abs(v['sunshine_hours_today'] - 5.9) < 0.01

@@ -1,3 +1,9 @@
+#### V54.5
+
+- Meteobridge-only: all clientraw code, settings and the raw-data/source-comparison views removed (`CLIENTRAW_URL`, `HWS_CLIENTRAW_ENABLED` are ignored; `HWS_METEOBRIDGE_URL` is required).
+- New "Live fields" health check flags blank core readings. Meteobridge credentials also load from the environment outside the main loop.
+- Removed dead chart code from several pages.
+
 #### V54.4
 
 - All graphs now have y-axis scales, x-axis ticks and legends (rainfall, compare, console, home sparkline); wind rose has a speed-band legend and ring scales.

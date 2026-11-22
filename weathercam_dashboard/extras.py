@@ -41,7 +41,7 @@ def _rose(points):
  if n<6:return {}
  return {'samples':n,'calm_percent':round(100*calm/n,1),'percent':[[round(100*c/n,2) for c in row] for row in bins],'classes':[[lo,hi] for lo,hi in WIND_CLASSES]}
 def wind_rose_periods(now,wseries,scene):
- """Wind rose for 24 h (weather station), 7 d and 30 d (camera scene log, which records wind direction from V54.4)."""
+ """Wind rose for 24 h (weather station), 7 d and 30 d (camera scene log, which records wind direction from V54.5)."""
  out={'24h':_rose([(num(p.get('wind_direction_deg')),num(p.get('wind_speed_mph'))) for p in wseries or []])}
  for name,days in (('7d',7),('30d',30)):
   cut=now-timedelta(days=days);out[name]=_rose([(num(r.get('wind_direction_deg')),num(r.get('wind_speed_mph'))) for r in scene or [] if r.get('t') and r['t']>=cut])

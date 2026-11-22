@@ -1,3 +1,8 @@
+#### V54.6
+
+- Faster live data: weather fetch every 30 s and live-file upload every 30 s by default (was 60 s / 120 s), so the live tiles are about 30-60 s old.
+- Site chooser links to the original and new sites use absolute http URLs.
+
 #### V54.5
 
 - Meteobridge-only: all clientraw code, settings and the raw-data/source-comparison views removed (`CLIENTRAW_URL`, `HWS_CLIENTRAW_ENABLED` are ignored; `HWS_METEOBRIDGE_URL` is required).

@@ -49,7 +49,7 @@ sudo bash /mnt/weathercam/app/current/rollback_v53_9.sh
 
 ## Replacing the old website (V53.9)
 
-The dashboard now publishes a full site: `index.html` (home), `console.html`, `graphs.html`, `forecast.html`, `webcam.html`, `radar.html`, `records.html`, `reports.html`, `almanac.html`, `data.html`, `health.html`, `station.html`, `about.html`, `mobile.html`, plus `site.css`, `site.js` and `favicon.svg`. Visitors can switch units (°C/°F, mph/km/h, hPa/inHg) and dark/light theme from the small toolbar at the bottom right.
+The dashboard now publishes a full site: `indexnew.html` (home, named so the old site's index keeps working in parallel; rename to `index.html` at cut-over), `console.html`, `graphs.html`, `forecast.html`, `webcam.html`, `radar.html`, `records.html`, `reports.html`, `almanac.html`, `data.html`, `health.html`, `station.html`, `about.html`, `mobile.html`, plus `site.css`, `site.js` and `favicon.svg`. Visitors can switch units (°C/°F, mph/km/h, hPa/inHg) and dark/light theme from the small toolbar at the bottom right.
 
 Recommended cut-over:
 

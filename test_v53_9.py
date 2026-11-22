@@ -884,7 +884,7 @@ def test_site_pages_assets_records_and_almanac(tmp_path, monkeypatch):
     monkeypatch.setattr(dash, 'OUT', tmp_path / 'out')
     dash.generate(False)
     out = tmp_path / 'out'
-    for name in ('index.html', 'webcam.html', 'radar.html', 'records.html', 'reports.html', 'almanac.html', 'data.html', 'health.html'):
+    for name in ('indexnew.html', 'webcam.html', 'radar.html', 'records.html', 'reports.html', 'almanac.html', 'data.html', 'health.html'):
         page = (out / name).read_text()
         assert '__DATA__' not in page and '__NAV__' not in page and 'site.js' in page and 'reports.html' in page
     assert 'site.js' in (out / 'dashboard.html').read_text()

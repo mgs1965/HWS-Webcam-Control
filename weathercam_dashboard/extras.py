@@ -41,22 +41,22 @@ def _rose(points):
  if n<6:return {}
  return {'samples':n,'calm_percent':round(100*calm/n,1),'percent':[[round(100*c/n,2) for c in row] for row in bins],'classes':[[lo,hi] for lo,hi in WIND_CLASSES]}
 def wind_rose_periods(now,wseries,scene):
- """Wind rose for 24 h (weather station), 7 d and 30 d (camera scene log, which records wind direction from V54.4)."""
+ """Wind rose for 24 h (weather station), 7 d and 30 d (camera scene log, which records wind direction from V54.5)."""
  out={'24h':_rose([(num(p.get('wind_direction_deg')),num(p.get('wind_speed_mph'))) for p in wseries or []])}
  for name,days in (('7d',7),('30d',30)):
   cut=now-timedelta(days=days);out[name]=_rose([(num(r.get('wind_direction_deg')),num(r.get('wind_speed_mph'))) for r in scene or [] if r.get('t') and r['t']>=cut])
  return {k:v for k,v in out.items() if v}
-def meteobridge_health(now,weather,station,compare,daily,archive):
+def meteobridge_health(now,weather,station,daily,archive):
  """Checks on the Meteobridge link and on how complete the stored daily history is."""
  checks=[];w=weather or {};st=station or {}
  updated=dt(w.get('updated'));age=(now-updated).total_seconds() if updated else None
  checks.append({'name':'Latest reading','status':'unknown' if age is None else 'ok' if age<=600 else 'bad','detail':'No weather data yet' if age is None else f'{age/60:.0f} min old'})
  bridge=num(w.get('bridge_data_age_s'))
  checks.append({'name':'Console link','status':'unknown' if bridge is None else 'ok' if bridge<300 else 'warn' if bridge<600 else 'bad','detail':'Not reported' if bridge is None else f'Meteobridge data {bridge:.0f} s old'})
- rows=(compare or {}).get('rows') or []
- if rows:
-  bad=[r['label'] for r in rows if r.get('status')=='differs']
-  checks.append({'name':'Meteobridge vs clientraw','status':'warn' if bad else 'ok','detail':('Differ: '+', '.join(bad)) if bad else 'All values agree'})
+ if w.get('source')=='meteobridge':
+  need=(('temperature_c','temperature'),('humidity_percent','humidity'),('pressure_hpa','pressure'),('wind_speed_mph','wind speed'),('wind_gust_mph','gust'),('wind_direction_deg','wind direction'),('rain_rate_mm_h','rain rate'),('rain_today_mm','rain today'),('solar_radiation_wm2','solar'),('uv_index','UV'),('sunshine_hours_today','sunshine'))
+  blank=[n for k,n in need if num(w.get(k)) is None]
+  checks.append({'name':'Live fields','status':'ok' if not blank else 'warn','detail':'All reporting' if not blank else 'Blank: '+', '.join(blank)})
  days={str(r.get('date'))[:10] for r in daily or [] if num(r.get('temp_max_c')) is not None or num(r.get('rain_mm')) is not None}
  today=now.date();gaps=[(today-timedelta(days=i)).isoformat() for i in range(1,31) if (today-timedelta(days=i)).isoformat() not in days]
  checks.append({'name':'Daily history (30 days)','status':'ok' if not gaps else 'warn' if len(gaps)<=3 else 'bad','detail':f'{30-len(gaps)} of 30 days stored'})

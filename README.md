@@ -1,11 +1,11 @@
-# Harpenden Weather Camera V54.4
+# Harpenden Weather Camera V54.5
 
-V54.4 adds camera and image intelligence: scene analysis (cloud cover, fog, lens droplets, frozen/blocked view, focus drift), an optional weather-station overlay, a daily keogram, and weekly/monthly timelapses. Camera-control behavior and telemetry-v4 (58 fields) remain unchanged.
+V54.5 adds camera and image intelligence: scene analysis (cloud cover, fog, lens droplets, frozen/blocked view, focus drift), an optional weather-station overlay, a daily keogram, and weekly/monthly timelapses. Camera-control behavior and telemetry-v4 (58 fields) remain unchanged.
 
 ## Camera and image features
 
 - **Scene analysis:** observational only; results appear on the dashboard Live view, in `camera_status.json` and in `logs/scene/`. Alerts feed the dashboard's recommended checks.
-- **Weather overlay:** write a JSON file (`updated` ISO time plus `temperature_c`, `humidity_percent`, `pressure_hpa`, `wind_speed_mph`, `wind_gust_mph`, `wind_direction_deg`, `rain_rate_mm_h`) to `HWS_WEATHER_DATA_PATH` (default `/mnt/weathercam/logs/weather_station.json`). Data older than 15 minutes is ignored. To populate it from a Weather Display `clientraw.txt`, run `CLIENTRAW_URL=https://your-site/clientraw.txt python3 weather_station.py --interval 60` (or `--once`); the installer ships `weathercam-weather-station.service`, which runs it with retries once `CLIENTRAW_URL` is set in `/etc/weathercam/dashboard.env`; stale or malformed files are never written. It also adds 1-hour trends from `clientrawhour.txt` and writes `weather_station_history.json` (30 daily extremes and year records) from `clientrawdaily.txt` and `clientrawextra.txt`, plus `weather_station_series.json` (rolling 24-hour samples every 5 minutes that feed the dashboard graphs). It also reads UV (token 79), solar (127), lightning counts and maximum gusts. Weekly and monthly timelapses are always created; set `HWS_UPLOAD_WEEKLY_TIMELAPSE=0` and/or `HWS_UPLOAD_MONTHLY_TIMELAPSE=0` in `/etc/weathercam/dashboard.env` to stop uploading them.
+- **Weather overlay:** write a JSON file (`updated` ISO time plus `temperature_c`, `humidity_percent`, `pressure_hpa`, `wind_speed_mph`, `wind_gust_mph`, `wind_direction_deg`, `rain_rate_mm_h`) to `HWS_WEATHER_DATA_PATH` (default `/mnt/weathercam/logs/weather_station.json`). Data older than 15 minutes is ignored. To populate it from a Meteobridge, run `HWS_METEOBRIDGE_URL=192.168.0.65 python3 weather_station.py --interval 60` (or `--once`); the installer ships `weathercam-weather-station.service`, which runs it with retries once `HWS_METEOBRIDGE_URL` is set in `/etc/weathercam/dashboard.env`; missing or malformed readings are never written. It also writes `weather_station_history.json` (30 daily extremes and year records) from the local daily log, plus `weather_station_series.json` (rolling 24-hour samples every 5 minutes that feed the dashboard graphs). It also reads UV, solar, lightning counts and maximum gusts. Weekly and monthly timelapses are always created; set `HWS_UPLOAD_WEEKLY_TIMELAPSE=0` and/or `HWS_UPLOAD_MONTHLY_TIMELAPSE=0` in `/etc/weathercam/dashboard.env` to stop uploading them.
 - **Keogram:** one image per day on the dashboard Archive, uploaded as `latest_keogram.png`.
 - **Weekly/monthly timelapses:** uploaded as `latest_weekly_timelapse.mp4` and `latest_monthly_timelapse.mp4`.
 
@@ -25,10 +25,10 @@ Trend history is kept bounded for Raspberry Pi memory: the most recent 24 hours 
 Create `/etc/weathercam/dashboard.env` from `dashboard.env.example` and set `HWS_FTP_PASSWORD` before installing on a new host.
 
 ```bash
-unzip HWS-Webcam-Control-54.4.zip
-cd HWS-Webcam-Control-54.4
-python3 verify_v54_4.py
-sudo bash ./install_v54_4.sh
+unzip HWS-Webcam-Control-54.5.zip
+cd HWS-Webcam-Control-54.5
+python3 verify_v54_5.py
+sudo bash ./install_v54_5.sh
 ```
 
 The installer preserves an existing `weathercam.service`; on a clean installation it installs the included unit after credential preflight.
@@ -42,5 +42,5 @@ sudo bash -c 'set -a; . /etc/weathercam/dashboard.env; set +a; exec sudo -u mgs 
 ## Rollback
 
 ```bash
-sudo bash /mnt/weathercam/app/current/rollback_v54_4.sh
+sudo bash /mnt/weathercam/app/current/rollback_v54_5.sh
 ```

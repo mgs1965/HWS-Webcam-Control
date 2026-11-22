@@ -20,15 +20,6 @@ def weather_series(now,hours=24):
   if t.tzinfo is None:t=t.replace(tzinfo=now.tzinfo)
   if cutoff<=t<=now:out.append({'t':t.isoformat(),**{k:num(r.get(k)) for k in ('temperature_c','humidity_percent','pressure_hpa','wind_speed_mph','wind_gust_mph','wind_direction_deg','dew_point_c','rain_today_mm','lightning_strikes_today','lightning_distance','solar_radiation_wm2','uv_index')}})
  return out
-def weather_raw():
- try:raw=json.loads((LD/'weather_station_raw.json').read_text(errors='ignore'));labels=json.loads((Path(__file__).resolve().parent/'weather_labels.json').read_text())
- except (OSError,ValueError):return {}
- out={}
- for name,info in (raw.items() if isinstance(raw,dict) else []):
-  if not isinstance(info,dict) or not isinstance(info.get('tokens'),list):continue
-  names=labels.get(name,{})
-  out[name]={'fetched':str(info.get('fetched',''))[:40],'rows':[[i,(names.get(str(i)) or {}).get('l',''),(names.get(str(i)) or {}).get('u',''),str(v)[:24]] for i,v in enumerate(info['tokens'],1)]}
- return out
 def solar_check(weather,scene,now):
  w=weather or {};s=scene or {};solar=num(w.get('solar_radiation_wm2'))
  if solar is None:return None
@@ -56,13 +47,6 @@ def frost_notes(weather):
  if t<=0:return [f'Freezing: air {t:.1f} °C. Ice or frost on the lens or housing is possible.']
  if t<=3 and (d is None or d<=1):return [f'Frost risk: air {t:.1f} °C'+(f', dew point {d:.1f} °C' if d is not None else '')+'.']
  return []
-def _hour_block(tokens,start,scale=1.0):
- out=[]
- for i in range(60):
-  try:v=float(tokens[start-1+i])*scale
-  except (IndexError,ValueError):v=None
-  out.append(v if v is not None and math.isfinite(v) else None)
- return out
 def _minute_hour():
  try:samples=json.loads((LD/'weather_station_minute.json').read_text(errors='ignore')).get('samples')
  except (OSError,ValueError,AttributeError):return {}
@@ -82,15 +66,7 @@ def _minute_hour():
   out[name]=col
  return out
 def weather_hour():
- try:raw=json.loads((LD/'weather_station_raw.json').read_text(errors='ignore'))
- except (OSError,ValueError):return _minute_hour()
- info=raw.get('clientrawhour') if isinstance(raw,dict) else None;tokens=info.get('tokens') if isinstance(info,dict) else None
- if not isinstance(tokens,list) or len(tokens)<480:return _minute_hour()
- local=_minute_hour()
- try:
-  if local and (datetime.fromisoformat(local['fetched'])-datetime.fromisoformat(str(info.get('fetched','')))).total_seconds()>900:return local
- except (ValueError,TypeError):pass
- return {'fetched':str(info.get('fetched',''))[:40],'wind_mph':_hour_block(tokens,1,1.15078),'gust_mph':_hour_block(tokens,61,1.15078),'direction_deg':_hour_block(tokens,121),'temperature_c':_hour_block(tokens,181),'humidity_percent':_hour_block(tokens,241),'pressure_hpa':_hour_block(tokens,301),'solar_wm2':_hour_block(tokens,421)}
+ return _minute_hour()
 def wind_rose(series,hour):
  pts=[(num(p.get('wind_direction_deg')),num(p.get('wind_speed_mph')) or 0) for p in series]
  source='24 h'
@@ -159,19 +135,6 @@ def weather_insight(weather,scene):
  r=num(w.get('rain_rate_mm_h'))
  if r is not None and r>0:reasons.append(f'Rain reported ({r:.1f} mm/h); droplets on the lens are likely.')
  return reasons
-COMPARE_FIELDS=(('temperature_c','Temperature','°C',0.5),('humidity_percent','Humidity','%',3),('pressure_hpa','Pressure','hPa',1.5),('wind_speed_mph','Wind speed','mph',2),('wind_gust_mph','Wind gust','mph',3),('wind_direction_deg','Wind direction','°',20),('dew_point_c','Dew point','°C',0.7),('rain_rate_mm_h','Rain rate','mm/h',0.5),('rain_today_mm','Rain today','mm',0.3),('uv_index','UV index','',0.3),('solar_radiation_wm2','Solar','W/m²',30),('wind_gust_max_today_mph','Max gust today','mph',3),('lightning_strikes_today','Lightning today','',0))
-def weather_compare():
- try:d=json.loads((LD/'weather_station_compare.json').read_text(errors='ignore'))
- except (OSError,ValueError):return {}
- if not isinstance(d,dict) or not isinstance(d.get('clientraw'),dict) or not isinstance(d.get('meteobridge'),dict):return {}
- rows=[]
- for key,label,unit,tol in COMPARE_FIELDS:
-  a=num(d['clientraw'].get(key));b=num(d['meteobridge'].get(key))
-  if a is None and b is None:continue
-  diff=None if a is None or b is None else round(b-a,2)
-  if key=='wind_direction_deg' and diff is not None:diff=round((diff+180)%360-180,2)
-  rows.append({'label':label,'unit':unit,'clientraw':a,'meteobridge':b,'diff':diff,'status':'missing' if diff is None else ('differs' if abs(diff)>tol else 'match')})
- return {'updated':str(d.get('updated',''))[:40],'rows':rows}
 def station_status(now):
  """Flag weather data that has stopped updating (service stopped, or the Meteobridge has lost the console)."""
  data=jsonfile(LD/'weather_station.json')

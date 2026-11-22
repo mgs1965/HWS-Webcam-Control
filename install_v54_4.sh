@@ -59,11 +59,11 @@ if ! systemctl is-active --quiet weathercam.service; then
   echo "Camera failed to start. Run sudo bash /mnt/weathercam/app/current/rollback_v54_4.sh"
   exit 1
 fi
-if sudo grep -Eq '^CLIENTRAW_URL=.+$' /etc/weathercam/dashboard.env; then
+if sudo grep -Eq '^HWS_METEOBRIDGE_URL=.+$' /etc/weathercam/dashboard.env; then
   sudo systemctl enable weathercam-weather-station.service
   sudo systemctl restart weathercam-weather-station.service
 else
-  echo "Weather station fetcher not started: set CLIENTRAW_URL in /etc/weathercam/dashboard.env, then run: sudo systemctl enable --now weathercam-weather-station.service"
+  echo "Weather station fetcher not started: set HWS_METEOBRIDGE_URL in /etc/weathercam/dashboard.env, then run: sudo systemctl enable --now weathercam-weather-station.service"
 fi
 sudo -u mgs /usr/bin/python3 "$BASE/current/weathercam_dashboard/dashboard.py"
 sudo systemctl enable --now weathercam-dashboard.timer

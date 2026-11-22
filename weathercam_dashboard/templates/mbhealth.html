@@ -10,12 +10,11 @@ const el=(tag,cls,text,parent)=>{const e=document.createElement(tag);if(cls)e.cl
 const F=(v,d,u,delta)=>HWS.fmt(v,d,u,delta),NS='http://www.w3.org/2000/svg';
 const tile=(box,k,v)=>{const t=el('div','s-tile',undefined,box);el('div','k',k,t);el('div','v',v,t)};
 
-const H=D.health||{},W=D.weather||{},C=D.compare||{},ICON={ok:'✅',warn:'⚠️',bad:'❌',unknown:'❔'};
+const H=D.health||{},W=D.weather||{},ICON={ok:'✅',warn:'⚠️',bad:'❌',unknown:'❔'};
 let c=el('section','s-card',undefined,$('grid'));el('h2','',"Checks",c);
 for(const k of H.checks||[]){const r=el('div','',undefined,c);r.style.cssText='display:flex;justify-content:space-between;gap:8px;padding:4px 0';el('span','',(ICON[k.status]||'')+' '+k.name,r);el('span','muted',k.detail,r)}
 c=el('section','s-card',undefined,$('grid'));el('h2','',"History",c);const t=el('table','s-table',undefined,c);
 for(const[a,b]of[['Days stored',H.days_stored],['First stored day',H.first_day],['Archive days (Meteobridge import)',H.archive_days],['Archive from',H.archive_first],['Archive to',H.archive_last],['Missing in last 30 days',(H.gaps||[]).join(', ')||'none']]){const r=t.insertRow();r.insertCell().textContent=a;r.insertCell().textContent=b??'–'}
 c=el('section','s-card',undefined,$('grid'));el('h2','',"Source",c);const t2=el('table','s-table',undefined,c);
 for(const[a,b]of[['Source',W.source],['Updated',W.updated],['Bridge data age (s)',W.bridge_data_age_s],['Station note',H.station_message]]){const r=t2.insertRow();r.insertCell().textContent=a;r.insertCell().textContent=b??'–'}
-if((C.rows||[]).length){c=el('section','s-card',undefined,$('grid'));el('h2','',"Meteobridge vs clientraw",c);const t3=el('table','s-table',undefined,c);for(const r of C.rows){const x=t3.insertRow();x.insertCell().textContent=r.label;x.insertCell().textContent=String(r.meteobridge??'–');x.insertCell().textContent=String(r.clientraw??'–');x.insertCell().textContent=r.status||''}}
 </script></div></body></html>

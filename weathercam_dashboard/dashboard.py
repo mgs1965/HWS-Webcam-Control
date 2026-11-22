@@ -535,7 +535,7 @@ def generate(upload=False):
   'series':chart_series,'coverage':chart_coverage,'modes':chart_modes,'sun':sun_events(now),'quality_summary':quality_summary(telemetry_rows,now),'timeline_events':timeline_events,
   'mode_performance':mode_effectiveness(telemetry_rows,now),
   'sun_moon':sun_moon(now),'mode_schedule':schedule,'next_mode':next_mode_change(now,schedule),'calendar':day_calendar(report_rows),'timelapse_library':timelapse_library(),'keogram_archive':sync_keogram_archive(),'disk_forecast':disk_forecast(health_rows,now),
-  'timelapse':timelapse,'recommendations':actions,'scene':scene,'periodic':status_data.get('periodic_timelapses') if isinstance(status_data.get('periodic_timelapses'),dict) else {},'weather':weather,'weather_history':whistory,'forecast':forecast,'weather_raw':weather_raw(),'weather_compare':weather_compare(),'weather_series':wseries,'weather_hour':whour,'wind_rose':wind_rose(wseries,whour),'weather_summary':weather_summary(wseries),'solar_check':solar_check(weather,scene,now),'scene_history':scene_history(now),'weather_insight':winsight,'keogram':sync_keogram(),
+  'timelapse':timelapse,'recommendations':actions,'scene':scene,'periodic':status_data.get('periodic_timelapses') if isinstance(status_data.get('periodic_timelapses'),dict) else {},'weather':weather,'weather_history':whistory,'forecast':forecast,'weather_series':wseries,'weather_hour':whour,'wind_rose':wind_rose(wseries,whour),'weather_summary':weather_summary(wseries),'solar_check':solar_check(weather,scene,now),'scene_history':scene_history(now),'weather_insight':winsight,'keogram':sync_keogram(),
   'reports':{'latest':daily_history[-1] if daily_history else None,'history':daily_history},
   'gallery':gallery_items,
   'events':events_payload,'insights':insights,'station_status':station,'hostname':socket.gethostname(),
@@ -575,12 +575,12 @@ def generate(upload=False):
  page('wind.html',{'rose':rose,'weather':weather,'generated':now.isoformat()})
  page('news.html',{'news':news})
  page('donate.html',{'paypal_button':os.environ.get('DASHBOARD_PAYPAL_BUTTON_ID','EX92D2ZBL7V3Y')})
- page('mbhealth.html',{'health':meteobridge_health(now,weather,station,payload['weather_compare'],daily,weather_archive()),'weather':weather,'compare':payload['weather_compare'],'station_status':station,'generated':now.isoformat()})
+ page('mbhealth.html',{'health':meteobridge_health(now,weather,station,daily,weather_archive()),'weather':weather,'station_status':station,'generated':now.isoformat()})
  page('pihealth.html',{k:payload.get(k) for k in ('metrics','series','disk_forecast','hostname','version','generated','state')})
  page('records.html',{'legacy':LEGACY_RECORDS,'records':records_data(daily,now),'year_records':(whistory or {}).get('year_records')})
  page('reports.html',{'daily':daily})
  page('almanac.html',{'sun_moon':payload['sun_moon'],'almanac':almanac_data(now),'weather':weather,'scene':scene})
- page('data.html',{'weather':weather,'weather_raw':payload['weather_raw']})
+ page('data.html',{'weather':weather})
  page('health.html',{k:payload.get(k) for k in ('station_status','state','reasons','metrics','mode','capture_time','counts','generated','hostname','version')}|{'weather':weather})
  if os.environ.get('DASHBOARD_WRITE_REDIRECTS','').lower() in ('1','true','yes','on'):atomic(OUT/'redirects.htaccess',redirects_htaccess())
  atomic(OUT/'dashboard-data.json',json.dumps(payload,indent=2))

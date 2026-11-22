@@ -230,7 +230,7 @@ METEOBRIDGE_FIELDS = (
     ('temperature_c', 'th0temp-act'), ('humidity_percent', 'th0hum-act'), ('dew_point_c', 'th0dew-act'),
     ('pressure_hpa', 'thb0seapress-act'), ('wind_speed_mph', 'wind0avgwind-act=mph'), ('wind_gust_mph', 'wind0wind-act=mph'),
     ('wind_direction_deg', 'wind0dir-act'), ('wind_gust_max_today_mph', 'wind0wind-dmax=mph'),
-    ('rain_rate_mm_h', 'rain0rate-act'), ('rain_today_mm', 'rain0total-daysum'),
+    ('rain_rate_mm_h', 'rain0rate-act'), ('rain_today_mm', 'rain0total-sum@D0'),
     ('solar_radiation_wm2', 'sol0rad-act'), ('uv_index', 'uv0index-act'), ('sunshine_hours_today', 'sol0total-daysum'),
     ('lightning_strikes_today', 'lgt0total-daysum'), ('lightning_distance', 'lgt0distance-act'), ('lightning_energy', 'lgt0energy-act'),
     ('heat_index_c', 'th0heatindex-act'), ('wet_bulb_c', 'th0wetbulb-act'), ('wind_chill_c', 'wind0chill-act'),
@@ -527,7 +527,7 @@ def diagnose(base):
 
 
 BACKFILL_FIELDS = (('temp_max_c', 'th0temp-max', -60.0, 60.0), ('temp_min_c', 'th0temp-min', -60.0, 60.0), ('humidity_avg', 'th0hum-avg', 0.0, 100.0),
-                   ('rain_mm', 'rain0total-sum', 0.0, 1000.0), ('rain_alt_mm', 'rain0total-daysum', 0.0, 1000.0), ('pressure_max_hpa', 'thb0seapress-max', 850.0, 1100.0), ('pressure_min_hpa', 'thb0seapress-min', 850.0, 1100.0),
+                   ('rain_mm', 'rain0total-sum', 0.0, 1000.0), ('pressure_max_hpa', 'thb0seapress-max', 850.0, 1100.0), ('pressure_min_hpa', 'thb0seapress-min', 850.0, 1100.0),
                    ('wind_gust_mph', 'wind0wind-max=mph', 0.0, 200.0))
 BACKFILL_ARCHIVE_NAME = 'weather_station_archive.json'
 
@@ -550,9 +550,6 @@ def parse_backfill_day(text):
         number = _number(value.strip()) if key in limits else None
         if number is not None and limits[key][0] <= number <= limits[key][1]:
             out[key] = round(number, 2)
-    alt = out.pop('rain_alt_mm', None)
-    if alt is not None and 'rain_mm' not in out:
-        out['rain_mm'] = alt
     return out
 
 

@@ -977,14 +977,6 @@ def test_v54_3_alerts_and_share_card(tmp_path, monkeypatch):
     assert dash.share_card({'temperature_c': 7.5, 'wind_direction_deg': 131}, now, out) and out.read_bytes()[:4] == b'\x89PNG'
 
 
-def test_backfill_rain_fallback_and_refill(tmp_path):
+def test_live_rain_expression_is_recognised_by_meteobridge():
     import weather_station as ws
-    from datetime import datetime
-    import json
-    assert ws.parse_backfill_day('temp_max_c=11;rain_alt_mm=2.4')['rain_mm'] == 2.4
-    assert ws.parse_backfill_day('temp_max_c=11;rain_mm=1.0;rain_alt_mm=2.4')['rain_mm'] == 1.0
-    path = tmp_path / 'a.json'
-    path.write_text('{"days":{"2026-01-09":{"temp_max_c":5.0}}}')
-    today = datetime(2026, 1, 10).date()
-    result = ws.backfill_archive('192.168.0.65', str(path), days=1, today=today, fetch=lambda u: 'temp_max_c=5;rain_alt_mm=3.1', sleep=lambda s: None)
-    assert result['added'] == 1 and json.loads(path.read_text())['days']['2026-01-09']['rain_mm'] == 3.1
+    assert dict(ws.METEOBRIDGE_FIELDS)['rain_today_mm'] == 'rain0total-sum@D0'

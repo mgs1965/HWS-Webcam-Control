@@ -10,7 +10,7 @@ header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:cen
 .row{display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-bottom:1px solid #203e53}.row:last-child{border:0}.up{color:var(--amber)}.down{color:var(--blue)}
 svg{width:100%;height:auto;display:block}.cam img{width:100%;border-radius:8px;display:block}.spark{margin-top:8px}.live{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--green);margin-right:6px}.live.off{background:var(--red)}
 </style></head><body><div class="page">
-<header><div><h1>Harpenden Weather Station</h1><div class="muted"><span id="dot" class="live off"></span><span id="status">Waiting for data</span></div></div><div class="muted"><a href="graphs.html">Graphs</a> · <a href="dashboard.html">Camera dashboard</a></div></header>
+<header><div><h1>Harpenden Weather Station</h1><div class="muted"><span id="dot" class="live off"></span><span id="status">Waiting for data</span></div></div><div class="muted">__NAV__</div></header>
 <div id="stale" class="banner" hidden role="alert"></div>
 <div class="grid">
 <section class="card"><h2>Temperature</h2><div class="big" id="temp">–</div><div class="muted" id="feels"></div><div class="row"><span>Today high / low</span><b id="hilo">–</b></div><div class="row"><span>Change, 1 h</span><b id="dtemp">–</b></div><div class="row"><span>Dew point</span><b id="dew">–</b></div><div class="row"><span>Humidity</span><b id="hum">–</b></div><div class="spark" id="sparkT"></div></section>

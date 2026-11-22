@@ -1,3 +1,12 @@
+#### V53.8
+
+- Wind direction is shown as 16-point compass names (N, NNE, NE ...) in the live strip, Weather tab, sparkline and source comparison.
+- New `console.html`: live console (temperature, wind compass, pressure, rain, solar/UV, sun and moon, webcam, year records) refreshing from `weather-live.json`.
+- New `graphs.html`: 24 hour, 7 day, 30 day and year charts, with a daily rainfall total. The daily log now records each day's rainfall (`rain_mm`), so year rainfall builds up from this release.
+- New `forecast.html`: 8-day and 48-hour forecast from MET Norway (the data behind yr.no), cached for an hour (`DASHBOARD_FORECAST`, `DASHBOARD_FORECAST_REFRESH_MINUTES`); the camera computer needs internet access.
+- New `about.html`, `station.html` and `mobile.html` (phone view); text can be customised with `DASHBOARD_SITE_CONTENT`.
+- All pages share one navigation bar and are uploaded with the dashboard.
+
 #### V53.7
 
 - New Insights tab: quality forecast (next hour and after sunset), "why was quality poor?", lens-maintenance predictor, weather correlations, daily summaries, monthly and year-to-date statistics (persisted in `dashboard_daily_stats.json`).

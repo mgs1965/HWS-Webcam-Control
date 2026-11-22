@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse,csv,ftplib,json,math,os,re,shutil,socket,tempfile
 from datetime import datetime,timedelta,timezone
 from pathlib import Path
-V='53.7'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
+V='53.8'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
 IMG=Path(os.getenv('WEATHERCAM_LATEST_IMAGE',str(ROOT/'frames/latest.jpg'))); HD=Path(os.getenv('WEATHERCAM_HEALTH_DIR',str(ROOT/'telemetry/health'))); TD=Path(os.getenv('WEATHERCAM_TELEMETRY_DIR',str(ROOT/'logs'))); LD=Path(os.getenv('WEATHERCAM_LOG_DIR',str(ROOT/'logs')))
 def envnum(name,default):
  try:
@@ -291,7 +291,7 @@ def publish_with(ftp,host,user,pw,remote,desired):
   try:ftp.voidcmd('TYPE I');remote_size=ftp.size(KEOGRAM_NAME)
   except (ftplib.error_perm,ftplib.error_reply,AttributeError):remote_size=None
   if remote_size!=keogram.stat().st_size:atomic_send(keogram,KEOGRAM_NAME)
- for name in ('latest.jpg','dashboard-data.json','console.html','graphs.html','dashboard.html'):
+ for name in ('latest.jpg','dashboard-data.json','console.html','graphs.html','forecast.html','about.html','station.html','mobile.html','dashboard.html'):
   local=OUT/name
   if local.is_file():atomic_send(local,name)
  ftp.quit()
@@ -320,8 +320,9 @@ def sync_keogram_archive(limit=7):
    except OSError:pass
  return out
 _PARTS=Path(__file__).resolve().parent
-for _part in ('astronomy.py','analytics.py','station.py','insights.py','recommendations.py'):
+for _part in ('astronomy.py','analytics.py','station.py','insights.py','recommendations.py','forecast.py'):
   exec(compile((_PARTS/_part).read_text(encoding='utf-8'),str(_PARTS/_part),'exec'),globals())
+SITE_NAV=' · '.join(f'<a href="{h}">{t}</a>' for h,t in (('console.html','Live console'),('graphs.html','Graphs'),('forecast.html','Forecast'),('station.html','Station'),('about.html','About'),('mobile.html','Mobile'),('dashboard.html','Camera dashboard')))
 def generate(upload=False):
  now=datetime.now(timezone.utc)
  status_data=status()
@@ -515,10 +516,11 @@ def generate(upload=False):
  actions=recommended_checks(metrics,timelapse,scene,station)
  wseries=weather_series(now);whour=weather_hour();whistory=weather_history();sc=solar_check(weather,scene,now)
  graphs=graph_data(now,wseries_all,scene_rows,daily_stats,whistory)
+ forecast=forecast_data(now);site=site_content()
  winsight=weather_insight(weather,scene)+frost_notes(weather)+record_notes(weather,whistory)+([sc['note']] if sc and sc.get('note') and sc.get('verdict')!='AGREE' else [])
  schedule=mode_schedule(now)
  safe_config={
-  'release':'V53.7','telemetry_schema':4,'dashboard_refresh_minutes':5,'console_poll_seconds':30,
+  'release':'V53.8','telemetry_schema':4,'dashboard_refresh_minutes':5,'console_poll_seconds':30,
   'capture_interval_seconds':10,'ftp_configured':bool(os.getenv('DASHBOARD_FTP_HOST')),
   'ftp_tls':os.getenv('DASHBOARD_FTP_TLS','0')!='0',
   'thresholds':TH,'stale_after_minutes':TH['dashboard_stale_minutes'],
@@ -529,7 +531,7 @@ def generate(upload=False):
   'series':chart_series,'coverage':chart_coverage,'modes':chart_modes,'sun':sun_events(now),'quality_summary':quality_summary(telemetry_rows,now),'timeline_events':timeline_events,
   'mode_performance':mode_effectiveness(telemetry_rows,now),
   'sun_moon':sun_moon(now),'mode_schedule':schedule,'next_mode':next_mode_change(now,schedule),'calendar':day_calendar(report_rows),'timelapse_library':timelapse_library(),'keogram_archive':sync_keogram_archive(),'disk_forecast':disk_forecast(health_rows,now),
-  'timelapse':timelapse,'recommendations':actions,'scene':scene,'periodic':status_data.get('periodic_timelapses') if isinstance(status_data.get('periodic_timelapses'),dict) else {},'weather':weather,'weather_history':whistory,'weather_raw':weather_raw(),'weather_compare':weather_compare(),'weather_series':wseries,'weather_hour':whour,'wind_rose':wind_rose(wseries,whour),'weather_summary':weather_summary(wseries),'solar_check':solar_check(weather,scene,now),'scene_history':scene_history(now),'weather_insight':winsight,'keogram':sync_keogram(),
+  'timelapse':timelapse,'recommendations':actions,'scene':scene,'periodic':status_data.get('periodic_timelapses') if isinstance(status_data.get('periodic_timelapses'),dict) else {},'weather':weather,'weather_history':whistory,'forecast':forecast,'weather_raw':weather_raw(),'weather_compare':weather_compare(),'weather_series':wseries,'weather_hour':whour,'wind_rose':wind_rose(wseries,whour),'weather_summary':weather_summary(wseries),'solar_check':solar_check(weather,scene,now),'scene_history':scene_history(now),'weather_insight':winsight,'keogram':sync_keogram(),
   'reports':{'latest':daily_history[-1] if daily_history else None,'history':daily_history},
   'gallery':gallery_items,
   'events':events_payload,'insights':insights,'station_status':station,'hostname':socket.gethostname(),
@@ -538,13 +540,17 @@ def generate(upload=False):
  }
  template=(Path(__file__).resolve().parent/'templates/dashboard.html').read_text()
  if template.count('__DATA__') != 1:raise RuntimeError('Dashboard template must contain exactly one data placeholder')
+ template=template.replace('__NAV__',SITE_NAV)
  template=template.replace('__DATA__',json.dumps(payload,separators=(',',':')).replace('</','<\\/'),1)
  atomic(OUT/'dashboard.html',template)
- console=(Path(__file__).resolve().parent/'templates/console.html').read_text()
- console_data={k:payload.get(k) for k in ('weather','weather_series','weather_history','wind_rose','sun_moon','config')}
- graph_page=(Path(__file__).resolve().parent/'templates/graphs.html').read_text()
- atomic(OUT/'graphs.html',graph_page.replace('__DATA__',json.dumps({'graphs':graphs,'generated':now.isoformat()},separators=(',',':')).replace('</','<\\/'),1))
- atomic(OUT/'console.html',console.replace('__DATA__',json.dumps(console_data,separators=(',',':')).replace('</','<\\/'),1))
+ def page(name,data,out=None):
+  text=(Path(__file__).resolve().parent/'templates'/name).read_text().replace('__NAV__',SITE_NAV)
+  atomic(OUT/(out or name),text.replace('__DATA__',json.dumps(data,separators=(',',':')).replace('</','<\\/'),1))
+ page('console.html',{k:payload.get(k) for k in ('weather','weather_series','weather_history','wind_rose','sun_moon','config')})
+ page('graphs.html',{'graphs':graphs,'generated':now.isoformat()})
+ page('forecast.html',{'forecast':forecast})
+ page('mobile.html',{'weather':weather,'forecast':forecast})
+ for kind in ('about','station'):page('info.html',{'kind':kind,'site':site,'weather':weather},kind+'.html')
  atomic(OUT/'dashboard-data.json',json.dumps(payload,indent=2))
  result=publish() if upload else 'generated'
  print(json.dumps({'result':result,'state':state,'mode':mode,'capture_age_seconds':capture_age,'health_records':len(health_rows),'telemetry_records':len(telemetry_rows)}))

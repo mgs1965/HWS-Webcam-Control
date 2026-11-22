@@ -403,6 +403,9 @@ def record_daily(data, path=None):
     if temperature is not None:
         today['temp_max_c'] = max(today.get('temp_max_c', temperature), temperature)
         today['temp_min_c'] = min(today.get('temp_min_c', temperature), temperature)
+    rain = data.get('rain_today_mm')
+    if rain is not None:
+        today['rain_mm'] = max(today.get('rain_mm', rain), rain)
     if pressure is not None:
         today['pressure_min_hpa'] = min(today.get('pressure_min_hpa', pressure), pressure)
     if today != before or len(days) > DAILY_LOG_DAYS:

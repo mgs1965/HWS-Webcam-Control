@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Harpenden Weather</title>
+<style>
+:root{color-scheme:dark;--bg:#071827;--card:#0e273b;--line:#2a4960;--text:#edf6ff;--muted:#a9bdce;--blue:#4ea9ff;--amber:#ffd166;--green:#4bd66a;--red:#ff6075}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px system-ui,"Segoe UI",sans-serif}.page{max-width:520px;margin:auto;padding:12px}
+h1{margin:0 0 2px;font-size:20px}.muted{color:var(--muted)}a{color:var(--blue)}.nav{margin:8px 0 12px;font-size:14px}
+.hero{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;text-align:center}.hero .t{font-size:64px;font-weight:600;line-height:1}.hero .f{margin-top:4px}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}.tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px}.tile .k{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}.tile .v{font-size:24px;font-weight:600}
+.fc{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px}.fc>div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px;text-align:center}.fc .i{font-size:28px}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--green);margin-right:6px}.dot.off{background:var(--red)}img{width:100%;border-radius:12px;margin-top:10px;display:block}
+</style></head><body><div class="page">
+<h1>Harpenden Weather</h1><div class="muted"><span id="dot" class="dot off"></span><span id="status">Waiting for data</span></div>
+<div class="nav">__NAV__</div>
+<div class="hero"><div class="t" id="temp">–</div><div class="f muted" id="feels"></div></div>
+<div class="tiles" id="tiles"></div><div class="fc" id="fc"></div>
+<img src="latest.jpg" alt="Latest weather camera image" id="cam" onerror="this.hidden=true">
+<script type="application/json" id="data">__DATA__</script>
+<script>
+const raw=document.getElementById('data').textContent.trim(),D=raw.startsWith('{')?JSON.parse(raw):{},W=D.weather||{},POLL=30000;
+const has=v=>v!==null&&v!==undefined&&isFinite(Number(v)),NAMES=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'],compass=d=>has(d)?NAMES[Math.round((((Number(d)%360)+360)%360)/22.5)%16]:'–';
+const fmt=(v,d=0,u='')=>has(v)?Number(v).toFixed(d)+u:'–';
+function icon(s){s=String(s||'').replace(/_(day|night|polartwilight)$/,'');if(/thunder/.test(s))return'⛈️';if(/snow/.test(s))return'❄️';if(/sleet/.test(s))return'🌨️';if(/rain/.test(s))return'🌧️';if(/fog/.test(s))return'🌫️';if(s==='clearsky')return'☀️';if(s==='fair')return'🌤️';if(s==='partlycloudy')return'⛅';if(s==='cloudy')return'☁️';return'·'}
+function render(){const el=id=>document.getElementById(id);el('temp').textContent=fmt(W.temperature_c,1,'°C');el('feels').textContent=has(W.heat_index_c)&&W.heat_index_c>W.temperature_c+.5?'Feels like '+fmt(W.heat_index_c,1,'°C'):has(W.wind_chill_c)&&W.wind_chill_c<W.temperature_c-.5?'Feels like '+fmt(W.wind_chill_c,1,'°C'):'';
+const tiles=[['Humidity',fmt(W.humidity_percent,0,'%')],['Dew point',fmt(W.dew_point_c,1,'°C')],['Wind',fmt(W.wind_speed_mph,0,' mph')+' '+compass(W.wind_direction_deg)],['Gust',fmt(W.wind_gust_mph,0,' mph')],['Pressure',fmt(W.pressure_hpa,0,' hPa')],['Rain today',fmt(W.rain_today_mm,1,' mm')],['Rain rate',fmt(W.rain_rate_mm_h,1,' mm/h')],['UV / solar',fmt(W.uv_index,1)+' / '+fmt(W.solar_radiation_wm2,0)]];
+el('tiles').textContent='';for(const[k,v]of tiles){const t=document.createElement('div');t.className='tile';t.innerHTML='<div class="k"></div><div class="v"></div>';t.firstChild.textContent=k;t.lastChild.textContent=v;el('tiles').append(t)}
+const ts=Date.parse(W.updated||''),age=(Date.now()-ts)/60000;el('dot').className='dot'+(isFinite(age)&&age<=10?'':' off');el('status').textContent=isFinite(ts)?'Updated '+new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'No data'}
+render();
+const F=D.forecast;if(F&&F.daily){const box=document.getElementById('fc');for(const d of F.daily.slice(0,3)){const e=document.createElement('div');e.innerHTML='<div class="muted"></div><div class="i"></div><div></div>';e.children[0].textContent=new Date(d.date+'T12:00:00').toLocaleDateString([],{weekday:'short'});e.children[1].textContent=icon(d.symbol);e.children[2].textContent=fmt(d.temp_max_c,0,'°')+' / '+fmt(d.temp_min_c,0,'°');box.append(e)}}
+function poll(){if(location.protocol==='file:'||document.hidden)return;fetch('weather-live.json?ts='+Date.now(),{cache:'no-store'}).then(r=>r.ok?r.json():null).then(w=>{if(w&&typeof w==='object'){Object.assign(W,w);render()}}).catch(()=>{})}
+setInterval(poll,POLL);document.addEventListener('visibilitychange',poll);
+setInterval(()=>{const i=document.getElementById('cam');if(i&&!i.hidden)i.src='latest.jpg?ts='+Date.now()},300000);
+</script></div></body></html>

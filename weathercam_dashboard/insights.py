@@ -1,6 +1,6 @@
 # Predictive analytics, event detection, daily summaries and long-term statistics (included into dashboard.py).
 QUALITY_BANDS=((75,'GOOD'),(60,'FAIR'),(40,'WARNING'))
-SCENE_FIELDS=('cloud_cover_pct','sky_clarity_pct','fog_index','visibility','droplet_score','lens_condition','focus','alerts','fog_risk','mode','temperature_c','humidity_percent','pressure_hpa','wind_speed_mph','rain_rate_mm_h','dew_point_c','solar_radiation_wm2')
+SCENE_FIELDS=('cloud_cover_pct','sky_clarity_pct','fog_index','visibility','droplet_score','lens_condition','focus','alerts','fog_risk','mode','temperature_c','humidity_percent','pressure_hpa','wind_speed_mph','rain_rate_mm_h','rain_today_mm','dew_point_c','solar_radiation_wm2')
 FOG_WARNING_INDEX=35.0
 DAILY_STATS_DAYS=1200
 def quality_label(value):
@@ -327,7 +327,7 @@ def _day_stats(day,tele,scene,report):
  rows=[r for r in tele if r.get('_ts') and r['_ts'].date()==day];recs=[r for r in scene if r['t'].date()==day]
  q=[v for _,v in _telemetry_points(rows,'image_quality_score')];out={}
  if q:out['quality_avg']=round(_mean(q),2);out['quality_n']=len(q)
- for key,field,fn in (('fog_avg','fog_index',_mean),('fog_max','fog_index',max),('cloud_avg','cloud_cover_pct',_mean),('clarity_avg','sky_clarity_pct',_mean),('temp_min_c','temperature_c',min),('temp_max_c','temperature_c',max),('rain_max_mm_h','rain_rate_mm_h',max),('humidity_avg','humidity_percent',_mean)):
+ for key,field,fn in (('fog_avg','fog_index',_mean),('fog_max','fog_index',max),('cloud_avg','cloud_cover_pct',_mean),('clarity_avg','sky_clarity_pct',_mean),('temp_min_c','temperature_c',min),('temp_max_c','temperature_c',max),('rain_max_mm_h','rain_rate_mm_h',max),('rain_mm','rain_today_mm',max),('humidity_avg','humidity_percent',_mean)):
   v=[r[field] for r in recs if r.get(field) is not None]
   if v:out[key]=round(fn(v),2)
  if recs:out['scene_n']=len(recs)
@@ -413,7 +413,7 @@ def graph_data(now,wseries,scene,days,history=None):
  for row in (history or {}).get('daily') or []:
   if isinstance(row,dict) and row.get('date'):
    entry=merged.setdefault(str(row['date'])[:10],{})
-   for key in ('temp_max_c','temp_min_c'):
+   for key in ('temp_max_c','temp_min_c','rain_mm'):
     if entry.get(key) is None and num(row.get(key)) is not None:entry[key]=num(row.get(key))
- daily=[{'date':d,'temp_max_c':s.get('temp_max_c'),'temp_min_c':s.get('temp_min_c'),'humidity_avg':s.get('humidity_avg'),'rain_max_mm_h':s.get('rain_max_mm_h')} for d,s in sorted(merged.items())[-366:]]
+ daily=[{'date':d,'temp_max_c':s.get('temp_max_c'),'temp_min_c':s.get('temp_min_c'),'humidity_avg':s.get('humidity_avg'),'rain_max_mm_h':s.get('rain_max_mm_h'),'rain_mm':s.get('rain_mm')} for d,s in sorted(merged.items())[-366:]]
  return {'24h':bucket_series(live,now,24,5),'7d':bucket_series(hist,now,168,60),'30d':bucket_series(hist,now,720,180),'daily':daily}

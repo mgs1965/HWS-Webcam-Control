@@ -15,10 +15,7 @@ const periods=[...new Set(rows.flatMap(r=>[r.date.slice(0,4),r.date.slice(0,7)])
 for(const id of['a','b'])for(const p of periods){const o=el('option','',p.length===4?p+' (whole year)':p,$(id));o.value=p}
 const cur=new Date().toISOString().slice(0,7),prev=(+cur.slice(0,4)-1)+cur.slice(4);$('a').value=periods.includes(cur)?cur:periods[0];$('b').value=periods.includes(prev)?prev:(periods[1]||periods[0]);
 const pick=p=>rows.filter(r=>r.date.startsWith(p)).sort((x,y)=>x.date<y.date?-1:1),idx=(r,p)=>p.length===4?Math.floor((Date.parse(r.date)-Date.parse(p+'-01-01'))/864e5):+r.date.slice(8,10)-1;
-function lines(box,sets,fn,unit,dig){box.textContent='';const w=700,h=190,pad=34,n=Math.max(...sets.map(s=>s.len),1);let all=[];sets.forEach(s=>all.push(...s.pts.map(p=>p[1])));if(!all.length){el('p','muted','No data for these periods',box);return}
- const lo=Math.min(...all,fn==='sum'?0:Infinity),hi=Math.max(...all),r=(hi-lo)||1;let s='<svg viewBox="0 0 '+w+' '+(h+18)+'" style="width:100%;height:auto"><text x="0" y="12" fill="#a9bdce" font-size="11">'+F(hi,dig,unit)+'</text><text x="0" y="'+h+'" fill="#a9bdce" font-size="11">'+F(lo,dig,unit)+'</text><line x1="'+pad+'" x2="'+w+'" y1="'+h+'" y2="'+h+'" stroke="#2a4960"/>';
- sets.forEach((st,i)=>{if(st.pts.length)s+='<polyline fill="none" stroke="'+COL[i]+'" stroke-width="2" points="'+st.pts.map(p=>(pad+p[0]/Math.max(n-1,1)*(w-pad)).toFixed(1)+','+(h-(p[1]-lo)/r*(h-18)).toFixed(1)).join(' ')+'"/>'});
- box.insertAdjacentHTML('beforeend',s+'</svg><p class="muted">'+sets.map((st,i)=>'<span style="color:'+COL[i]+'">&#9632; '+st.name+'</span>').join(' &nbsp; ')+'</p>')}
+function lines(box,sets,fn,unit,dig){box.textContent='';const yr=sets.some(s=>s.len===366);HWS.chart(box,{series:sets.map((st,i)=>({name:st.name,color:COL[i],pts:st.pts})),unit,dig,zero:fn==='sum',xfmt:x=>yr?new Date(2001,0,1+Math.round(x)).toLocaleDateString([],{month:'short'}):'Day '+(Math.round(x)+1)})}
 const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
 function draw(){const P=[$('a').value,$('b').value],S=P.map(pick);
  lines($('ct'),S.map((d,i)=>({name:P[i],len:P[i].length===4?366:31,pts:d.filter(r=>has(r.temp_max_c)).map(r=>[idx(r,P[i]),+r.temp_max_c])})),'avg','°C',1);

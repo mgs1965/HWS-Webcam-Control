@@ -13,6 +13,19 @@ const HWS={units,theme,
  fmt(v,d,unit,delta){if(!has(v))return'–';d=d||0;unit=unit||'';return Number(HWS.conv(v,unit,delta)).toFixed(HWS.digits(unit,d))+HWS.label(unit)},
  compass(deg){const N=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];return has(deg)?N[Math.round((((Number(deg)%360)+360)%360)/22.5)%16]:'–'}};
 window.HWS=HWS;
+HWS.chart=function(box,o){const S=(o.series||[]).filter(s=>s.pts&&s.pts.length),esc=t=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+ if(!S.length){box.insertAdjacentHTML('beforeend','<p class="muted">No data yet</p>');return}
+ const w=o.w||700,h=o.h||190,L=o.L||50,R=8,T=8,B=22,pw=w-L-R,ph=h-T-B,ys=S.flatMap(s=>s.pts.map(p=>p[1])),cats=o.cats,n=cats?cats.length:0;
+ let lo=o.bars||o.zero?Math.min(0,...ys):Math.min(...ys),hi=Math.max(...ys);if(hi===lo){hi+=1;if(!o.bars&&!o.zero)lo-=1}
+ const xs=S.flatMap(s=>s.pts.map(p=>p[0])),x0=Math.min(...xs),x1=Math.max(...xs),X=x=>cats?L+(x+.5)/n*pw:L+(x-x0)/((x1-x0)||1)*pw,Y=v=>T+ph-(v-lo)/(hi-lo)*ph,dg=o.dig||0,yd=hi-lo<5?Math.max(dg,1):dg;
+ let g='<svg viewBox="0 0 '+w+' '+h+'" style="width:100%;height:auto;font-size:'+(o.fs||11)+'px" fill="#a9bdce">';
+ for(let i=0;i<4;i++){const v=lo+(hi-lo)*i/3,y=Y(v).toFixed(1);g+='<line x1="'+L+'" x2="'+(w-R)+'" y1="'+y+'" y2="'+y+'" stroke="#2a4960" stroke-width=".6"/><text x="'+(L-4)+'" y="'+(+y+4)+'" text-anchor="end">'+HWS.fmt(v,yd,o.unit)+'</text>'}
+ if(cats){const step=Math.ceil(n/8);cats.forEach((c,i)=>{if(i%step===0)g+='<text x="'+X(i).toFixed(1)+'" y="'+(h-6)+'" text-anchor="middle">'+esc(c)+'</text>'})}
+ else for(let i=0;i<5;i++){const x=x0+(x1-x0)*i/4;g+='<text x="'+X(x).toFixed(1)+'" y="'+(h-6)+'" text-anchor="'+(i===0?'start':i===4?'end':'middle')+'">'+esc(o.xfmt?o.xfmt(x):Math.round(x))+'</text>'}
+ for(const s of S){if(o.bars){const bw=Math.max(pw/n-2,1);for(const p of s.pts){const y=Y(p[1]),y0=Y(Math.max(lo,0));g+='<rect x="'+(X(p[0])-bw/2).toFixed(1)+'" y="'+Math.min(y,y0).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+Math.max(Math.abs(y0-y),p[1]>0?1:0).toFixed(1)+'" fill="'+s.color+'"><title>'+esc((cats?cats[p[0]]:p[0])+': '+HWS.fmt(p[1],yd,o.unit))+'</title></rect>'}}
+  else g+='<polyline fill="none" stroke="'+s.color+'" stroke-width="2" stroke-linejoin="round" points="'+s.pts.map(p=>X(p[0]).toFixed(1)+','+Y(p[1]).toFixed(1)).join(' ')+'"/>'}
+ box.insertAdjacentHTML('beforeend',g+'</svg><p class="muted" style="margin:4px 0 0;font-size:12px">'+S.map(s=>'<span style="color:'+s.color+'">&#9632;</span> '+esc(s.name)+(o.unit?' ('+esc(HWS.label(o.unit).trim())+')':'')).join(' &nbsp; ')+'</p>')};
+
 function bar(){if(document.getElementById('hws-bar'))return;const b=document.createElement('div');b.id='hws-bar';
  const mk=(label,key,cur,opts)=>{const s=document.createElement('select');s.setAttribute('aria-label',label);for(const[v,t]of opts){const o=document.createElement('option');o.value=v;o.textContent=t;if(v===cur)o.selected=true;s.append(o)}s.addEventListener('change',()=>{set(key,s.value);location.reload()});b.append(s)};
  mk('Units','hws-units',units,[['uk','°C · mph'],['metric','°C · km/h'],['us','°F · inHg']]);mk('Theme','hws-theme',theme,[['green','Racing green'],['dark','Navy'],['light','Light'],['auto','Auto']]);document.body.append(b)}

@@ -4,6 +4,8 @@
 <header class="s-head"><h1><img src="logo.svg" alt="" style="height:56px;vertical-align:middle;margin-right:12px">Harpenden Weather Station</h1><div class="s-nav muted">__NAV__</div></header>
 <a id="kgbanner" href="webcam.html" style="display:none;margin-bottom:12px"><img id="kgimg" alt="Today's sky keogram" style="width:100%;height:170px;object-fit:cover;border-radius:12px;border:1px solid var(--line);display:block"><span class="muted" id="kgnote"></span></a>
 <div class="muted" style="margin:-6px 0 10px"><span id="dot" class="s-dot off"></span><span id="status">Waiting for data</span></div>
+<div class="s-card" id="stale" hidden style="border-color:var(--amber)"><b id="staletxt"></b></div>
+<div class="s-card" id="alerts" hidden style="border-color:var(--red)"><h2>Weather alerts</h2><ul id="alertlist" style="margin:0;padding-left:18px"></ul></div>
 <div class="s-card" id="today" hidden><h2>Today in Harpenden</h2><p id="todaytxt" style="margin:0"></p></div>
 <div class="s-tiles" id="tiles"></div>
 <div class="hero"><div class="s-card s-media"><h2>Latest from the camera</h2><img src="latest.jpg" alt="Latest weather camera image" id="cam" onerror="this.hidden=true"><div class="muted" id="camnote" style="margin-top:6px"></div></div>
@@ -19,11 +21,19 @@ const raw=document.getElementById('data').textContent.trim(),D=raw.startsWith('{
 const el=(tag,cls,text,parent)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;if(parent)parent.append(e);return e};
 if(D.keogram&&D.keogram.filename){$('kgimg').src=D.keogram.filename;$('kgnote').textContent='Sky keogram, '+(D.keogram.date||'latest');$('kgbanner').style.display='block'}
 const F=(v,d,u,delta)=>HWS.fmt(v,d,u,delta),day=s=>new Date(s+'T12:00:00'),hm=s=>s?new Date(s).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'–';
-const tile=(box,k,v)=>{const t=el('div','s-tile',undefined,box);el('div','k',k,t);el('div','v',v,t)};
+const tile=(box,k,v,sub)=>{const t=el('div','s-tile',undefined,box);el('div','k',k,t);el('div','v',v,t);if(sub)el('div','muted',sub,t).style.fontSize='12px'};
+const arrow=(d,min)=>has(d)?(d>min?' ↑':d<-min?' ↓':' →'):'';
+function hilo(){const v=(D.weather_series||[]).map(p=>p.temperature_c).filter(has);if(has(W.temperature_c))v.push(W.temperature_c);return v.length?'24h '+F(Math.min(...v),1,'°')+' to '+F(Math.max(...v),1,'°'):''}
 const W=D.weather||{},S=D.site||{};
 function icon(s){s=String(s||'').replace(/_(day|night|polartwilight)$/,'');return/thunder/.test(s)?'⛈️':/snow/.test(s)?'❄️':/sleet/.test(s)?'🌨️':/rain/.test(s)?'🌧️':/fog/.test(s)?'🌫️':s==='clearsky'?'☀️':s==='fair'?'🌤️':s==='partlycloudy'?'⛅':s==='cloudy'?'☁️':'·'}
-function render(){const t=$('tiles');t.textContent='';tile(t,'Temperature',F(W.temperature_c,1,'°C'));tile(t,'Humidity',F(W.humidity_percent,0,'%'));tile(t,'Dew point',F(W.dew_point_c,1,'°C'));tile(t,'Wind',F(W.wind_speed_mph,0,' mph')+' '+HWS.compass(W.wind_direction_deg));tile(t,'Gust',F(W.wind_gust_mph,0,' mph'));tile(t,'Pressure',F(W.pressure_hpa,1,' hPa'));tile(t,'Rain today',F(W.rain_today_mm,1,' mm'));tile(t,'UV / solar',F(W.uv_index,1)+' / '+F(W.solar_radiation_wm2,0));
-const ts=Date.parse(W.updated||''),age=(Date.now()-ts)/60000;$('dot').className='s-dot'+(isFinite(age)&&age<=10?'':' off');$('status').textContent=isFinite(ts)?'Updated '+new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'No weather data'}
+function render(){const t=$('tiles');t.textContent='';tile(t,'Temperature',F(W.temperature_c,1,'°C')+arrow(W.temp_change_1h_c,0.2),hilo());tile(t,'Humidity',F(W.humidity_percent,0,'%'));tile(t,'Dew point',F(W.dew_point_c,1,'°C'));tile(t,'Wind',F(W.wind_speed_mph,0,' mph')+' '+HWS.compass(W.wind_direction_deg));tile(t,'Gust',F(W.wind_gust_mph,0,' mph'));tile(t,'Pressure',F(W.pressure_hpa,1,' hPa')+arrow(W.pressure_change_1h_hpa,0.3),has(W.pressure_change_1h_hpa)?(W.pressure_change_1h_hpa>=0?'+':'')+F(W.pressure_change_1h_hpa,1,' hPa in 1h'):'');tile(t,'Rain today',F(W.rain_today_mm,1,' mm'));tile(t,'UV / solar',F(W.uv_index,1)+' / '+F(W.solar_radiation_wm2,0));
+const ts=Date.parse(W.updated||''),age=(Date.now()-ts)/60000;$('dot').className='s-dot'+(isFinite(age)&&age<=10?'':' off');const mins=isFinite(age)?Math.round(age):null,AL=D.alert_limits||{},al=[];
+if(has(W.temperature_c)&&W.temperature_c<=AL.frost_c)al.push('Frost: '+F(W.temperature_c,1,'°C'));
+if(has(W.wind_gust_mph)&&W.wind_gust_mph>=AL.gust_mph)al.push('Strong gusts: '+F(W.wind_gust_mph,0,' mph'));
+if(has(W.rain_rate_mm_h)&&W.rain_rate_mm_h>=AL.rain_rate_mm_h)al.push('Heavy rain: '+F(W.rain_rate_mm_h,1,' mm/h'));
+$('alerts').hidden=!al.length;$('alertlist').textContent='';for(const a of al)el('li','',a,$('alertlist'));
+$('stale').hidden=mins!==null&&mins<=15;$('staletxt').textContent=mins===null?'No weather data yet. The station may be offline.':'Weather data is '+(mins>=120?Math.round(mins/60)+' hours':mins+' minutes')+' old. The station may be offline.';
+$('status').textContent=isFinite(ts)?'Updated '+new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'No weather data'}
 render();
 const pts=(D.weather_series||[]).map(p=>[Date.parse(p.t),p.temperature_c]).filter(p=>has(p[1]));if(pts.length>1){const lo=Math.min(...pts.map(p=>p[1])),hi=Math.max(...pts.map(p=>p[1])),t0=pts[0][0],t1=pts[pts.length-1][0],r=(hi-lo)||1;$('spark').innerHTML='<svg viewBox="0 0 300 60" preserveAspectRatio="none" style="width:100%;height:70px"><polyline fill="none" stroke="#ffd166" stroke-width="2" points="'+pts.map(p=>((p[0]-t0)/(t1-t0||1)*300).toFixed(1)+','+(56-(p[1]-lo)/r*50).toFixed(1)).join(' ')+'"/></svg><div class="muted" style="display:flex;justify-content:space-between"><span>'+F(lo,1,'°C')+'</span><span>'+F(hi,1,'°C')+'</span></div>'}else $('spark').textContent='Not enough data yet';
 const sm=D.sun_moon||{},sb=$('sun');for(const[k,v]of[['Sunrise',hm(sm.sunrise)],['Sunset',hm(sm.sunset)],['Moon',sm.moon?sm.moon.phase+' ('+Math.round(sm.moon.illumination_percent)+'%)':'–']]){const r=el('div','',undefined,sb);r.style.cssText='display:flex;justify-content:space-between';el('span','muted',k,r);el('b','',v,r)}
@@ -37,7 +47,7 @@ if(TD.wettest)tp.push('Wettest '+HWS.fmt(TD.wettest.value,1,' mm')+' ('+TD.wette
 if(tp.length){$('today').hidden=false;$('todaytxt').textContent=tp.join(' ')}
 if((D.news||[]).length){$('newsbox').hidden=false;for(const n of D.news){const d=el('div','',undefined,$('newslist'));el('b','',n.title||'Update',d);el('span','muted',' '+n.date,d);const t=String(n.text);el('div','muted',t.length>200?t.slice(0,200)+'…':t,d)}}
 if(location.protocol!=='file:'){for(const[id,f]of[['vrise','latest_sunrise.mp4'],['vset','latest_sunset.mp4']]){const v=$(id);v.addEventListener('loadedmetadata',()=>{$('sunclips').hidden=false});v.preload='metadata';v.src=(D.media_base||'')+f}}
-for(const[h,l]of[['console.html','Live console'],['graphs.html','Graphs'],['rainfall.html','Rainfall'],['wind.html','Wind rose'],['news.html','News'],['mbhealth.html','Meteobridge health'],['pihealth.html','Pi health'],['webcam.html','Webcam and timelapse'],['radar.html','Rain radar'],['records.html','Records'],['reports.html','Reports'],['almanac.html','Almanac'],['about.html','About']]){const a=el('a','s-btn',l,$('links'));a.href=h}
-function poll(){if(location.protocol==='file:'||document.hidden)return;fetch('weather-live.json?ts='+Date.now(),{cache:'no-store'}).then(r=>r.ok?r.json():null).then(w=>{if(w&&typeof w==='object'){Object.assign(W,w);render()}}).catch(()=>{})}
-setInterval(poll,30000);setInterval(()=>{const i=$('cam');if(i&&!i.hidden)i.src='latest.jpg?ts='+Date.now()},300000);
+for(const[h,l]of[['console.html','Live console'],['graphs.html','Graphs'],['rainfall.html','Rainfall'],['compare.html','Compare periods'],['share.png','Share today\'s weather'],['wind.html','Wind rose'],['news.html','News'],['mbhealth.html','Meteobridge health'],['pihealth.html','Pi health'],['webcam.html','Webcam and timelapse'],['radar.html','Rain radar'],['records.html','Records'],['reports.html','Reports'],['almanac.html','Almanac'],['about.html','About']]){const a=el('a','s-btn',l,$('links'));a.href=h}
+function poll(){if(location.protocol==='file:'||document.hidden)return;fetch('weather-live.json?ts='+Date.now(),{cache:'no-store'}).then(r=>r.ok?r.json():null).then(w=>{if(w&&typeof w==='object'&&w.updated){Object.assign(W,w);render()}}).catch(()=>{})}
+poll();setInterval(poll,30000);setInterval(()=>{const i=$('cam');if(i&&!i.hidden)i.src='latest.jpg?ts='+Date.now()},300000);
 </script></div></body></html>

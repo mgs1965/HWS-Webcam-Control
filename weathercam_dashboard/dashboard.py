@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse,csv,ftplib,json,math,os,re,shutil,socket,tempfile
 from datetime import datetime,timedelta,timezone
 from pathlib import Path
-V='54.1'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
+V='54.2'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
 IMG=Path(os.getenv('WEATHERCAM_LATEST_IMAGE',str(ROOT/'frames/latest.jpg'))); HD=Path(os.getenv('WEATHERCAM_HEALTH_DIR',str(ROOT/'telemetry/health'))); TD=Path(os.getenv('WEATHERCAM_TELEMETRY_DIR',str(ROOT/'logs'))); LD=Path(os.getenv('WEATHERCAM_LOG_DIR',str(ROOT/'logs')))
 def envnum(name,default):
  try:
@@ -291,7 +291,7 @@ def publish_with(ftp,host,user,pw,remote,desired):
   try:ftp.voidcmd('TYPE I');remote_size=ftp.size(KEOGRAM_NAME)
   except (ftplib.error_perm,ftplib.error_reply,AttributeError):remote_size=None
   if remote_size!=keogram.stat().st_size:atomic_send(keogram,KEOGRAM_NAME)
- for name in ('latest.jpg','dashboard-data.json')+tuple(h for h,_ in SITE_PAGES)+SITE_ASSETS:
+ for name in ('latest.jpg','dashboard-data.json')+tuple(h for h,_ in SITE_PAGES)+SITE_ASSETS+SITE_EXTRAS:
   local=OUT/name
   if local.is_file():atomic_send(local,name)
  ftp.quit()
@@ -322,8 +322,9 @@ def sync_keogram_archive(limit=7):
 _PARTS=Path(__file__).resolve().parent
 for _part in ('astronomy.py','analytics.py','station.py','insights.py','recommendations.py','forecast.py','extras.py'):
   exec(compile((_PARTS/_part).read_text(encoding='utf-8'),str(_PARTS/_part),'exec'),globals())
-SITE_PAGES=(('index.html','Site chooser'),('indexnew.html','Home'),('console.html','Live'),('graphs.html','Graphs'),('rainfall.html','Rainfall'),('wind.html','Wind'),('forecast.html','Forecast'),('webcam.html','Webcam'),('radar.html','Radar'),('records.html','Records'),('reports.html','Reports'),('almanac.html','Almanac'),('news.html','News'),('data.html','Data'),('health.html','Webcam health'),('mbhealth.html','Meteobridge'),('pihealth.html','Pi health'),('station.html','Station'),('about.html','About'),('mobile.html','Mobile'),('dashboard.html','Camera dashboard'))
+SITE_PAGES=(('index.html','Site chooser'),('indexnew.html','Home'),('console.html','Live'),('graphs.html','Graphs'),('rainfall.html','Rainfall'),('compare.html','Compare'),('wind.html','Wind'),('forecast.html','Forecast'),('webcam.html','Webcam'),('radar.html','Radar'),('records.html','Records'),('reports.html','Reports'),('almanac.html','Almanac'),('news.html','News'),('data.html','Data'),('health.html','Webcam health'),('mbhealth.html','Meteobridge'),('pihealth.html','Pi health'),('station.html','Station'),('about.html','About'),('mobile.html','Mobile'),('dashboard.html','Camera dashboard'))
 SITE_NAV=' · '.join(f'<a href="{h}">{t}</a>' for h,t in SITE_PAGES if h!='index.html')
+SITE_EXTRAS=('share.png',)
 SITE_ASSETS=('site.css','site.js','favicon.svg','favicon.png','logo.svg','logo.png')
 SITE_HEAD='<link rel="icon" href="favicon.png" type="image/png"><link rel="apple-touch-icon" href="logo.png"><link rel="stylesheet" href="site.css"><script src="site.js"></script></head>'
 def generate(upload=False):
@@ -523,7 +524,7 @@ def generate(upload=False):
  winsight=weather_insight(weather,scene)+frost_notes(weather)+record_notes(weather,whistory)+([sc['note']] if sc and sc.get('note') and sc.get('verdict')!='AGREE' else [])
  schedule=mode_schedule(now)
  safe_config={
-  'release':'V54.1','telemetry_schema':4,'dashboard_refresh_minutes':5,'console_poll_seconds':30,
+  'release':'V54.2','telemetry_schema':4,'dashboard_refresh_minutes':5,'console_poll_seconds':30,
   'capture_interval_seconds':10,'ftp_configured':bool(os.getenv('DASHBOARD_FTP_HOST')),
   'ftp_tls':os.getenv('DASHBOARD_FTP_TLS','0')!='0',
   'thresholds':TH,'stale_after_minutes':TH['dashboard_stale_minutes'],
@@ -560,10 +561,16 @@ def generate(upload=False):
  page('mobile.html',{'weather':weather,'forecast':forecast})
  for kind in ('about','station'):page('info.html',{'kind':kind,'site':site,'weather':weather},kind+'.html')
  today=today_in_harpenden(now,daily);rose=wind_rose_periods(now,wseries_all,scene_rows);news=news_items(site)
+ limits=alert_limits();alerts=weather_alerts(weather,limits)
+ try:send_alerts(alerts,now,LD/'dashboard_alerts_state.json')
+ except Exception as exc:print('[ALERTS] failed:',exc)
+ try:share_card(weather,now,OUT/'share.png',Path(__file__).resolve().parent/'templates'/'logo.png')
+ except Exception as exc:print('[SHARE CARD] failed:',exc)
  page('index.html',{})
- page('indexnew.html',{'today':today,'news':news[:3],'media_base':media,'keogram':payload.get('keogram'),'weather':weather,'forecast':forecast,'sun_moon':payload['sun_moon'],'weather_series':wseries,'site':site,'state':state,'capture_time':capture_text,'insights':winsight[:3]})
+ page('indexnew.html',{'alert_limits':limits,'today':today,'news':news[:3],'media_base':media,'keogram':payload.get('keogram'),'weather':weather,'forecast':forecast,'sun_moon':payload['sun_moon'],'weather_series':wseries,'site':site,'state':state,'capture_time':capture_text,'insights':winsight[:3]})
  page('webcam.html',{k:payload.get(k) for k in ('timelapse_library','keogram','keogram_archive','gallery','state','capture_time','mode')}|{'media_base':media})
  page('radar.html',{'site':site})
+ page('compare.html',{'daily':daily})
  page('rainfall.html',{'graphs':{k:graphs.get(k) for k in ('24h','7d','daily')},'generated':now.isoformat()})
  page('wind.html',{'rose':rose,'weather':weather,'generated':now.isoformat()})
  page('news.html',{'news':news})

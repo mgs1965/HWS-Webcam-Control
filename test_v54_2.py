@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parent
 def test_release_identity():
     namespace = {}
     exec((ROOT / 'version.py').read_text(encoding='utf-8'), namespace)
-    assert namespace['VERSION'] == 'V54.1'
+    assert namespace['VERSION'] == 'V54.2'
     assert namespace['TELEMETRY_SCHEMA_VERSION'] == 4
 
 def test_telemetry_schema():
@@ -32,11 +32,11 @@ def test_credentials_are_not_embedded():
     assert "FTP_PASSWORD = os.getenv('HWS_FTP_PASSWORD', '')" in core
     assert 'cGnRUCGhc' not in core
 
-def test_dashboard_v54_1_payload():
+def test_dashboard_v54_2_payload():
     dashboard = (ROOT / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
     template = (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
-    assert "V='54.1'" in dashboard
-    assert "'release':'V54.1'" in dashboard
+    assert "V='54.2'" in dashboard
+    assert "'release':'V54.2'" in dashboard
     assert "for period,hours in (('24h',24),('7d',168),('30d',720))" in dashboard
     assert 'incidents' in dashboard
     assert "'process_memory':('health','memory.process_rss_bytes',1/1048576)" in dashboard
@@ -232,7 +232,7 @@ def test_controller_configuration_fingerprint_tracks_real_limits():
 
 def test_camera_service_unit_and_install_preserve_existing_unit():
     service = (ROOT / 'systemd/weathercam.service').read_text(encoding='utf-8')
-    installer = (ROOT / 'install_v54_1.sh').read_text(encoding='utf-8')
+    installer = (ROOT / 'install_v54_2.sh').read_text(encoding='utf-8')
     assert 'EnvironmentFile=/etc/weathercam/dashboard.env' in service
     assert 'Restart=on-failure' in service
     assert 'TimeoutStopSec=240' in service
@@ -633,14 +633,14 @@ def test_release_zip_extracts_to_matching_directory(tmp_path):
     manifest = json.loads((ROOT / 'manifest.json').read_text(encoding='utf-8'))
     with zipfile.ZipFile(tmp_path / manifest['package']) as archive:
         names = archive.namelist()
-    assert manifest['package'] == 'HWS-Webcam-Control-54.1.zip'
-    assert all(name.startswith('HWS-Webcam-Control-54.1/') for name in names)
-    assert 'HWS-Webcam-Control-54.1/manifest.json' in names
+    assert manifest['package'] == 'HWS-Webcam-Control-54.2.zip'
+    assert all(name.startswith('HWS-Webcam-Control-54.2/') for name in names)
+    assert 'HWS-Webcam-Control-54.2/manifest.json' in names
 
 def _load_dashboard(tmp_path, monkeypatch):
     monkeypatch.setenv('WEATHERCAM_ROOT', str(tmp_path))
     monkeypatch.setenv('DASHBOARD_OUT', str(tmp_path / 'out'))
-    spec = importlib.util.spec_from_file_location('dash54_1', ROOT / 'weathercam_dashboard/dashboard.py')
+    spec = importlib.util.spec_from_file_location('dash54_2', ROOT / 'weathercam_dashboard/dashboard.py')
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -665,7 +665,7 @@ def test_dashboard_moon_and_disk_forecast(tmp_path, monkeypatch):
     assert forecast['percent_per_day'] > 0 and forecast['days_to_full'] > 0
     assert dash.disk_forecast(rows[:5], now) is None
 
-def test_dashboard_v54_1_template_and_event_tag():
+def test_dashboard_v54_2_template_and_event_tag():
     dashboard = (ROOT / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
     template = (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
     assert '[MODE TRANSITION]' in dashboard and '[MODE CHANGE]' not in dashboard
@@ -884,7 +884,7 @@ def test_site_pages_assets_records_and_almanac(tmp_path, monkeypatch):
     monkeypatch.setattr(dash, 'OUT', tmp_path / 'out')
     dash.generate(False)
     out = tmp_path / 'out'
-    for name in ('index.html', 'indexnew.html', 'webcam.html', 'radar.html', 'records.html', 'reports.html', 'almanac.html', 'data.html', 'health.html', 'rainfall.html', 'wind.html', 'news.html', 'mbhealth.html', 'pihealth.html'):
+    for name in ('index.html', 'indexnew.html', 'webcam.html', 'radar.html', 'records.html', 'reports.html', 'almanac.html', 'data.html', 'health.html', 'rainfall.html', 'compare.html', 'wind.html', 'news.html', 'mbhealth.html', 'pihealth.html'):
         page = (out / name).read_text()
         assert '__DATA__' not in page and '__NAV__' not in page and 'site.js' in page and ('reports.html' in page or name == 'index.html')
     chooser = (out / 'index.html').read_text()
@@ -955,3 +955,23 @@ def test_sun_highlight_frame_selection():
     chosen = namespace['select_highlight_frames'](frames, datetime(2026, 11, 22, 8, 0), 30)
     assert chosen[0].endswith('073000.jpg') and chosen[-1].endswith('083000.jpg') and len(chosen) == 61
     assert len(namespace['select_highlight_frames'](frames, datetime(2026, 11, 22, 8, 0), 120, limit=50)) == 50
+
+
+def test_v54_2_alerts_and_share_card(tmp_path, monkeypatch):
+    dash = _dash(tmp_path)
+    now = datetime(2026, 11, 22, 12, 0, tzinfo=timezone.utc)
+    alerts = dash.weather_alerts({'temperature_c': -1.0, 'wind_gust_mph': 45, 'rain_rate_mm_h': 2})
+    assert [a['key'] for a in alerts] == ['frost', 'gust'] and dash.weather_alerts({'temperature_c': 5}) == []
+    state = tmp_path / 'alerts.json'
+    assert dash.send_alerts(alerts, now, state) == []
+    sent = []
+    monkeypatch.setenv('DASHBOARD_ALERT_NTFY_URL', 'http://example.invalid/topic')
+    import urllib.request
+    class _R:
+        def close(self): pass
+    monkeypatch.setattr(urllib.request, 'urlopen', lambda req, timeout=0: sent.append(req.data) or _R())
+    assert dash.send_alerts(alerts, now, state) == ['frost', 'gust'] and len(sent) == 1
+    assert dash.send_alerts(alerts, now + __import__('datetime').timedelta(hours=1), state) == [] and len(sent) == 1
+    assert dash.send_alerts(alerts, now + __import__('datetime').timedelta(hours=7), state) == ['frost', 'gust']
+    out = tmp_path / 'share.png'
+    assert dash.share_card({'temperature_c': 7.5, 'wind_direction_deg': 131}, now, out) and out.read_bytes()[:4] == b'\x89PNG'

@@ -6,7 +6,7 @@
 <div class="s-card"><h2>Rain rate, last 24 hours</h2><div id="rate"></div></div>
 <div class="s-card"><h2>Daily rainfall, last 90 days</h2><div id="d90"></div></div>
 <div class="s-card"><h2>Monthly totals</h2><div id="months"></div></div>
-<div class="s-card"><h2>Cumulative rainfall by year</h2><div id="cum"></div><p class="muted" id="cumkey"></p></div>
+<div class="s-card"><h2>Cumulative rainfall by year</h2><div id="cum"></div></div>
 <div class="s-card"><h2>Year by year</h2><table class="s-table" id="years"></table></div>
 <div class="s-card"><h2>Wettest days</h2><table class="s-table" id="wet"></table></div>
 <script type="application/json" id="data">__DATA__</script>
@@ -15,22 +15,20 @@ const raw=document.getElementById('data').textContent.trim(),D=raw.startsWith('{
 const el=(tag,cls,text,parent)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;if(parent)parent.append(e);return e};
 const F=(v,d,u,delta)=>HWS.fmt(v,d,u,delta),NS='http://www.w3.org/2000/svg';
 const tile=(box,k,v)=>{const t=el('div','s-tile',undefined,box);el('div','k',k,t);el('div','v',v,t)};
-function bars(box,rows,color,unit,dig){/* rows: [label,value] */const w=700,h=190,pad=30,n=rows.length;if(!n){el('p','muted','No data yet',box);return}const mx=Math.max(...rows.map(r=>r[1]),0.1),bw=(w-pad)/n;let s='<svg viewBox="0 0 '+w+' '+(h+22)+'" style="width:100%;height:auto"><text x="0" y="12" fill="#a9bdce" font-size="11">'+F(mx,dig,unit)+'</text><line x1="'+pad+'" x2="'+w+'" y1="'+h+'" y2="'+h+'" stroke="#2a4960"/>';rows.forEach((r,i)=>{const bh=Math.max(r[1]/mx*(h-18),r[1]>0?1:0),x=pad+i*bw;s+='<rect x="'+(x+1).toFixed(1)+'" y="'+(h-bh).toFixed(1)+'" width="'+Math.max(bw-2,1).toFixed(1)+'" height="'+bh.toFixed(1)+'" fill="'+color+'"><title>'+r[0]+': '+F(r[1],dig,unit)+'</title></rect>';if(n<=14||i%Math.ceil(n/8)===0)s+='<text x="'+(x+bw/2).toFixed(1)+'" y="'+(h+15)+'" fill="#a9bdce" font-size="10" text-anchor="middle">'+r[0]+'</text>'});box.insertAdjacentHTML('beforeend',s+'</svg>')}
+function bars(box,rows,color,unit,dig,name){HWS.chart(box,{bars:true,cats:rows.map(r=>r[0]),series:[{name,color,pts:rows.map((r,i)=>[i,r[1]])}],unit,dig})}
 
 const G=D.graphs||{},rows=(G.daily||[]).filter(r=>has(r.rain_mm)).map(r=>({d:r.date,v:Number(r.rain_mm)}));
 const T=$('tiles'),now=new Date(),yr=String(now.getFullYear()),ym=yr+'-'+String(now.getMonth()+1).padStart(2,'0');
 const sum=a=>a.reduce((s,r)=>s+r.v,0),last=n=>rows.filter(r=>Date.parse(r.d)>Date.now()-n*864e5);
 tile(T,'This month',F(sum(rows.filter(r=>r.d.startsWith(ym))),1,' mm'));tile(T,'This year',F(sum(rows.filter(r=>r.d.startsWith(yr))),1,' mm'));tile(T,'Last 7 days',F(sum(last(7)),1,' mm'));tile(T,'Last 30 days',F(sum(last(30)),1,' mm'));
 const g24=G['24h']||{},rr=g24.rain_rate_mm_h||[],rate=(g24.t||[]).map((t,i)=>[new Date(t).getHours()+':00',rr[i]]).filter(p=>has(p[1]));
-const hr={};for(const[l,v]of rate)hr[l]=Math.max(hr[l]||0,v);bars($('rate'),Object.entries(hr),'#4ea9ff',' mm/h',1);
-bars($('d90'),last(90).map(r=>[r.d.slice(5),r.v]),'#4ea9ff',' mm',1);
-const mon={};rows.forEach(r=>{const m=r.d.slice(0,7);mon[m]=(mon[m]||0)+r.v});bars($('months'),Object.entries(mon).slice(-36).map(([m,v])=>[m.slice(2),v]),'#4bd66a',' mm',1);
+const hr={};for(const[l,v]of rate)hr[l]=Math.max(hr[l]||0,v);bars($('rate'),Object.entries(hr),'#4ea9ff',' mm/h',1,'Peak rain rate per hour');
+bars($('d90'),last(90).map(r=>[r.d.slice(5),r.v]),'#4ea9ff',' mm',1,'Daily rainfall');
+const mon={};rows.forEach(r=>{const m=r.d.slice(0,7);mon[m]=(mon[m]||0)+r.v});bars($('months'),Object.entries(mon).slice(-36).map(([m,v])=>[m.slice(2),v]),'#4bd66a',' mm',1,'Monthly total');
 const by={};rows.forEach(r=>{const y=r.d.slice(0,4);(by[y]=by[y]||[]).push(r)});
 const cols=['#4ea9ff','#ffd166','#4bd66a','#ff6075','#c792ea','#a9bdce'],ys=Object.keys(by).sort().slice(-5);
-if(ys.length){const w=700,h=200,pad=34;let mx=1;const lines=ys.map(y=>{let c=0;const m=new Map();by[y].sort((a,b)=>a.d<b.d?-1:1).forEach(r=>{c+=r.v;m.set(Math.floor((Date.parse(r.d)-Date.parse(y+'-01-01'))/864e5),c)});let run=0;const pts=[];for(let i=0;i<366;i++){if(m.has(i))run=m.get(i);pts.push(run)}mx=Math.max(mx,run);return pts});
- let s='<svg viewBox="0 0 '+w+' '+(h+16)+'" style="width:100%;height:auto"><text x="0" y="12" fill="#a9bdce" font-size="11">'+F(mx,0,' mm')+'</text><line x1="'+pad+'" x2="'+w+'" y1="'+h+'" y2="'+h+'" stroke="#2a4960"/>';
- lines.forEach((p,i)=>{const lim=ys[i]===yr?Math.floor((Date.now()-Date.parse(yr+'-01-01'))/864e5):365;s+='<polyline fill="none" stroke="'+cols[i]+'" stroke-width="2" points="'+p.slice(0,lim+1).map((v,j)=>(pad+j/365*(w-pad)).toFixed(1)+','+(h-v/mx*(h-18)).toFixed(1)).join(' ')+'"/>'});
- $('cum').insertAdjacentHTML('beforeend',s+'</svg>');$('cumkey').innerHTML=ys.map((y,i)=>'<span style="color:'+cols[i]+'">&#9632; '+y+'</span>').join(' &nbsp; ')}else $('cum').textContent='No data yet';
+if(ys.length){const lines=ys.map((y,k)=>{let c=0;const m=new Map();by[y].sort((a,b)=>a.d<b.d?-1:1).forEach(r=>{c+=r.v;m.set(Math.floor((Date.parse(r.d)-Date.parse(y+'-01-01'))/864e5),c)});let run=0;const pts=[],lim=y===yr?Math.floor((Date.now()-Date.parse(yr+'-01-01'))/864e5):365;for(let i=0;i<=lim;i++){if(m.has(i))run=m.get(i);pts.push([i,run])}return{name:y,color:cols[k],pts}});
+ HWS.chart($('cum'),{series:lines,unit:' mm',dig:0,zero:true,xfmt:x=>new Date(2001,0,1+Math.round(x)).toLocaleDateString([],{month:'short'})})}else $('cum').textContent='No data yet';
 const yt=$('years'),hd=yt.insertRow();['Year','Rain (mm)','Rain days','Days recorded'].forEach(x=>el('th','',x,hd));
 Object.keys(by).sort().reverse().forEach(y=>{const r=yt.insertRow();r.insertCell().textContent=y;r.insertCell().textContent=F(sum(by[y]),1,'');r.insertCell().textContent=by[y].filter(x=>x.v>=0.2).length;r.insertCell().textContent=by[y].length});
 const wt=$('wet');rows.slice().sort((a,b)=>b.v-a.v).slice(0,10).forEach(x=>{if(x.v<=0)return;const r=wt.insertRow();r.insertCell().textContent=x.d;r.insertCell().textContent=F(x.v,1,' mm')});

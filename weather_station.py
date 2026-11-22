@@ -279,10 +279,12 @@ def parse_meteobridge(text, now):
 
 
 def _meteobridge_headers():
-    if not METEOBRIDGE_PASSWORD:
+    password = METEOBRIDGE_PASSWORD or os.getenv('HWS_METEOBRIDGE_PASSWORD', '')
+    if not password:
         return {}
     import base64
-    return {'Authorization': 'Basic ' + base64.b64encode(f'{METEOBRIDGE_USER}:{METEOBRIDGE_PASSWORD}'.encode()).decode()}
+    user = METEOBRIDGE_USER if METEOBRIDGE_PASSWORD else os.getenv('HWS_METEOBRIDGE_USER', METEOBRIDGE_USER)
+    return {'Authorization': 'Basic ' + base64.b64encode(f'{user}:{password}'.encode()).decode()}
 
 
 def fetch_meteobridge(base):

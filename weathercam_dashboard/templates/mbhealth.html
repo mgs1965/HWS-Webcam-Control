@@ -9,7 +9,6 @@ const raw=document.getElementById('data').textContent.trim(),D=raw.startsWith('{
 const el=(tag,cls,text,parent)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;if(parent)parent.append(e);return e};
 const F=(v,d,u,delta)=>HWS.fmt(v,d,u,delta),NS='http://www.w3.org/2000/svg';
 const tile=(box,k,v)=>{const t=el('div','s-tile',undefined,box);el('div','k',k,t);el('div','v',v,t)};
-function bars(box,rows,color,unit,dig){/* rows: [label,value] */const w=700,h=190,pad=30,n=rows.length;if(!n){el('p','muted','No data yet',box);return}const mx=Math.max(...rows.map(r=>r[1]),0.1),bw=(w-pad)/n;let s='<svg viewBox="0 0 '+w+' '+(h+22)+'" style="width:100%;height:auto"><text x="0" y="12" fill="#a9bdce" font-size="11">'+F(mx,dig,unit)+'</text><line x1="'+pad+'" x2="'+w+'" y1="'+h+'" y2="'+h+'" stroke="#2a4960"/>';rows.forEach((r,i)=>{const bh=Math.max(r[1]/mx*(h-18),r[1]>0?1:0),x=pad+i*bw;s+='<rect x="'+(x+1).toFixed(1)+'" y="'+(h-bh).toFixed(1)+'" width="'+Math.max(bw-2,1).toFixed(1)+'" height="'+bh.toFixed(1)+'" fill="'+color+'"><title>'+r[0]+': '+F(r[1],dig,unit)+'</title></rect>';if(n<=14||i%Math.ceil(n/8)===0)s+='<text x="'+(x+bw/2).toFixed(1)+'" y="'+(h+15)+'" fill="#a9bdce" font-size="10" text-anchor="middle">'+r[0]+'</text>'});box.insertAdjacentHTML('beforeend',s+'</svg>')}
 
 const H=D.health||{},W=D.weather||{},C=D.compare||{},ICON={ok:'✅',warn:'⚠️',bad:'❌',unknown:'❔'};
 let c=el('section','s-card',undefined,$('grid'));el('h2','',"Checks",c);

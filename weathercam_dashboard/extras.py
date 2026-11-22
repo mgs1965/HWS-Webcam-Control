@@ -53,6 +53,10 @@ def meteobridge_health(now,weather,station,compare,daily,archive):
  checks.append({'name':'Latest reading','status':'unknown' if age is None else 'ok' if age<=600 else 'bad','detail':'No weather data yet' if age is None else f'{age/60:.0f} min old'})
  bridge=num(w.get('bridge_data_age_s'))
  checks.append({'name':'Console link','status':'unknown' if bridge is None else 'ok' if bridge<300 else 'warn' if bridge<600 else 'bad','detail':'Not reported' if bridge is None else f'Meteobridge data {bridge:.0f} s old'})
+ if w.get('source')=='meteobridge':
+  need=(('temperature_c','temperature'),('humidity_percent','humidity'),('pressure_hpa','pressure'),('wind_speed_mph','wind speed'),('wind_gust_mph','gust'),('wind_direction_deg','wind direction'),('rain_rate_mm_h','rain rate'),('rain_today_mm','rain today'),('solar_radiation_wm2','solar'),('uv_index','UV'),('sunshine_hours_today','sunshine'))
+  blank=[n for k,n in need if num(w.get(k)) is None]
+  checks.append({'name':'Live fields','status':'ok' if not blank else 'warn','detail':'All reporting' if not blank else 'Blank: '+', '.join(blank)})
  rows=(compare or {}).get('rows') or []
  if rows:
   bad=[r['label'] for r in rows if r.get('status')=='differs']

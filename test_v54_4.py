@@ -982,3 +982,21 @@ def test_meteobridge_sunshine_minutes_become_hours():
     import weather_station as ws
     v = ws.parse_meteobridge('temperature_c=5;sunshine_hours_today=354', dt.datetime.now(dt.timezone.utc))
     assert abs(v['sunshine_hours_today'] - 5.9) < 0.01
+
+
+def test_meteobridge_headers_fall_back_to_environment(monkeypatch):
+    import weather_station as ws
+    monkeypatch.setattr(ws, 'METEOBRIDGE_PASSWORD', '')
+    monkeypatch.setenv('HWS_METEOBRIDGE_PASSWORD', 'pw')
+    monkeypatch.setenv('HWS_METEOBRIDGE_USER', 'bob')
+    assert ws._meteobridge_headers()['Authorization'].startswith('Basic ')
+
+
+def test_meteobridge_health_flags_blank_live_fields():
+    import datetime as dt
+    from weathercam_dashboard import dashboard as d
+    now = dt.datetime.now(dt.timezone.utc)
+    w = {'source': 'meteobridge', 'updated': now.isoformat(), 'temperature_c': 5}
+    h = d.meteobridge_health(now, w, {}, {}, [], {})
+    live = [c for c in h['checks'] if c['name'] == 'Live fields'][0]
+    assert live['status'] == 'warn' and 'rain today' in live['detail']

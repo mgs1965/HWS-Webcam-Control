@@ -557,7 +557,7 @@ def generate(upload=False):
  page('forecast.html',{'forecast':forecast})
  page('mobile.html',{'weather':weather,'forecast':forecast})
  for kind in ('about','station'):page('info.html',{'kind':kind,'site':site,'weather':weather},kind+'.html')
- page('indexnew.html',{'weather':weather,'forecast':forecast,'sun_moon':payload['sun_moon'],'weather_series':wseries,'site':site,'state':state,'capture_time':capture_text,'insights':winsight[:3]})
+ page('indexnew.html',{'keogram':payload.get('keogram'),'weather':weather,'forecast':forecast,'sun_moon':payload['sun_moon'],'weather_series':wseries,'site':site,'state':state,'capture_time':capture_text,'insights':winsight[:3]})
  page('webcam.html',{k:payload.get(k) for k in ('timelapse_library','keogram','keogram_archive','gallery','state','capture_time','mode')}|{'media_base':media})
  page('radar.html',{'site':site})
  page('records.html',{'records':records_data(daily,now),'year_records':(whistory or {}).get('year_records')})

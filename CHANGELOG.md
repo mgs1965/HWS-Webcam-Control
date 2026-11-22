@@ -1,3 +1,9 @@
+#### V54.4
+
+- All graphs now have y-axis scales, x-axis ticks and legends (rainfall, compare, console, home sparkline); wind rose has a speed-band legend and ring scales.
+- Sunshine hours fixed (the station reports minutes). Lightning row hidden when there is no lightning sensor.
+- Live rain today reads `rain0total-sum@D0`.
+
 #### V54.3
 
 - Rainfall page fixed: 24 h rain-rate chart reads the right data; `--backfill` falls back to `rain0total-daysum` and refills days missing rain (re-run `weather_station.py --backfill`).

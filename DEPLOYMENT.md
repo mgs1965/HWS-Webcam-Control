@@ -56,7 +56,7 @@ Recommended cut-over:
 1. Set `DASHBOARD_FTP_DIR` to a test folder (for example `/public_html/new`) and publish there. Set `DASHBOARD_MEDIA_BASE` if the timelapse and keogram files live elsewhere (the camera uploads them to `FTP_UPLOAD_PATH`).
 2. Set `HWS_LIVE_UPLOAD_SECONDS=15` for a live feel, and run `python3 weather_station.py --diagnose` to check units against the old console.
 3. Run both sites side by side for 2 to 4 weeks, comparing readings.
-4. Move `DASHBOARD_FTP_DIR` to the site root, keep the old pages for a while, then copy `redirects.htaccess` (generated next to the pages, never uploaded) to the root as `.htaccess` so old `*.php` links forward to the new pages.
+4. Move `DASHBOARD_FTP_DIR` to the site root, keep the old pages for a while, then set `DASHBOARD_WRITE_REDIRECTS=1` (redirects are off by default so both sites can run in parallel) and copy the generated `redirects.htaccess` (never uploaded) to the root as `.htaccess` so old `*.php` links forward to the new pages.
 
 Weather Underground, CWOP and WOW uploads are handled by the Meteobridge itself and are not affected.
 

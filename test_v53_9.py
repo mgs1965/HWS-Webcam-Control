@@ -889,6 +889,9 @@ def test_site_pages_assets_records_and_almanac(tmp_path, monkeypatch):
         assert '__DATA__' not in page and '__NAV__' not in page and 'site.js' in page and 'reports.html' in page
     assert 'site.js' in (out / 'dashboard.html').read_text()
     assert (out / 'site.css').is_file() and (out / 'favicon.svg').is_file()
+    assert not (out / 'redirects.htaccess').exists()
+    monkeypatch.setenv('DASHBOARD_WRITE_REDIRECTS', '1')
+    dash.generate(False)
     assert 'RewriteRule ^about\\.php$ about.html [R=301,L]' in (out / 'redirects.htaccess').read_text()
     now = datetime(2026, 11, 22, 12, 0, tzinfo=timezone.utc)
     daily = [{'date': '2026-11-20', 'temp_max_c': 9.0, 'temp_min_c': 2.0, 'rain_mm': 0.0}, {'date': '2026-11-21', 'temp_max_c': 11.5, 'temp_min_c': -1.0, 'rain_mm': 7.4, 'wind_gust_mph': 31},

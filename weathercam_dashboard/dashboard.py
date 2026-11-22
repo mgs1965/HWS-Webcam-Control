@@ -565,7 +565,7 @@ def generate(upload=False):
  page('almanac.html',{'sun_moon':payload['sun_moon'],'almanac':almanac_data(now),'weather':weather,'scene':scene})
  page('data.html',{'weather':weather,'weather_raw':payload['weather_raw']})
  page('health.html',{k:payload.get(k) for k in ('station_status','state','reasons','metrics','mode','capture_time','counts','generated','hostname','version')}|{'weather':weather})
- atomic(OUT/'redirects.htaccess',redirects_htaccess())
+ if os.environ.get('DASHBOARD_WRITE_REDIRECTS','').lower() in ('1','true','yes','on'):atomic(OUT/'redirects.htaccess',redirects_htaccess())
  atomic(OUT/'dashboard-data.json',json.dumps(payload,indent=2))
  result=publish() if upload else 'generated'
  print(json.dumps({'result':result,'state':state,'mode':mode,'capture_age_seconds':capture_age,'health_records':len(health_rows),'telemetry_records':len(telemetry_rows)}))

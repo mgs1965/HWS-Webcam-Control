@@ -526,6 +526,68 @@ def diagnose(base):
     return 0
 
 
+BACKFILL_FIELDS = (('temp_max_c', 'th0temp-max', -60.0, 60.0), ('temp_min_c', 'th0temp-min', -60.0, 60.0), ('humidity_avg', 'th0hum-avg', 0.0, 100.0),
+                   ('rain_mm', 'rain0total-sum', 0.0, 1000.0), ('pressure_max_hpa', 'thb0seapress-max', 850.0, 1100.0), ('pressure_min_hpa', 'thb0seapress-min', 850.0, 1100.0),
+                   ('wind_gust_mph', 'wind0wind-max=mph', 0.0, 200.0))
+BACKFILL_ARCHIVE_NAME = 'weather_station_archive.json'
+
+
+def backfill_expressions(offset):
+    """Meteobridge template expressions for the day `offset` days ago ('@D<n>' goes before any '=unit')."""
+    out = []
+    for key, expr, _, _ in BACKFILL_FIELDS:
+        base, eq, unit = expr.partition('=')
+        out.append((key, f'{base}@D{offset}{eq}{unit}'))
+    return out
+
+
+def parse_backfill_day(text):
+    limits = {key: (low, high) for key, _, low, high in BACKFILL_FIELDS}
+    out = {}
+    for part in (text or '').replace('\n', ';').split(';'):
+        key, _, value = part.partition('=')
+        key = key.strip()
+        number = _number(value.strip()) if key in limits else None
+        if number is not None and limits[key][0] <= number <= limits[key][1]:
+            out[key] = round(number, 2)
+    return out
+
+
+def backfill_archive(base, path, days=4000, today=None, fetch=None, sleep=time.sleep, max_empty=45):
+    """One-off import of old daily values from the Meteobridge database into an archive file; stops after a long run of empty days."""
+    fetch = fetch or (lambda url: fetch_text(url, timeout=10, headers=_meteobridge_headers()))
+    today = today or datetime.now().astimezone().date()
+    archive = _load_json(path, {}).get('days')
+    archive = archive if isinstance(archive, dict) else {}
+    added = empty = 0
+    for offset in range(1, days + 1):
+        day = (today - timedelta(days=offset)).isoformat()
+        if day in archive and archive[day]:
+            empty = 0
+            continue
+        url = meteobridge_url(base, backfill_expressions(offset))
+        try:
+            values = parse_backfill_day(fetch(url))
+        except (OSError, ValueError) as error:
+            log(f'backfill stopped at {day}: {error}')
+            break
+        if values.get('temp_max_c') is None and values.get('temp_min_c') is None:
+            empty += 1
+            if empty >= max_empty:
+                break
+            continue
+        empty = 0
+        archive[day] = values
+        added += 1
+        if added % 50 == 0:
+            write_json_atomic(path, {'days': dict(sorted(archive.items()))})
+            print(f'  ... {added} days (back to {day})', flush=True)
+        sleep(0.05)
+    if added:
+        write_json_atomic(path, {'days': dict(sorted(archive.items()))})
+    return {'added': added, 'total': len(archive), 'first': min(archive) if archive else None}
+
+
 def sibling_url(url, name):
     """clientraw.txt -> clientrawhour.txt etc.; None if the URL doesn't end in clientraw.txt."""
     return url[:-len('clientraw.txt')] + name if url.lower().endswith('clientraw.txt') else None
@@ -824,6 +886,8 @@ def main(argv=None):
     parser.add_argument('--live-output', default=os.getenv('HWS_WEATHER_LIVE_PATH', '/mnt/weathercam/logs/weather_live.json'))
     parser.add_argument('--live-upload-seconds', type=int, default=int(os.getenv('HWS_LIVE_UPLOAD_SECONDS', '120') or 0), help='upload the small live file for the dashboard every N seconds (0 = never)')
     parser.add_argument('--diagnose', action='store_true', help='print the Meteobridge values for checking units against the console, then exit')
+    parser.add_argument('--backfill', type=int, nargs='?', const=4000, default=0, metavar='DAYS', help='import up to DAYS (default 4000) of old daily values from the Meteobridge database into the archive file, then exit')
+    parser.add_argument('--archive-output', default=os.getenv('HWS_WEATHER_ARCHIVE_PATH', '/mnt/weathercam/logs/' + BACKFILL_ARCHIVE_NAME))
     parser.add_argument('--interval', type=int, default=0, help='poll every N seconds (minimum %d); omit for a single run' % MIN_FETCH_INTERVAL_SECONDS)
     parser.add_argument('--once', action='store_true')
     args = parser.parse_args(argv)
@@ -842,6 +906,12 @@ def main(argv=None):
     METEOBRIDGE_URL = args.meteobridge or None
     if args.diagnose:
         return diagnose(args.meteobridge)
+    if args.backfill:
+        if not args.meteobridge:
+            parser.error('--backfill needs HWS_METEOBRIDGE_URL')
+        result = backfill_archive(args.meteobridge, args.archive_output, args.backfill)
+        print(f"Backfill complete: {result['added']} new days, {result['total']} in archive (earliest {result['first']}) -> {args.archive_output}")
+        return 0 if result['total'] else 1
     if seed_url and METEOBRIDGE_URL:
         seed_local_history(seed_url)
     if args.once or not args.interval:

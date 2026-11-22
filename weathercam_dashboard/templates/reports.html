@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Weather reports</title>
+<style>:root{color-scheme:dark;--bg:#071827;--card:#0e273b;--line:#2a4960;--text:#edf6ff;--muted:#a9bdce;--blue:#4ea9ff;--amber:#ffd166;--green:#4bd66a;--red:#ff6075}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,"Segoe UI",sans-serif}a{color:var(--blue)}.muted{color:var(--muted)}</style></head><body><div class="s-page">
+<header class="s-head"><h1>Weather reports</h1><div class="s-nav muted">__NAV__</div></header>
+<div class="s-tabs" id="tabs"></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><select id="pick" class="s-btn" aria-label="Period"></select><button class="s-btn" id="csv">Download CSV</button></div><div class="s-card s-scroll"><table class="s-table" id="tbl"></table></div>
+<script type="application/json" id="data">__DATA__</script>
+<script>
+const raw=document.getElementById('data').textContent.trim(),D=raw.startsWith('{')?JSON.parse(raw):{},$=id=>document.getElementById(id),has=v=>v!==null&&v!==undefined&&v!==''&&isFinite(Number(v));
+const el=(tag,cls,text,parent)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;if(parent)parent.append(e);return e};
+const F=(v,d,u,delta)=>HWS.fmt(v,d,u,delta),day=s=>new Date(s+'T12:00:00'),hm=s=>s?new Date(s).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'–';
+const tile=(box,k,v)=>{const t=el('div','s-tile',undefined,box);el('div','k',k,t);el('div','v',v,t)};
+const days=(D.daily||[]).filter(d=>d.date),VIEWS=[['month','Day by day'],['year','Month by month'],['all','Year by year']];let view='month';
+const U={t:'°C',mm:'mm',mph:'mph',p:'hPa'};
+const agg=rows=>{const n=k=>rows.map(r=>r[k]).filter(has).map(Number),mx=a=>a.length?Math.max(...a):null,mn=a=>a.length?Math.min(...a):null,rain=n('rain_mm'),h=n('humidity_avg');return{temp_max_c:mx(n('temp_max_c')),temp_min_c:mn(n('temp_min_c')),humidity_avg:h.length?h.reduce((a,b)=>a+b,0)/h.length:null,rain_mm:rain.length?rain.reduce((a,b)=>a+b,0):null,rain_days:rain.filter(v=>v>=.2).length,wind_gust_mph:mx(n('wind_gust_mph')),pressure_min_hpa:mn(n('pressure_min_hpa')),pressure_max_hpa:mx(n('pressure_max_hpa'))}};
+const cols=(first)=>[[first,r=>r.label],['Max',r=>F(r.temp_max_c,1,'°C')],['Min',r=>F(r.temp_min_c,1,'°C')],['Humidity',r=>F(r.humidity_avg,0,'%')],['Rain',r=>F(r.rain_mm,1,' mm')],['Rain days',r=>r.rain_days===undefined?'':String(r.rain_days)],['Gust',r=>F(r.wind_gust_mph,0,' mph')],['Pressure',r=>has(r.pressure_min_hpa)||has(r.pressure_max_hpa)?F(r.pressure_min_hpa,0)+'–'+F(r.pressure_max_hpa,0,' hPa'):'–']];
+function group(len){const m={};for(const d of days)(m[d.date.slice(0,len)]=m[d.date.slice(0,len)]||[]).push(d);return m}
+function rows(){const key=$('pick').value;if(view==='month')return(group(7)[key]||[]).map(d=>({...d,label:day(d.date).toLocaleDateString([],{weekday:'short',day:'numeric'})}));if(view==='year'){const g=group(7);return Object.keys(g).filter(k=>k.startsWith(key)).sort().map(k=>({...agg(g[k]),label:day(k+'-01').toLocaleDateString([],{month:'long'})}))}const g=group(4);return Object.keys(g).sort().map(k=>({...agg(g[k]),label:k}))}
+function fill(){const sel=$('pick');sel.textContent='';sel.hidden=view==='all';const keys=Object.keys(group(view==='month'?7:4)).sort().reverse();for(const k of keys){const o=el('option','',view==='month'?day(k+'-01').toLocaleDateString([],{month:'long',year:'numeric'}):k,sel);o.value=k}draw()}
+function draw(){const t=$('tbl'),data=rows();t.textContent='';const c=cols(view==='month'?'Day':view==='year'?'Month':'Year'),h=t.insertRow();for(const[n]of c){const x=document.createElement('th');x.textContent=n;h.append(x)}
+for(const r of data){const row=t.insertRow();for(const[,f]of c)row.insertCell().textContent=f(r)}
+if(data.length>1&&view!=='all'){const a=agg(data),row=t.insertRow();row.style.fontWeight='600';for(const[n,f]of c)row.insertCell().textContent=n===c[0][0]?'Total / extremes':f({...a,label:''})}
+if(!data.length){const row=t.insertRow(),cell=row.insertCell();cell.colSpan=c.length;cell.textContent='No data yet'}}
+$('pick').addEventListener('change',draw);
+VIEWS.forEach(([v,l])=>{const b=el('button','',l,$('tabs'));b.dataset.v=v;b.addEventListener('click',()=>{view=v;[...$('tabs').children].forEach(x=>x.classList.toggle('on',x===b));fill()})});$('tabs').firstChild.classList.add('on');fill();
+$('csv').addEventListener('click',()=>{const k=['date','temp_max_c','temp_min_c','humidity_avg','rain_mm','wind_gust_mph','pressure_min_hpa','pressure_max_hpa'],text=[k.join(',')].concat(days.map(d=>k.map(x=>has(d[x])||x==='date'?d[x]:'').join(','))).join('\n'),a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:'text/csv'}));a.download='weather-daily.csv';a.click()});
+</script></div></body></html>

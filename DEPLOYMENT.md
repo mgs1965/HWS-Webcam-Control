@@ -46,3 +46,25 @@ The dashboard displays recommended checks and historical readings but does not m
 ```bash
 sudo bash /mnt/weathercam/app/current/rollback_v53_8.sh
 ```
+
+## Replacing the old website (V53.9)
+
+The dashboard now publishes a full site: `index.html` (home), `console.html`, `graphs.html`, `forecast.html`, `webcam.html`, `radar.html`, `records.html`, `reports.html`, `almanac.html`, `data.html`, `health.html`, `station.html`, `about.html`, `mobile.html`, plus `site.css`, `site.js` and `favicon.svg`. Visitors can switch units (°C/°F, mph/km/h, hPa/inHg) and dark/light theme from the small toolbar at the bottom right.
+
+Recommended cut-over:
+
+1. Set `DASHBOARD_FTP_DIR` to a test folder (for example `/public_html/new`) and publish there. Set `DASHBOARD_MEDIA_BASE` if the timelapse and keogram files live elsewhere (the camera uploads them to `FTP_UPLOAD_PATH`).
+2. Set `HWS_LIVE_UPLOAD_SECONDS=15` for a live feel, and run `python3 weather_station.py --diagnose` to check units against the old console.
+3. Run both sites side by side for 2 to 4 weeks, comparing readings.
+4. Move `DASHBOARD_FTP_DIR` to the site root, keep the old pages for a while, then copy `redirects.htaccess` (generated next to the pages, never uploaded) to the root as `.htaccess` so old `*.php` links forward to the new pages.
+
+Weather Underground, CWOP and WOW uploads are handled by the Meteobridge itself and are not affected.
+
+### Importing old Meteobridge history
+
+```bash
+set -a; . /etc/weathercam/dashboard.env; set +a
+python3 weather_station.py --meteobridge 192.168.0.65 --backfill   # add --meteobridge-user/--meteobridge-password if needed
+```
+
+This asks the Meteobridge for each past day (daily high/low, mean humidity, rain, pressure extremes, gust) and stops after 45 empty days, writing `weather_station_archive.json` in the logs folder (`HWS_WEATHER_ARCHIVE_PATH`). It is safe to re-run; days already imported are skipped. The records, reports and year graph then include the old data at the next dashboard refresh. It only works for as long as the Meteobridge kept its history.

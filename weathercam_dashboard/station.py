@@ -4,6 +4,12 @@ def weather_history():
  try:data=json.loads(p.read_text(errors='ignore'))
  except (OSError,ValueError):return None
  return data if isinstance(data,dict) and (data.get('daily') or data.get('year_records')) else None
+def weather_archive():
+ """Old daily values imported from the Meteobridge database (weather_station.py --backfill)."""
+ try:data=json.loads((LD/'weather_station_archive.json').read_text(errors='ignore'))
+ except (OSError,ValueError):return {}
+ days=data.get('days') if isinstance(data,dict) else None
+ return {str(d)[:10]:v for d,v in days.items() if isinstance(v,dict)} if isinstance(days,dict) else {}
 def weather_series(now,hours=24):
  try:data=json.loads((LD/'weather_station_series.json').read_text(errors='ignore'))
  except (OSError,ValueError):return []

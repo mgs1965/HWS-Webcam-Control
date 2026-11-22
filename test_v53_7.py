@@ -817,3 +817,20 @@ def test_console_page_is_generated(tmp_path, monkeypatch):
     dash.generate(False)
     page = (tmp_path / 'out' / 'console.html').read_text()
     assert 'Wind compass' in page and '__DATA__' not in page and 'weather-live.json' in page
+
+
+def test_graph_data_buckets_and_pages(tmp_path, monkeypatch):
+    dash = _dash(tmp_path)
+    now = datetime(2026, 11, 20, 12, 0, tzinfo=timezone.utc)
+    series = [{'t': (now - timedelta(minutes=i)).isoformat(), 'temperature_c': 10.0 + (i % 2), 'wind_gust_mph': i, 'rain_today_mm': 1.0} for i in range(120)]
+    scene = [{'t': now - timedelta(hours=i), 'temperature_c': 5.0, 'rain_rate_mm_h': None} for i in range(48)]
+    graphs = dash.graph_data(now, series, scene, {'2026-11-19': {'temp_max_c': 9.0}}, {'daily': [{'date': '2026-11-18', 'temp_max_c': 8.0, 'temp_min_c': 1.0}]})
+    day = graphs['24h']
+    assert len(day['t']) == len(day['temperature_c']) <= 25 and 10.0 <= day['temperature_c'][0] <= 11.0
+    assert max(day['wind_gust_mph']) == 119 or max(day['wind_gust_mph']) >= 115
+    assert len(graphs['7d']['t']) >= 47 and graphs['7d']['temperature_c'][0] == 5.0
+    assert [d['date'] for d in graphs['daily']] == ['2026-11-18', '2026-11-19']
+    monkeypatch.setattr(dash, 'OUT', tmp_path / 'out')
+    dash.generate(False)
+    page = (tmp_path / 'out' / 'graphs.html').read_text()
+    assert '__DATA__' not in page and 'graph-data' in page

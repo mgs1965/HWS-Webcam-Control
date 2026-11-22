@@ -291,7 +291,7 @@ def publish_with(ftp,host,user,pw,remote,desired):
   try:ftp.voidcmd('TYPE I');remote_size=ftp.size(KEOGRAM_NAME)
   except (ftplib.error_perm,ftplib.error_reply,AttributeError):remote_size=None
   if remote_size!=keogram.stat().st_size:atomic_send(keogram,KEOGRAM_NAME)
- for name in ('latest.jpg','dashboard-data.json','console.html','dashboard.html'):
+ for name in ('latest.jpg','dashboard-data.json','console.html','graphs.html','dashboard.html'):
   local=OUT/name
   if local.is_file():atomic_send(local,name)
  ftp.quit()
@@ -514,6 +514,7 @@ def generate(upload=False):
  station=station_status(now)
  actions=recommended_checks(metrics,timelapse,scene,station)
  wseries=weather_series(now);whour=weather_hour();whistory=weather_history();sc=solar_check(weather,scene,now)
+ graphs=graph_data(now,wseries_all,scene_rows,daily_stats,whistory)
  winsight=weather_insight(weather,scene)+frost_notes(weather)+record_notes(weather,whistory)+([sc['note']] if sc and sc.get('note') and sc.get('verdict')!='AGREE' else [])
  schedule=mode_schedule(now)
  safe_config={
@@ -541,6 +542,8 @@ def generate(upload=False):
  atomic(OUT/'dashboard.html',template)
  console=(Path(__file__).resolve().parent/'templates/console.html').read_text()
  console_data={k:payload.get(k) for k in ('weather','weather_series','weather_history','wind_rose','sun_moon','config')}
+ graph_page=(Path(__file__).resolve().parent/'templates/graphs.html').read_text()
+ atomic(OUT/'graphs.html',graph_page.replace('__DATA__',json.dumps({'graphs':graphs,'generated':now.isoformat()},separators=(',',':')).replace('</','<\\/'),1))
  atomic(OUT/'console.html',console.replace('__DATA__',json.dumps(console_data,separators=(',',':')).replace('</','<\\/'),1))
  atomic(OUT/'dashboard-data.json',json.dumps(payload,indent=2))
  result=publish() if upload else 'generated'

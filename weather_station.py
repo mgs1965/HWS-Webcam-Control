@@ -10,7 +10,7 @@ never written, so the camera simply treats the station as unavailable.
 
 Usage:
     HWS_METEOBRIDGE_URL=192.168.0.65 python3 weather_station.py --once
-    HWS_METEOBRIDGE_URL=... python3 weather_station.py --interval 60
+    HWS_METEOBRIDGE_URL=... python3 weather_station.py --interval 30
 """
 import argparse
 import ftplib
@@ -303,7 +303,7 @@ def update_history(history_path, now=None):
 
 
 LIVE_PATH = None
-LIVE_UPLOAD_SECONDS = 120
+LIVE_UPLOAD_SECONDS = 30
 LIVE_RETRY_SECONDS = 300
 LIVE_KEYS = ('updated', 'source', 'temperature_c', 'humidity_percent', 'pressure_hpa', 'wind_speed_mph', 'wind_gust_mph', 'wind_direction_deg', 'dew_point_c',
              'rain_rate_mm_h', 'rain_today_mm', 'solar_radiation_wm2', 'uv_index', 'heat_index_c', 'wet_bulb_c', 'wind_chill_c', 'lightning_strikes_today',
@@ -566,7 +566,7 @@ def main(argv=None):
     parser.add_argument('--meteobridge-user', default=os.getenv('HWS_METEOBRIDGE_USER', 'meteobridge'))
     parser.add_argument('--meteobridge-password', default=os.getenv('HWS_METEOBRIDGE_PASSWORD', ''))
     parser.add_argument('--live-output', default=os.getenv('HWS_WEATHER_LIVE_PATH', '/mnt/weathercam/logs/weather_live.json'))
-    parser.add_argument('--live-upload-seconds', type=int, default=int(os.getenv('HWS_LIVE_UPLOAD_SECONDS', '120') or 0), help='upload the small live file for the dashboard every N seconds (0 = never)')
+    parser.add_argument('--live-upload-seconds', type=int, default=int(os.getenv('HWS_LIVE_UPLOAD_SECONDS', '30') or 0), help='upload the small live file for the dashboard every N seconds (0 = never)')
     parser.add_argument('--diagnose', action='store_true', help='print the Meteobridge values for checking units against the console, then exit')
     parser.add_argument('--backfill', type=int, nargs='?', const=4000, default=0, metavar='DAYS', help='import up to DAYS (default 4000) of old daily values from the Meteobridge database into the archive file, then exit')
     parser.add_argument('--archive-output', default=os.getenv('HWS_WEATHER_ARCHIVE_PATH', '/mnt/weathercam/logs/' + BACKFILL_ARCHIVE_NAME))

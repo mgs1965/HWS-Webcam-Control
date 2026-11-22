@@ -87,7 +87,7 @@ service = (root / 'systemd/weathercam.service').read_text(encoding='utf-8')
 assert 'ExecStart=/usr/bin/python3 /mnt/weathercam/app/current/weather_camera.py' in service
 
 station_service = (root / 'systemd/weathercam-weather-station.service').read_text(encoding='utf-8')
-assert 'weather_station.py --interval 60' in station_service and 'Restart=on-failure' in station_service
+assert 'weather_station.py --interval 30' in station_service and 'Restart=on-failure' in station_service
 assert (root / 'weather_station.py').is_file()
 installer = (root / 'install_v54_5.sh').read_text(encoding='utf-8')
 rollback = (root / 'rollback_v54_5.sh').read_text(encoding='utf-8')

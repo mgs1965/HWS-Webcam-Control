@@ -527,7 +527,7 @@ def diagnose(base):
 
 
 BACKFILL_FIELDS = (('temp_max_c', 'th0temp-max', -60.0, 60.0), ('temp_min_c', 'th0temp-min', -60.0, 60.0), ('humidity_avg', 'th0hum-avg', 0.0, 100.0),
-                   ('rain_mm', 'rain0total-sum', 0.0, 1000.0), ('pressure_max_hpa', 'thb0seapress-max', 850.0, 1100.0), ('pressure_min_hpa', 'thb0seapress-min', 850.0, 1100.0),
+                   ('rain_mm', 'rain0total-sum', 0.0, 1000.0), ('rain_alt_mm', 'rain0total-daysum', 0.0, 1000.0), ('pressure_max_hpa', 'thb0seapress-max', 850.0, 1100.0), ('pressure_min_hpa', 'thb0seapress-min', 850.0, 1100.0),
                    ('wind_gust_mph', 'wind0wind-max=mph', 0.0, 200.0))
 BACKFILL_ARCHIVE_NAME = 'weather_station_archive.json'
 
@@ -550,6 +550,9 @@ def parse_backfill_day(text):
         number = _number(value.strip()) if key in limits else None
         if number is not None and limits[key][0] <= number <= limits[key][1]:
             out[key] = round(number, 2)
+    alt = out.pop('rain_alt_mm', None)
+    if alt is not None and 'rain_mm' not in out:
+        out['rain_mm'] = alt
     return out
 
 
@@ -562,7 +565,7 @@ def backfill_archive(base, path, days=4000, today=None, fetch=None, sleep=time.s
     added = empty = 0
     for offset in range(1, days + 1):
         day = (today - timedelta(days=offset)).isoformat()
-        if day in archive and archive[day]:
+        if day in archive and archive[day] and 'rain_mm' in archive[day]:
             empty = 0
             continue
         url = meteobridge_url(base, backfill_expressions(offset))
@@ -577,7 +580,7 @@ def backfill_archive(base, path, days=4000, today=None, fetch=None, sleep=time.s
                 break
             continue
         empty = 0
-        archive[day] = values
+        archive[day] = {**archive.get(day, {}), **values}
         added += 1
         if added % 50 == 0:
             write_json_atomic(path, {'days': dict(sorted(archive.items()))})

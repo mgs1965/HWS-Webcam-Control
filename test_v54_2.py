@@ -884,7 +884,7 @@ def test_site_pages_assets_records_and_almanac(tmp_path, monkeypatch):
     monkeypatch.setattr(dash, 'OUT', tmp_path / 'out')
     dash.generate(False)
     out = tmp_path / 'out'
-    for name in ('index.html', 'indexnew.html', 'webcam.html', 'radar.html', 'records.html', 'reports.html', 'almanac.html', 'data.html', 'health.html', 'rainfall.html', 'compare.html', 'wind.html', 'news.html', 'mbhealth.html', 'pihealth.html'):
+    for name in ('index.html', 'indexnew.html', 'webcam.html', 'radar.html', 'records.html', 'reports.html', 'almanac.html', 'data.html', 'health.html', 'rainfall.html', 'donate.html', 'compare.html', 'wind.html', 'news.html', 'mbhealth.html', 'pihealth.html'):
         page = (out / name).read_text()
         assert '__DATA__' not in page and '__NAV__' not in page and 'site.js' in page and ('reports.html' in page or name == 'index.html')
     chooser = (out / 'index.html').read_text()
@@ -975,3 +975,16 @@ def test_v54_2_alerts_and_share_card(tmp_path, monkeypatch):
     assert dash.send_alerts(alerts, now + __import__('datetime').timedelta(hours=7), state) == ['frost', 'gust']
     out = tmp_path / 'share.png'
     assert dash.share_card({'temperature_c': 7.5, 'wind_direction_deg': 131}, now, out) and out.read_bytes()[:4] == b'\x89PNG'
+
+
+def test_backfill_rain_fallback_and_refill(tmp_path):
+    import weather_station as ws
+    from datetime import datetime
+    import json
+    assert ws.parse_backfill_day('temp_max_c=11;rain_alt_mm=2.4')['rain_mm'] == 2.4
+    assert ws.parse_backfill_day('temp_max_c=11;rain_mm=1.0;rain_alt_mm=2.4')['rain_mm'] == 1.0
+    path = tmp_path / 'a.json'
+    path.write_text('{"days":{"2026-01-09":{"temp_max_c":5.0}}}')
+    today = datetime(2026, 1, 10).date()
+    result = ws.backfill_archive('192.168.0.65', str(path), days=1, today=today, fetch=lambda u: 'temp_max_c=5;rain_alt_mm=3.1', sleep=lambda s: None)
+    assert result['added'] == 1 and json.loads(path.read_text())['days']['2026-01-09']['rain_mm'] == 3.1

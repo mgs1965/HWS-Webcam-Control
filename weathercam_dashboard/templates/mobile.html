@@ -26,7 +26,7 @@ el('tiles').textContent='';for(const[k,v]of tiles){const t=document.createElemen
 const ts=Date.parse(W.updated||''),age=(Date.now()-ts)/60000;el('dot').className='dot'+(isFinite(age)&&age<=10?'':' off');el('status').textContent=isFinite(ts)?'Updated '+new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'No data'}
 render();
 const F=D.forecast;if(F&&F.daily){const box=document.getElementById('fc');for(const d of F.daily.slice(0,3)){const e=document.createElement('div');e.innerHTML='<div class="muted"></div><div class="i"></div><div></div>';e.children[0].textContent=new Date(d.date+'T12:00:00').toLocaleDateString([],{weekday:'short'});e.children[1].textContent=icon(d.symbol);e.children[2].textContent=fmt(d.temp_max_c,0,'°')+' / '+fmt(d.temp_min_c,0,'°');box.append(e)}}
-function poll(){if(location.protocol==='file:'||document.hidden)return;fetch('weather-live.json?ts='+Date.now(),{cache:'no-store'}).then(r=>r.ok?r.json():null).then(w=>{if(w&&typeof w==='object'){Object.assign(W,w);render()}}).catch(()=>{})}
-setInterval(poll,POLL);document.addEventListener('visibilitychange',poll);
+function poll(){if(location.protocol==='file:'||document.hidden)return;fetch('weather-live.json?ts='+Date.now(),{cache:'no-store'}).then(r=>r.ok?r.json():null).then(w=>{if(w&&typeof w==='object'&&w.updated){Object.assign(W,w);render()}}).catch(()=>{})}
+poll();setInterval(poll,POLL);document.addEventListener('visibilitychange',poll);
 setInterval(()=>{const i=document.getElementById('cam');if(i&&!i.hidden)i.src='latest.jpg?ts='+Date.now()},300000);
 </script></div></body></html>

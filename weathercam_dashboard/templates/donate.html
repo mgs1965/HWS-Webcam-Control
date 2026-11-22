@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Donate</title>
+<style>:root{color-scheme:dark;--bg:#071827;--card:#0e273b;--line:#2a4960;--text:#edf6ff;--muted:#a9bdce;--blue:#4ea9ff;--amber:#ffd166}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,"Segoe UI",sans-serif}a{color:var(--blue)}.muted{color:var(--muted)}</style></head><body><div class="s-page">
+<header class="s-head"><h1>Donate</h1><div class="s-nav muted">__NAV__</div></header>
+<div class="s-card" style="text-align:center;max-width:640px;margin:0 auto"><p>If you have found this site useful and would like to contribute to its upkeep then please feel free to make a donation using the button below.</p>
+<form action="https://www.paypal.com/donate" method="post" target="_top" id="pp"><input type="hidden" name="hosted_button_id" id="hb"><button class="s-btn" type="submit" style="font-size:18px;padding:10px 22px;border-color:#ffd166">Donate with PayPal</button></form>
+<p class="muted" id="nopp" hidden>Donations are not set up on this site yet.</p>
+<p>To advertise on this site please use the Contact Me link below.</p></div>
+<script type="application/json" id="data">__DATA__</script>
+<script>
+const raw=document.getElementById('data').textContent.trim(),D=raw.startsWith('{')?JSON.parse(raw):{},id=String(D.paypal_button||'').trim();
+if(/^[A-Za-z0-9]{6,30}$/.test(id))document.getElementById('hb').value=id;else{document.getElementById('pp').hidden=true;document.getElementById('nopp').hidden=false}
+</script></div></body></html>

@@ -21,7 +21,7 @@ const G=D.graphs||{},rows=(G.daily||[]).filter(r=>has(r.rain_mm)).map(r=>({d:r.d
 const T=$('tiles'),now=new Date(),yr=String(now.getFullYear()),ym=yr+'-'+String(now.getMonth()+1).padStart(2,'0');
 const sum=a=>a.reduce((s,r)=>s+r.v,0),last=n=>rows.filter(r=>Date.parse(r.d)>Date.now()-n*864e5);
 tile(T,'This month',F(sum(rows.filter(r=>r.d.startsWith(ym))),1,' mm'));tile(T,'This year',F(sum(rows.filter(r=>r.d.startsWith(yr))),1,' mm'));tile(T,'Last 7 days',F(sum(last(7)),1,' mm'));tile(T,'Last 30 days',F(sum(last(30)),1,' mm'));
-const rate=((G['24h']||{}).rain_rate_mm_h||[]).filter(p=>has(p[1])).map(p=>[new Date(p[0]).getHours()+':00',p[1]]);
+const g24=G['24h']||{},rr=g24.rain_rate_mm_h||[],rate=(g24.t||[]).map((t,i)=>[new Date(t).getHours()+':00',rr[i]]).filter(p=>has(p[1]));
 const hr={};for(const[l,v]of rate)hr[l]=Math.max(hr[l]||0,v);bars($('rate'),Object.entries(hr),'#4ea9ff',' mm/h',1);
 bars($('d90'),last(90).map(r=>[r.d.slice(5),r.v]),'#4ea9ff',' mm',1);
 const mon={};rows.forEach(r=>{const m=r.d.slice(0,7);mon[m]=(mon[m]||0)+r.v});bars($('months'),Object.entries(mon).slice(-36).map(([m,v])=>[m.slice(2),v]),'#4bd66a',' mm',1);

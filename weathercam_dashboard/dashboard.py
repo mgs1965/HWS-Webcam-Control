@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse,csv,ftplib,json,math,os,re,shutil,socket,tempfile
 from datetime import datetime,timedelta,timezone
 from pathlib import Path
-V='54.2'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
+V='54.3'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
 IMG=Path(os.getenv('WEATHERCAM_LATEST_IMAGE',str(ROOT/'frames/latest.jpg'))); HD=Path(os.getenv('WEATHERCAM_HEALTH_DIR',str(ROOT/'telemetry/health'))); TD=Path(os.getenv('WEATHERCAM_TELEMETRY_DIR',str(ROOT/'logs'))); LD=Path(os.getenv('WEATHERCAM_LOG_DIR',str(ROOT/'logs')))
 def envnum(name,default):
  try:
@@ -322,7 +322,7 @@ def sync_keogram_archive(limit=7):
 _PARTS=Path(__file__).resolve().parent
 for _part in ('astronomy.py','analytics.py','station.py','insights.py','recommendations.py','forecast.py','extras.py'):
   exec(compile((_PARTS/_part).read_text(encoding='utf-8'),str(_PARTS/_part),'exec'),globals())
-SITE_PAGES=(('index.html','Site chooser'),('indexnew.html','Home'),('console.html','Live'),('graphs.html','Graphs'),('rainfall.html','Rainfall'),('compare.html','Compare'),('wind.html','Wind'),('forecast.html','Forecast'),('webcam.html','Webcam'),('radar.html','Radar'),('records.html','Records'),('reports.html','Reports'),('almanac.html','Almanac'),('news.html','News'),('data.html','Data'),('health.html','Webcam health'),('mbhealth.html','Meteobridge'),('pihealth.html','Pi health'),('station.html','Station'),('about.html','About'),('mobile.html','Mobile'),('dashboard.html','Camera dashboard'))
+SITE_PAGES=(('index.html','Site chooser'),('indexnew.html','Home'),('console.html','Live'),('graphs.html','Graphs'),('rainfall.html','Rainfall'),('compare.html','Compare'),('wind.html','Wind'),('forecast.html','Forecast'),('webcam.html','Webcam'),('radar.html','Radar'),('records.html','Records'),('reports.html','Reports'),('almanac.html','Almanac'),('news.html','News'),('donate.html','Donate'),('data.html','Data'),('health.html','Webcam health'),('mbhealth.html','Meteobridge'),('pihealth.html','Pi health'),('station.html','Station'),('about.html','About'),('mobile.html','Mobile'),('dashboard.html','Camera dashboard'))
 SITE_NAV=' · '.join(f'<a href="{h}">{t}</a>' for h,t in SITE_PAGES if h!='index.html')
 SITE_EXTRAS=('share.png',)
 SITE_ASSETS=('site.css','site.js','favicon.svg','favicon.png','logo.svg','logo.png')
@@ -524,7 +524,7 @@ def generate(upload=False):
  winsight=weather_insight(weather,scene)+frost_notes(weather)+record_notes(weather,whistory)+([sc['note']] if sc and sc.get('note') and sc.get('verdict')!='AGREE' else [])
  schedule=mode_schedule(now)
  safe_config={
-  'release':'V54.2','telemetry_schema':4,'dashboard_refresh_minutes':5,'console_poll_seconds':30,
+  'release':'V54.3','telemetry_schema':4,'dashboard_refresh_minutes':5,'console_poll_seconds':30,
   'capture_interval_seconds':10,'ftp_configured':bool(os.getenv('DASHBOARD_FTP_HOST')),
   'ftp_tls':os.getenv('DASHBOARD_FTP_TLS','0')!='0',
   'thresholds':TH,'stale_after_minutes':TH['dashboard_stale_minutes'],
@@ -574,6 +574,7 @@ def generate(upload=False):
  page('rainfall.html',{'graphs':{k:graphs.get(k) for k in ('24h','7d','daily')},'generated':now.isoformat()})
  page('wind.html',{'rose':rose,'weather':weather,'generated':now.isoformat()})
  page('news.html',{'news':news})
+ page('donate.html',{'paypal_button':os.environ.get('DASHBOARD_PAYPAL_BUTTON_ID','EX92D2ZBL7V3Y')})
  page('mbhealth.html',{'health':meteobridge_health(now,weather,station,payload['weather_compare'],daily,weather_archive()),'weather':weather,'compare':payload['weather_compare'],'station_status':station,'generated':now.isoformat()})
  page('pihealth.html',{k:payload.get(k) for k in ('metrics','series','disk_forecast','hostname','version','generated','state')})
  page('records.html',{'legacy':LEGACY_RECORDS,'records':records_data(daily,now),'year_records':(whistory or {}).get('year_records')})

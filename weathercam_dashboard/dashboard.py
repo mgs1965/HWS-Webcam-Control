@@ -324,7 +324,7 @@ for _part in ('astronomy.py','analytics.py','station.py','insights.py','recommen
   exec(compile((_PARTS/_part).read_text(encoding='utf-8'),str(_PARTS/_part),'exec'),globals())
 SITE_PAGES=(('indexnew.html','Home'),('console.html','Live'),('graphs.html','Graphs'),('forecast.html','Forecast'),('webcam.html','Webcam'),('radar.html','Radar'),('records.html','Records'),('reports.html','Reports'),('almanac.html','Almanac'),('data.html','Data'),('health.html','Health'),('station.html','Station'),('about.html','About'),('mobile.html','Mobile'),('dashboard.html','Camera dashboard'))
 SITE_NAV=' · '.join(f'<a href="{h}">{t}</a>' for h,t in SITE_PAGES)
-SITE_ASSETS=('site.css','site.js','favicon.svg')
+SITE_ASSETS=('site.css','site.js','favicon.svg','logo.svg')
 SITE_HEAD='<link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="site.css"><script src="site.js"></script></head>'
 def generate(upload=False):
  now=datetime.now(timezone.utc)

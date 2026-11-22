@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>System health</title>
+<style>:root{color-scheme:dark;--bg:#071827;--card:#0e273b;--line:#2a4960;--text:#edf6ff;--muted:#a9bdce;--blue:#4ea9ff;--amber:#ffd166;--green:#4bd66a;--red:#ff6075}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,"Segoe UI",sans-serif}a{color:var(--blue)}.muted{color:var(--muted)}</style></head><body><div class="s-page">
+<header class="s-head"><h1>System health</h1><div class="s-nav muted">__NAV__</div></header>
+<div class="s-grid" id="grid"></div>
+<script type="application/json" id="data">__DATA__</script>
+<script>
+const raw=document.getElementById('data').textContent.trim(),D=raw.startsWith('{')?JSON.parse(raw):{},$=id=>document.getElementById(id),has=v=>v!==null&&v!==undefined&&v!==''&&isFinite(Number(v));
+const el=(tag,cls,text,parent)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;if(parent)parent.append(e);return e};
+const F=(v,d,u,delta)=>HWS.fmt(v,d,u,delta),day=s=>new Date(s+'T12:00:00'),hm=s=>s?new Date(s).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'–';
+const tile=(box,k,v)=>{const t=el('div','s-tile',undefined,box);el('div','k',k,t);el('div','v',v,t)};
+const W=D.weather||{},S=D.station_status||{},M=D.metrics||{};
+function card(title,rows){const c=el('section','s-card',undefined,$('grid'));el('h2','',title,c);for(const[k,v,cls]of rows){const r=el('div','',undefined,c);r.style.cssText='display:flex;justify-content:space-between;gap:8px;padding:3px 0';el('span','muted',k,r);el('b',cls||'',v,r)}}
+const age=Date.parse(W.updated||'');
+card('Weather station',[['Status',S.known===false?'Unknown':S.stale?'Stale':'OK',S.stale?'s-bad':'s-good'],['Last reading',isFinite(age)?new Date(age).toLocaleString():'–'],['Source',W.source||'–'],['Bridge data age',has(W.bridge_data_age_s)?Math.round(W.bridge_data_age_s)+' s':'–'],['Message',S.message||'No problems']]);
+const gen=Date.parse(D.generated||'');
+card('Camera and dashboard',[['Camera state',D.state||'–',/GOOD|OK/i.test(D.state||'')?'s-good':/WARN/i.test(D.state||'')?'s-warn':''],['Mode',D.mode||'–'],['Last capture',D.capture_time||'–'],['Dashboard built',isFinite(gen)?new Date(gen).toLocaleString():'–'],['Host',D.hostname||'–'],['Version',D.version||'–']]);
+const keys=Object.keys(M).filter(k=>typeof M[k]!=='object').slice(0,14);if(keys.length)card('Latest image measurements',keys.map(k=>[k.replace(/_/g,' '),String(M[k])]));
+if((D.reasons||[]).length)card('Notes',D.reasons.map((r,i)=>[String(i+1),String(r)]));
+if(D.counts)card('Stored records',Object.entries(D.counts).map(([k,v])=>[k,String(v)]));
+</script></div></body></html>

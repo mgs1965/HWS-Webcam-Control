@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse,csv,ftplib,json,math,os,re,shutil,socket,tempfile
 from datetime import datetime,timedelta,timezone
 from pathlib import Path
-V='53.8'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
+V='53.9'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
 IMG=Path(os.getenv('WEATHERCAM_LATEST_IMAGE',str(ROOT/'frames/latest.jpg'))); HD=Path(os.getenv('WEATHERCAM_HEALTH_DIR',str(ROOT/'telemetry/health'))); TD=Path(os.getenv('WEATHERCAM_TELEMETRY_DIR',str(ROOT/'logs'))); LD=Path(os.getenv('WEATHERCAM_LOG_DIR',str(ROOT/'logs')))
 def envnum(name,default):
  try:
@@ -291,7 +291,7 @@ def publish_with(ftp,host,user,pw,remote,desired):
   try:ftp.voidcmd('TYPE I');remote_size=ftp.size(KEOGRAM_NAME)
   except (ftplib.error_perm,ftplib.error_reply,AttributeError):remote_size=None
   if remote_size!=keogram.stat().st_size:atomic_send(keogram,KEOGRAM_NAME)
- for name in ('latest.jpg','dashboard-data.json','console.html','graphs.html','forecast.html','about.html','station.html','mobile.html','dashboard.html'):
+ for name in ('latest.jpg','dashboard-data.json')+tuple(h for h,_ in SITE_PAGES)+SITE_ASSETS:
   local=OUT/name
   if local.is_file():atomic_send(local,name)
  ftp.quit()
@@ -322,7 +322,10 @@ def sync_keogram_archive(limit=7):
 _PARTS=Path(__file__).resolve().parent
 for _part in ('astronomy.py','analytics.py','station.py','insights.py','recommendations.py','forecast.py'):
   exec(compile((_PARTS/_part).read_text(encoding='utf-8'),str(_PARTS/_part),'exec'),globals())
-SITE_NAV=' · '.join(f'<a href="{h}">{t}</a>' for h,t in (('console.html','Live console'),('graphs.html','Graphs'),('forecast.html','Forecast'),('station.html','Station'),('about.html','About'),('mobile.html','Mobile'),('dashboard.html','Camera dashboard')))
+SITE_PAGES=(('index.html','Home'),('console.html','Live'),('graphs.html','Graphs'),('forecast.html','Forecast'),('webcam.html','Webcam'),('radar.html','Radar'),('records.html','Records'),('reports.html','Reports'),('almanac.html','Almanac'),('data.html','Data'),('health.html','Health'),('station.html','Station'),('about.html','About'),('mobile.html','Mobile'),('dashboard.html','Camera dashboard'))
+SITE_NAV=' · '.join(f'<a href="{h}">{t}</a>' for h,t in SITE_PAGES)
+SITE_ASSETS=('site.css','site.js','favicon.svg')
+SITE_HEAD='<link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="site.css"><script src="site.js"></script></head>'
 def generate(upload=False):
  now=datetime.now(timezone.utc)
  status_data=status()
@@ -515,12 +518,12 @@ def generate(upload=False):
  station=station_status(now)
  actions=recommended_checks(metrics,timelapse,scene,station)
  wseries=weather_series(now);whour=weather_hour();whistory=weather_history();sc=solar_check(weather,scene,now)
- graphs=graph_data(now,wseries_all,scene_rows,daily_stats,whistory)
+ graphs=graph_data(now,wseries_all,scene_rows,daily_stats,whistory,weather_archive())
  forecast=forecast_data(now);site=site_content()
  winsight=weather_insight(weather,scene)+frost_notes(weather)+record_notes(weather,whistory)+([sc['note']] if sc and sc.get('note') and sc.get('verdict')!='AGREE' else [])
  schedule=mode_schedule(now)
  safe_config={
-  'release':'V53.8','telemetry_schema':4,'dashboard_refresh_minutes':5,'console_poll_seconds':30,
+  'release':'V53.9','telemetry_schema':4,'dashboard_refresh_minutes':5,'console_poll_seconds':30,
   'capture_interval_seconds':10,'ftp_configured':bool(os.getenv('DASHBOARD_FTP_HOST')),
   'ftp_tls':os.getenv('DASHBOARD_FTP_TLS','0')!='0',
   'thresholds':TH,'stale_after_minutes':TH['dashboard_stale_minutes'],
@@ -540,17 +543,29 @@ def generate(upload=False):
  }
  template=(Path(__file__).resolve().parent/'templates/dashboard.html').read_text()
  if template.count('__DATA__') != 1:raise RuntimeError('Dashboard template must contain exactly one data placeholder')
- template=template.replace('__NAV__',SITE_NAV)
+ template=template.replace('__NAV__',SITE_NAV).replace('</head>',SITE_HEAD,1)
  template=template.replace('__DATA__',json.dumps(payload,separators=(',',':')).replace('</','<\\/'),1)
  atomic(OUT/'dashboard.html',template)
  def page(name,data,out=None):
-  text=(Path(__file__).resolve().parent/'templates'/name).read_text().replace('__NAV__',SITE_NAV)
+  text=(Path(__file__).resolve().parent/'templates'/name).read_text().replace('__NAV__',SITE_NAV).replace('</head>',SITE_HEAD,1)
   atomic(OUT/(out or name),text.replace('__DATA__',json.dumps(data,separators=(',',':')).replace('</','<\\/'),1))
+ for asset in SITE_ASSETS:atomic(OUT/asset,(Path(__file__).resolve().parent/'templates'/asset).read_text())
+ daily=graphs.get('daily') or []
+ media=os.getenv('DASHBOARD_MEDIA_BASE','').strip();media=media+('/' if media and not media.endswith('/') else '')
  page('console.html',{k:payload.get(k) for k in ('weather','weather_series','weather_history','wind_rose','sun_moon','config')})
  page('graphs.html',{'graphs':graphs,'generated':now.isoformat()})
  page('forecast.html',{'forecast':forecast})
  page('mobile.html',{'weather':weather,'forecast':forecast})
  for kind in ('about','station'):page('info.html',{'kind':kind,'site':site,'weather':weather},kind+'.html')
+ page('index.html',{'weather':weather,'forecast':forecast,'sun_moon':payload['sun_moon'],'weather_series':wseries,'site':site,'state':state,'capture_time':capture_text,'insights':winsight[:3]})
+ page('webcam.html',{k:payload.get(k) for k in ('timelapse_library','keogram','keogram_archive','gallery','state','capture_time','mode')}|{'media_base':media})
+ page('radar.html',{'site':site})
+ page('records.html',{'records':records_data(daily,now),'year_records':(whistory or {}).get('year_records')})
+ page('reports.html',{'daily':daily})
+ page('almanac.html',{'sun_moon':payload['sun_moon'],'almanac':almanac_data(now),'weather':weather,'scene':scene})
+ page('data.html',{'weather':weather,'weather_raw':payload['weather_raw']})
+ page('health.html',{k:payload.get(k) for k in ('station_status','state','reasons','metrics','mode','capture_time','counts','generated','hostname','version')}|{'weather':weather})
+ atomic(OUT/'redirects.htaccess',redirects_htaccess())
  atomic(OUT/'dashboard-data.json',json.dumps(payload,indent=2))
  result=publish() if upload else 'generated'
  print(json.dumps({'result':result,'state':state,'mode':mode,'capture_age_seconds':capture_age,'health_records':len(health_rows),'telemetry_records':len(telemetry_rows)}))

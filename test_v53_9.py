@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parent
 def test_release_identity():
     namespace = {}
     exec((ROOT / 'version.py').read_text(encoding='utf-8'), namespace)
-    assert namespace['VERSION'] == 'V53.8'
+    assert namespace['VERSION'] == 'V53.9'
     assert namespace['TELEMETRY_SCHEMA_VERSION'] == 4
 
 def test_telemetry_schema():
@@ -32,11 +32,11 @@ def test_credentials_are_not_embedded():
     assert "FTP_PASSWORD = os.getenv('HWS_FTP_PASSWORD', '')" in core
     assert 'cGnRUCGhc' not in core
 
-def test_dashboard_v53_8_payload():
+def test_dashboard_v53_9_payload():
     dashboard = (ROOT / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
     template = (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
-    assert "V='53.8'" in dashboard
-    assert "'release':'V53.8'" in dashboard
+    assert "V='53.9'" in dashboard
+    assert "'release':'V53.9'" in dashboard
     assert "for period,hours in (('24h',24),('7d',168),('30d',720))" in dashboard
     assert 'incidents' in dashboard
     assert "'process_memory':('health','memory.process_rss_bytes',1/1048576)" in dashboard
@@ -232,7 +232,7 @@ def test_controller_configuration_fingerprint_tracks_real_limits():
 
 def test_camera_service_unit_and_install_preserve_existing_unit():
     service = (ROOT / 'systemd/weathercam.service').read_text(encoding='utf-8')
-    installer = (ROOT / 'install_v53_8.sh').read_text(encoding='utf-8')
+    installer = (ROOT / 'install_v53_9.sh').read_text(encoding='utf-8')
     assert 'EnvironmentFile=/etc/weathercam/dashboard.env' in service
     assert 'Restart=on-failure' in service
     assert 'TimeoutStopSec=240' in service
@@ -633,14 +633,14 @@ def test_release_zip_extracts_to_matching_directory(tmp_path):
     manifest = json.loads((ROOT / 'manifest.json').read_text(encoding='utf-8'))
     with zipfile.ZipFile(tmp_path / manifest['package']) as archive:
         names = archive.namelist()
-    assert manifest['package'] == 'HWS-Webcam-Control-53.8.zip'
-    assert all(name.startswith('HWS-Webcam-Control-53.8/') for name in names)
-    assert 'HWS-Webcam-Control-53.8/manifest.json' in names
+    assert manifest['package'] == 'HWS-Webcam-Control-53.9.zip'
+    assert all(name.startswith('HWS-Webcam-Control-53.9/') for name in names)
+    assert 'HWS-Webcam-Control-53.9/manifest.json' in names
 
 def _load_dashboard(tmp_path, monkeypatch):
     monkeypatch.setenv('WEATHERCAM_ROOT', str(tmp_path))
     monkeypatch.setenv('DASHBOARD_OUT', str(tmp_path / 'out'))
-    spec = importlib.util.spec_from_file_location('dash53_8', ROOT / 'weathercam_dashboard/dashboard.py')
+    spec = importlib.util.spec_from_file_location('dash53_9', ROOT / 'weathercam_dashboard/dashboard.py')
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -665,7 +665,7 @@ def test_dashboard_moon_and_disk_forecast(tmp_path, monkeypatch):
     assert forecast['percent_per_day'] > 0 and forecast['days_to_full'] > 0
     assert dash.disk_forecast(rows[:5], now) is None
 
-def test_dashboard_v53_8_template_and_event_tag():
+def test_dashboard_v53_9_template_and_event_tag():
     dashboard = (ROOT / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
     template = (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
     assert '[MODE TRANSITION]' in dashboard and '[MODE CHANGE]' not in dashboard
@@ -877,3 +877,48 @@ def test_daily_rainfall_total_reaches_graph_data(tmp_path):
     now = datetime(2026, 11, 20, 12, 0, tzinfo=timezone.utc)
     graphs = dash.graph_data(now, [], [], {'2026-11-19': {'rain_mm': 5.75}}, {'daily': [{'date': '2026-11-18', 'rain_mm': 2.0}]})
     assert [d['rain_mm'] for d in graphs['daily']] == [2.0, 5.75]
+
+
+def test_site_pages_assets_records_and_almanac(tmp_path, monkeypatch):
+    dash = _dash(tmp_path)
+    monkeypatch.setattr(dash, 'OUT', tmp_path / 'out')
+    dash.generate(False)
+    out = tmp_path / 'out'
+    for name in ('index.html', 'webcam.html', 'radar.html', 'records.html', 'reports.html', 'almanac.html', 'data.html', 'health.html'):
+        page = (out / name).read_text()
+        assert '__DATA__' not in page and '__NAV__' not in page and 'site.js' in page and 'reports.html' in page
+    assert 'site.js' in (out / 'dashboard.html').read_text()
+    assert (out / 'site.css').is_file() and (out / 'favicon.svg').is_file()
+    assert 'RewriteRule ^about\\.php$ about.html [R=301,L]' in (out / 'redirects.htaccess').read_text()
+    now = datetime(2026, 11, 22, 12, 0, tzinfo=timezone.utc)
+    daily = [{'date': '2026-11-20', 'temp_max_c': 9.0, 'temp_min_c': 2.0, 'rain_mm': 0.0}, {'date': '2026-11-21', 'temp_max_c': 11.5, 'temp_min_c': -1.0, 'rain_mm': 7.4, 'wind_gust_mph': 31},
+             {'date': '2025-07-01', 'temp_max_c': 33.0, 'temp_min_c': 15.0, 'rain_mm': 0.1}]
+    rec = dash.records_data(daily, now)
+    assert rec['month']['hottest_c'] == {'value': 11.5, 'date': '2026-11-21'} and rec['month']['rain_total_mm'] == 7.4 and rec['month']['rain_days'] == 1
+    assert rec['all']['hottest_c']['value'] == 33.0 and rec['year']['days'] == 2 and rec['all']['coldest_c']['value'] == -1.0
+    alm = dash.almanac_data(now, 3)
+    assert len(alm) == 3 and alm[0]['sunrise'] < alm[0]['sunset'] and alm[0]['dark_start'] and alm[0]['moon']
+
+
+def test_backfill_from_meteobridge_and_archive_merge(tmp_path):
+    import weather_station as ws
+    assert ws.parse_backfill_day('temp_max_c=11.2;temp_min_c=--;rain_mm=3.5;wind_gust_mph=999;humidity_avg=80') == {'temp_max_c': 11.2, 'rain_mm': 3.5, 'humidity_avg': 80.0}
+    assert 'th0temp-max@D7' in dict(ws.backfill_expressions(7))['temp_max_c'] and dict(ws.backfill_expressions(7))['wind_gust_mph'] == 'wind0wind-max@D7=mph'
+    today = datetime(2026, 11, 22).date()
+    replies = {}
+
+    def fetch(url):
+        from urllib.parse import unquote
+        offset = int(unquote(url).split('th0temp-max@D')[1].split(']')[0])
+        return f'temp_max_c={10 + offset};temp_min_c=1;rain_mm=0.5' if offset <= 3 else 'temp_max_c=--;temp_min_c=--'
+    path = tmp_path / 'archive.json'
+    result = ws.backfill_archive('192.168.0.65', str(path), days=100, today=today, fetch=fetch, sleep=lambda s: None, max_empty=5)
+    assert result == {'added': 3, 'total': 3, 'first': '2026-11-19'}
+    assert ws.backfill_archive('192.168.0.65', str(path), days=100, today=today, fetch=fetch, sleep=lambda s: None, max_empty=5)['added'] == 0
+    dash = _dash(tmp_path)
+    (tmp_path / 'weather_station_archive.json').write_text(path.read_text())
+    archive = dash.weather_archive()
+    now = datetime(2026, 11, 22, 12, 0, tzinfo=timezone.utc)
+    graphs = dash.graph_data(now, [], [], {'2026-11-21': {'temp_max_c': 5.0}}, None, archive)
+    by_day = {d['date']: d for d in graphs['daily']}
+    assert by_day['2026-11-21']['temp_max_c'] == 5.0 and by_day['2026-11-20']['temp_max_c'] == 12.0 and by_day['2026-11-20']['rain_mm'] == 0.5

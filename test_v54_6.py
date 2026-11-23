@@ -943,3 +943,18 @@ def test_meteobridge_health_flags_blank_live_fields():
 def test_clientraw_support_is_gone():
     assert 'clientraw' not in (ROOT / 'weather_station.py').read_text(encoding='utf-8').lower()
     assert 'clientraw' not in (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8').lower()
+
+
+def test_dashboard_uses_full_weather_reading(tmp_path):
+    dashboard = load_source_module('dashboard_full_weather_source', ROOT / 'weathercam_dashboard/dashboard.py')
+    dashboard.LD = tmp_path
+    now = datetime(2026, 11, 23, 7, 0, tzinfo=timezone.utc)
+    trimmed = {'temperature_c': 1.0, 'age_seconds': 5}
+    assert dashboard.weather_full(now, trimmed) == trimmed
+    fresh = {'updated': (now - timedelta(seconds=30)).isoformat(), 'source': 'meteobridge', 'rain_today_mm': 2.0, 'bridge_data_age_s': 3}
+    (tmp_path / 'weather_station.json').write_text(json.dumps(fresh))
+    full = dashboard.weather_full(now, trimmed)
+    assert full['rain_today_mm'] == 2.0 and full['source'] == 'meteobridge' and full['age_seconds'] == 30
+    fresh['updated'] = (now - timedelta(hours=2)).isoformat()
+    (tmp_path / 'weather_station.json').write_text(json.dumps(fresh))
+    assert dashboard.weather_full(now, trimmed) == trimmed

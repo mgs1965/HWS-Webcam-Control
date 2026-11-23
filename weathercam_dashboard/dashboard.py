@@ -516,6 +516,7 @@ def generate(upload=False):
  } for row in report_rows[-30:]]
  scene=status_data.get('scene') if isinstance(status_data.get('scene'),dict) else None
  weather=status_data.get('weather') if isinstance(status_data.get('weather'),dict) else None
+ weather=weather_full(now,weather)
  station=station_status(now)
  actions=recommended_checks(metrics,timelapse,scene,station)
  wseries=weather_series(now);whour=weather_hour();whistory=weather_history();sc=solar_check(weather,scene,now)

@@ -23,7 +23,7 @@ svg{width:100%;height:auto;display:block}.cam img{width:100%;border-radius:8px;d
 <script type="application/json" id="console-data">__DATA__</script>
 <script>
 const $=id=>document.getElementById(id),txt=(id,v)=>{const e=$(id);if(e)e.textContent=v},has=v=>v!==undefined&&v!==null&&isFinite(Number(v)),f=(v,u='',d=1)=>HWS.fmt(v,d,u);
-const raw=document.getElementById('console-data').textContent.trim(),D=raw.startsWith('{')?JSON.parse(raw):{},C=D.config||{};let W=Object.assign({},D.weather||{});
+const raw=document.getElementById('console-data').textContent.trim(),D=raw.startsWith('{')?JSON.parse(raw):{},C=D.config||{};let W=Object.assign({},D.weather||{}),refreshError=false;
 const NAMES=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'],compass=d=>has(d)?NAMES[Math.round((((Number(d)%360)+360)%360)/22.5)%16]:'–';
 const signed=(v,u)=>has(v)?(v>0?'+':'')+HWS.fmt(v,1,u,true):'–';
 const ticks=$('ticks');NAMES.forEach((n,i)=>{if(i%4)return;const a=i*22.5*Math.PI/180,t=document.createElementNS('http://www.w3.org/2000/svg','text');t.setAttribute('x',(Math.sin(a)*76).toFixed(1));t.setAttribute('y',(-Math.cos(a)*76+4).toFixed(1));t.setAttribute('text-anchor','middle');t.setAttribute('font-size','11');t.setAttribute('fill','#a9bdce');t.textContent=n;ticks.append(t)});
@@ -35,11 +35,11 @@ txt('wind',f(w.wind_speed_mph,' mph',0));txt('gust',f(w.wind_gust_mph,' mph',0))
 txt('press',f(w.pressure_hpa,' hPa'));txt('dpress',signed(w.pressure_change_1h_hpa,' hPa'));txt('rate',f(w.rain_rate_mm_h,' mm/h'));txt('rain',f(w.rain_today_mm,' mm'));
 txt('solar',f(w.solar_radiation_wm2,' W/m²',0));txt('uv',f(w.uv_index));txt('sun',f(w.sunshine_hours_today,' h'));txt('lgt',f(w.lightning_strikes_today,'',0));$('lgtrow').style.display=has(w.lightning_strikes_today)?'':'none';
 const sm=D.sun_moon||{},hm=s=>s?new Date(s).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'–';txt('rise',hm(sm.sunrise)+' / '+hm(sm.sunset));const m=sm.moon;txt('moon',m&&typeof m==='object'?(m.name||m.phase||'–')+(has(m.illumination_percent)?' ('+Number(m.illumination_percent).toFixed(0)+'%)':''):(m||'–'));
-const t=Date.parse(w.updated),age=isFinite(t)?(Date.now()-t)/1000:null,dot=$('dot');txt('status',isFinite(t)?'Updated '+new Date(t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}):'No data');dot.className='live'+(age!==null&&age<300?'':' off');
-const st=$('stale');st.hidden=!(age!==null&&age>600);st.textContent=st.hidden?'':'Weather data is '+Math.round(age/60)+' minutes old.'}
+const status=HWS.weatherStatus(w,refreshError);txt('status',status.last);$('dot').className='live'+(status.fresh&&!refreshError?'':' off');
+const st=$('stale');st.hidden=!status.warning;st.textContent=status.warning}
 function once(){const r=(D.weather_history||{}).year_records||{},parts=[];for(const[k,l,u]of[['temp_max_c','Hottest','°C'],['temp_min_c','Coldest','°C'],['pressure_max_hpa','Highest pressure','hPa'],['pressure_min_hpa','Lowest pressure','hPa']])if(r[k])parts.push('<div class="row"><span>'+l+'</span><b>'+HWS.fmt(r[k].value,1,' '+u)+(r[k].when?' · '+String(r[k].when).slice(0,10):'')+'</b></div>');$('records').innerHTML=parts.join('')||'Not available';
 const wr=D.wind_rose;if(wr&&wr.percent){const mx=Math.max(...wr.percent,1);$('rose').innerHTML=NAMES.map((n,i)=>'<div class="row"><span>'+n+'</span><span style="flex:1;margin:4px 8px"><i style="display:block;height:8px;border-radius:4px;background:#4ea9ff;width:'+(wr.percent[i]/mx*100).toFixed(0)+'%"></i></span><b>'+wr.percent[i]+'%</b></div>').join('')}
 spark($('sparkT'),'temperature_c','#ffd166','°C','Temperature, 24 h');spark($('sparkP'),'pressure_hpa','#c9d1d9','hPa','Pressure, 24 h')}
-async function poll(){if(location.protocol==='file:'||document.hidden)return;try{W=await HWS.refreshWeather(W);render()}catch(e){console.warn(e);$('stale').hidden=false;$('stale').textContent=e.message}}
+async function poll(){if(location.protocol==='file:'||document.hidden)return;try{W=await HWS.refreshWeather(W);refreshError=false}catch(e){console.warn(e);refreshError=true}render()}
 once();render();poll();window.setInterval(poll,Math.max(10,Number(C.console_poll_seconds)||30)*1000);window.setInterval(render,30000);document.addEventListener('visibilitychange',poll);
 </script></body></html>

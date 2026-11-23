@@ -15,6 +15,7 @@ const HWS={units,theme,
 window.HWS=HWS;
 HWS.date=function(value){const s=String(value||''),iso=/^\d{8}$/.test(s)?s.slice(0,4)+'-'+s.slice(4,6)+'-'+s.slice(6,8):s,d=new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso)?iso+'T12:00:00':iso);return Number.isFinite(d.getTime())?d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'Date unavailable'};
 HWS.stationDate=function(){const parts=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()),part=k=>parts.find(p=>p.type===k).value;return part('year')+'-'+part('month')+'-'+part('day')};
+HWS.weatherStatus=function(weather,error){const t=Date.parse(weather.updated||''),age=Number.isFinite(t)?Math.max(0,Math.floor((Date.now()-t)/60000)):null,last=age===null?'No weather reading available.':'Last reading: '+new Date(t).toLocaleString('en-GB')+' ('+age+' min ago).';return {last,warning:error?last+' Weather refresh failed; the connection or station may be unavailable.':age===null?'No weather data available. The station may be offline.':age>=10?last+' Weather data is stale; the station may be offline.':'',fresh:age!==null&&age<10}};
 HWS.refreshWeather=async function(current){
  async function read(url){const r=await fetch(url+'?ts='+Date.now(),{cache:'no-store'});if(!r.ok)throw new Error(url+': HTTP '+r.status);return r.json()}
  let next,error;
@@ -22,7 +23,7 @@ HWS.refreshWeather=async function(current){
  catch(e){error=e;next=null}
  if(!next||Date.now()-Date.parse(next.updated)>120000){
   try{const data=await read('dashboard-data.json'),w=data.weather;if(!w||!Number.isFinite(Date.parse(w.updated)))throw new Error('Dashboard weather has no valid timestamp');if(!next||Date.parse(w.updated)>Date.parse(next.updated))next=w}
-  catch(e){if(!next)throw new Error('Weather refresh failed: '+(error?error.message+'; ':'')+e.message)}
+  catch(e){if(!next)throw new Error('Weather data unavailable. Check the weather station connection and service. ('+(error?error.message+'; ':'')+e.message+')')}
  }
  return Date.parse(next.updated)>=Date.parse(current.updated||'')||!Number.isFinite(Date.parse(current.updated))?next:current;
 };

@@ -1,8 +1,16 @@
+#### V54.9
+
+- Retry transient Meteobridge failures with configurable timeouts; backfill pauses between requests and saves progress on interruption.
+- Show the last reading time, age and persistent stale/offline warning; do not overwrite the live upload during dashboard publication.
+- Move health links into the dashboard menu, rename Live to Current and remove the duplicate Camera Dashboard button.
+- Document secure credential rotation, deployment and rollback.
+
 #### V54.8
 
+- Fixed dashboard publication overwriting live weather with an empty or older snapshot; retain the last timestamped reading when the station is unavailable.
 - Shared logo/title, ordered button navigation with current-page highlight, and station disclaimer on every page. About includes Station; Data and Home's More tile are removed.
 - HWS Health uses the camera dashboard layout with Meteobridge checks and links to detailed health pages. Satellite imagery is accessible from Radar.
-- Fixed compact keogram dates and live refresh fallback; dashboard publications also include a live weather snapshot.
+- Fixed compact keogram dates and live refresh fallback.
 - Calendar-month filters, selectable rainfall/graph years, expanded Compare charts and wider Records cards.
 - Add and publish news locally using `dashboard.py --add-news TITLE --news-text TEXT --upload`; entries persist in the logs directory.
 

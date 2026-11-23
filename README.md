@@ -1,6 +1,6 @@
-# Harpenden Weather Camera V54.8
+# Harpenden Weather Camera V54.9
 
-V54.8 updates the weather website with consistent logo/title and button navigation, a shared station disclaimer, combined HWS Health, calendar-month and year filters, expanded comparison graphs, satellite imagery and persistent local news publishing. It fixes keogram dates and live refresh fallback. Camera-control behavior and telemetry-v4 (58 fields) remain unchanged.
+V54.9 adds retryable Meteobridge requests and gentler, resumable backfill, clearer last-reading and stale-data warnings, and a simplified HWS Health menu. Camera-control behavior and telemetry-v4 (58 fields) remain unchanged.
 
 ## Camera and image features
 
@@ -25,10 +25,10 @@ Trend history is kept bounded for Raspberry Pi memory: the most recent 24 hours 
 Create `/etc/weathercam/dashboard.env` from `dashboard.env.example` and set `HWS_FTP_PASSWORD` before installing on a new host.
 
 ```bash
-unzip HWS-Webcam-Control-54.8.zip
-cd HWS-Webcam-Control-54.8
-python3 verify_v54_8.py
-sudo bash ./install_v54_8.sh
+unzip HWS-Webcam-Control-54.9.zip
+cd HWS-Webcam-Control-54.9
+python3 verify_v54_9.py
+sudo bash ./install_v54_9.sh
 ```
 
 The installer preserves an existing `weathercam.service`; on a clean installation it installs the included unit after credential preflight.
@@ -42,5 +42,5 @@ sudo bash -c 'set -a; . /etc/weathercam/dashboard.env; set +a; exec sudo -u mgs 
 ## Rollback
 
 ```bash
-sudo bash /mnt/weathercam/app/current/rollback_v54_8.sh
+sudo bash /mnt/weathercam/app/current/rollback_v54_9.sh
 ```

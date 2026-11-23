@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parent
 def test_release_identity():
     namespace = {}
     exec((ROOT / 'version.py').read_text(encoding='utf-8'), namespace)
-    assert namespace['VERSION'] == 'V54.8'
+    assert namespace['VERSION'] == 'V54.9'
     assert namespace['TELEMETRY_SCHEMA_VERSION'] == 4
 
 def test_telemetry_schema():
@@ -32,11 +32,11 @@ def test_credentials_are_not_embedded():
     assert "FTP_PASSWORD = os.getenv('HWS_FTP_PASSWORD', '')" in core
     assert 'cGnRUCGhc' not in core
 
-def test_dashboard_v54_8_payload():
+def test_dashboard_v54_9_payload():
     dashboard = (ROOT / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
     template = (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
-    assert "V='54.8'" in dashboard
-    assert "'release':'V54.8'" in dashboard
+    assert "V='54.9'" in dashboard
+    assert "'release':'V54.9'" in dashboard
     assert "('month',None)" in dashboard
     assert 'incidents' in dashboard
     assert "'process_memory':('health','memory.process_rss_bytes',1/1048576)" in dashboard
@@ -232,7 +232,7 @@ def test_controller_configuration_fingerprint_tracks_real_limits():
 
 def test_camera_service_unit_and_install_preserve_existing_unit():
     service = (ROOT / 'systemd/weathercam.service').read_text(encoding='utf-8')
-    installer = (ROOT / 'install_v54_8.sh').read_text(encoding='utf-8')
+    installer = (ROOT / 'install_v54_9.sh').read_text(encoding='utf-8')
     assert 'EnvironmentFile=/etc/weathercam/dashboard.env' in service
     assert 'Restart=on-failure' in service
     assert 'TimeoutStopSec=240' in service
@@ -571,9 +571,9 @@ def test_release_zip_extracts_to_matching_directory(tmp_path):
     manifest = json.loads((ROOT / 'manifest.json').read_text(encoding='utf-8'))
     with zipfile.ZipFile(tmp_path / manifest['package']) as archive:
         names = archive.namelist()
-    assert manifest['package'] == 'HWS-Webcam-Control-54.8.zip'
-    assert all(name.startswith('HWS-Webcam-Control-54.8/') for name in names)
-    assert 'HWS-Webcam-Control-54.8/manifest.json' in names
+    assert manifest['package'] == 'HWS-Webcam-Control-54.9.zip'
+    assert all(name.startswith('HWS-Webcam-Control-54.9/') for name in names)
+    assert 'HWS-Webcam-Control-54.9/manifest.json' in names
 
 def _load_dashboard(tmp_path, monkeypatch):
     monkeypatch.setenv('WEATHERCAM_ROOT', str(tmp_path))
@@ -603,7 +603,7 @@ def test_dashboard_moon_and_disk_forecast(tmp_path, monkeypatch):
     assert forecast['percent_per_day'] > 0 and forecast['days_to_full'] > 0
     assert dash.disk_forecast(rows[:5], now) is None
 
-def test_dashboard_v54_8_template_and_event_tag():
+def test_dashboard_v54_9_template_and_event_tag():
     dashboard = (ROOT / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
     template = (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
     assert '[MODE TRANSITION]' in dashboard and '[MODE CHANGE]' not in dashboard
@@ -823,6 +823,7 @@ def test_shared_site_layout_keogram_and_live_snapshot(tmp_path, monkeypatch):
     monkeypatch.setattr(dash, 'ROOT', tmp_path)
     dash.OUT.mkdir()
     (dash.OUT / 'data.html').write_text('Retired page')
+    (dash.OUT / 'weather-live.json').write_text('{"updated":"existing"}')
     (tmp_path / 'keogram').mkdir()
     (tmp_path / 'keogram' / 'keogram_20261122.png').write_bytes(b'keogram')
     weather = {'updated': datetime.now(timezone.utc).isoformat(), 'temperature_c': 8.5}
@@ -844,12 +845,18 @@ def test_shared_site_layout_keogram_and_live_snapshot(tmp_path, monkeypatch):
     assert 'function station()' in (dash.OUT / 'about.html').read_text()
     health = (dash.OUT / 'health.html').read_text()
     assert 'id="piStats"' in health and 'id="bridgeChecks"' in health
-    assert 'href="webcamhealth.html"' in health and 'href="mbhealth.html"' in health
-    assert json.loads((dash.OUT / 'weather-live.json').read_text())['temperature_c'] == 8.5
+    nav = re.search(r'<nav id="viewNav".*?</nav>', health, re.S).group()
+    assert '<label class="nav-tab" for="view-live">Current</label>' in nav
+    for href, label in (('webcamhealth.html', 'Webcam Health'), ('mbhealth.html', 'Meteobridge'), ('pihealth.html', 'Pi Health')):
+        assert f'<a class="nav-tab" href="{href}">{label}</a>' in nav
+    assert 'Camera Dashboard' not in nav
+    assert json.loads((dash.OUT / 'weather-live.json').read_text()) == {'updated': 'existing'}
+    assert json.loads((dash.OUT / 'dashboard-data.json').read_text())['weather']['temperature_c'] == 8.5
 
 def test_publication_removes_only_retired_data_page(tmp_path):
     dash = _dash(tmp_path)
     dash.OUT = tmp_path
+    (tmp_path / 'weather-live.json').write_text('{"updated":"old"}')
     class FTP:
         directory = '/'
         deleted = []
@@ -922,6 +929,10 @@ const H=context.window.HWS;
 assert.equal(H.date('20261122'),'22 Nov 2026');
 assert.equal(H.date('2026-11-22'),'22 Nov 2026');
 assert.equal(H.date('broken'),'Date unavailable');
+const stale=H.weatherStatus({updated:new Date(Date.now()-11*60000).toISOString()},false);
+assert.match(stale.warning,/stale/);assert.match(stale.last,/11 min ago/);
+assert.match(H.weatherStatus({},false).warning,/No weather data/);
+assert.match(H.weatherStatus({updated:new Date().toISOString()},true).warning,/refresh failed/);
 (async()=>{
  const old={updated:'2026-01-01T00:00:00Z',temperature_c:1},fresh={updated:new Date().toISOString(),temperature_c:9};
  const calls=[];
@@ -931,7 +942,9 @@ assert.equal(H.date('broken'),'Date unavailable');
  context.fetch=async()=>({ok:true,json:async()=>old});
  assert.equal((await H.refreshWeather(fresh)).temperature_c,9);
  context.fetch=async()=>({ok:false,status:503});
- await assert.rejects(()=>H.refreshWeather(old),/Weather refresh failed/);
+ await assert.rejects(()=>H.refreshWeather(old),/Weather data unavailable/);
+ context.fetch=async()=>({ok:true,json:async()=>({})});
+ await assert.rejects(()=>H.refreshWeather(old),/Weather data unavailable.*no valid timestamp/);
 })().catch(e=>{console.error(e);process.exitCode=1});
 """
     subprocess.run(['node', '-e', script, str(ROOT / 'weathercam_dashboard/templates/site.js')], check=True)
@@ -1015,7 +1028,7 @@ def test_sun_highlight_frame_selection():
     assert len(namespace['select_highlight_frames'](frames, datetime(2026, 11, 22, 8, 0), 120, limit=50)) == 50
 
 
-def test_v54_8_alerts_and_share_card(tmp_path, monkeypatch):
+def test_v54_9_alerts_and_share_card(tmp_path, monkeypatch):
     dash = _dash(tmp_path)
     now = datetime(2026, 11, 22, 12, 0, tzinfo=timezone.utc)
     alerts = dash.weather_alerts({'temperature_c': -1.0, 'wind_gust_mph': 45, 'rain_rate_mm_h': 2})
@@ -1065,7 +1078,7 @@ def test_clientraw_support_is_gone():
     assert 'clientraw' not in (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8').lower()
 
 
-def test_dashboard_uses_full_weather_reading(tmp_path):
+def test_dashboard_uses_full_weather_reading(tmp_path, monkeypatch):
     dashboard = load_source_module('dashboard_full_weather_source', ROOT / 'weathercam_dashboard/dashboard.py')
     dashboard.LD = tmp_path
     now = datetime(2026, 11, 23, 7, 0, tzinfo=timezone.utc)
@@ -1077,7 +1090,15 @@ def test_dashboard_uses_full_weather_reading(tmp_path):
     assert full['rain_today_mm'] == 2.0 and full['source'] == 'meteobridge' and full['age_seconds'] == 30
     fresh['updated'] = (now - timedelta(hours=2)).isoformat()
     (tmp_path / 'weather_station.json').write_text(json.dumps(fresh))
-    assert dashboard.weather_full(now, trimmed) == trimmed
+    stale = dashboard.weather_full(now, trimmed)
+    assert stale['updated'] == fresh['updated'] and stale['age_seconds'] == 7200
+    newer = {'updated': (now - timedelta(hours=1)).isoformat(), 'temperature_c': 3}
+    assert dashboard.weather_full(now, newer) == newer
+    custom = tmp_path / 'custom.json'
+    custom.write_text(json.dumps({'updated': now.isoformat(), 'temperature_c': 12}))
+    monkeypatch.setenv('HWS_WEATHER_DATA_PATH', str(custom))
+    assert dashboard.weather_full(now)['temperature_c'] == 12
+    assert dashboard.station_status(now)['known'] is True
 
 
 def test_record_daily_tracks_rain_rate_pressure_and_gust(tmp_path):

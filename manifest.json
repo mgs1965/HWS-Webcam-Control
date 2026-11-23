@@ -1,9 +1,9 @@
 {
   "edition": "camera-and-image-intelligence",
-  "release": "V54.8",
+  "release": "V54.9",
   "baseline": "V51.0.2",
-  "package": "HWS-Webcam-Control-54.8.zip",
-  "package_directory": "HWS-Webcam-Control-54.8",
+  "package": "HWS-Webcam-Control-54.9.zip",
+  "package_directory": "HWS-Webcam-Control-54.9",
   "built": "2026-11-23",
   "telemetry_schema": 4,
   "telemetry_fields": 58,
@@ -18,6 +18,8 @@
     "Shared logo, ordered button navigation, page titles and station disclaimer",
     "Combined HWS Health, About with station details, and satellite imagery",
     "Selectable rainfall and graph years, expanded comparison charts and persistent news CLI",
+    "Configurable Meteobridge timeouts, transient retries and paced resumable backfill",
+    "Last-reading timestamps and persistent stale/offline alerts on weather pages",
     "Chart sample coverage and warning/error event markers",
     "Recent-frame Archive view",
     "Client-side CSV export for trends and daily reports",
@@ -27,9 +29,9 @@
   "files": [
     "ARCHITECTURE.md", "CHANGELOG.md", "DEPLOYMENT.md", "MAPPING.md", "README.md",
     "camera.py", "controller_analytics.py", "core.py", "dashboard.env.example",
-    "exposure.py", "image_quality.py", "install_v54_8.sh", "keogram.py", "loader.py", "manifest.json",
-    "modes.py", "monitoring.py", "publishing.py", "rollback_v54_8.sh", "runtime.py",
-    "scene_analysis.py", "state.py", "systemd", "test_v54_8.py", "build_release.py", "timelapse.py", "v47_control.py",
-    "verify_v54_8.py", "version.py", "weather_camera.py", "weather_station.py", "test_weather_station.py", "weathercam_dashboard"
+    "exposure.py", "image_quality.py", "install_v54_9.sh", "keogram.py", "loader.py", "manifest.json",
+    "modes.py", "monitoring.py", "publishing.py", "rollback_v54_9.sh", "runtime.py",
+    "scene_analysis.py", "state.py", "systemd", "test_v54_9.py", "build_release.py", "timelapse.py", "v47_control.py",
+    "verify_v54_9.py", "version.py", "weather_camera.py", "weather_station.py", "test_weather_station.py", "weathercam_dashboard"
   ]
 }

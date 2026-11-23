@@ -111,3 +111,50 @@ def test_publish_live_writes_subset_and_throttles(tmp_path, monkeypatch):
     written = json.load(open(tmp_path / 'live.json'))
     assert written == {'updated': 'x', 'temperature_c': 5.0}
     assert len(uploads) == 2
+
+
+def test_retry_transient_http_and_timeout_but_not_auth(monkeypatch):
+    from urllib.error import HTTPError
+    import pytest
+    attempts, delays = [], []
+    def flaky(url, timeout, headers):
+        attempts.append(timeout)
+        if len(attempts) == 1:
+            raise HTTPError(url, 504, 'Gateway Timeout', {}, None)
+        if len(attempts) == 2:
+            raise TimeoutError('timed out')
+        return 'temperature_c=7'
+    monkeypatch.setattr(ws, 'fetch_text', flaky)
+    assert ws.fetch_with_retry('http://bridge', 20, 2, 3, sleep=delays.append) == 'temperature_c=7'
+    assert attempts == [20, 20, 20] and delays == [3, 3]
+    monkeypatch.setattr(ws, 'fetch_text', lambda url, timeout, headers: (_ for _ in ()).throw(HTTPError(url, 401, 'Unauthorized', {}, None)))
+    with pytest.raises(HTTPError):
+        ws.fetch_with_retry('http://bridge', 20, 2, 3, sleep=lambda _: pytest.fail('must not retry authentication failure'))
+
+
+def test_backfill_paces_empty_days_and_saves_on_failure(tmp_path):
+    path = tmp_path / 'archive.json'
+    calls, delays = [], []
+    def fetch(url):
+        calls.append(url)
+        if len(calls) == 1:
+            return 'temp_max_c=10;temp_min_c=2'
+        if len(calls) == 2:
+            return 'temp_max_c=--;temp_min_c=--'
+        raise TimeoutError('timed out')
+    result = ws.backfill_archive('bridge', str(path), days=5, today=NOW.date(), fetch=fetch, sleep=delays.append, delay=2)
+    assert delays == [2, 2, 2] and result['stopped'] == '2026-11-17'
+    assert json.loads(path.read_text())['days']['2026-11-19']['temp_max_c'] == 10
+
+
+def test_backfill_saves_on_interrupt(tmp_path):
+    calls = []
+    def fetch(url):
+        calls.append(url)
+        if len(calls) == 1:
+            return 'temp_max_c=10;temp_min_c=2'
+        raise KeyboardInterrupt
+    path = tmp_path / 'archive.json'
+    result = ws.backfill_archive('bridge', str(path), days=4, today=NOW.date(), fetch=fetch, sleep=lambda _: None)
+    assert result['stopped'] == '2026-11-18'
+    assert '2026-11-19' in json.loads(path.read_text())['days']

@@ -5,7 +5,7 @@ from datetime import datetime,timedelta,timezone
 from html import escape
 from pathlib import Path
 from zoneinfo import ZoneInfo
-V='54.8'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
+V='54.9'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
 IMG=Path(os.getenv('WEATHERCAM_LATEST_IMAGE',str(ROOT/'frames/latest.jpg'))); HD=Path(os.getenv('WEATHERCAM_HEALTH_DIR',str(ROOT/'telemetry/health'))); TD=Path(os.getenv('WEATHERCAM_TELEMETRY_DIR',str(ROOT/'logs'))); LD=Path(os.getenv('WEATHERCAM_LOG_DIR',str(ROOT/'logs')))
 def envnum(name,default):
  try:
@@ -295,7 +295,7 @@ def publish_with(ftp,host,user,pw,remote,desired):
   try:ftp.voidcmd('TYPE I');remote_size=ftp.size(KEOGRAM_NAME)
   except (ftplib.error_perm,ftplib.error_reply,AttributeError):remote_size=None
   if remote_size!=keogram.stat().st_size:atomic_send(keogram,KEOGRAM_NAME)
- for name in ('latest.jpg','dashboard-data.json','weather-live.json')+SITE_ASSETS+SITE_EXTRAS+tuple(h for h,_ in SITE_PAGES)+tuple(SITE_DETAILS):
+ for name in ('latest.jpg','dashboard-data.json')+SITE_ASSETS+SITE_EXTRAS+tuple(h for h,_ in SITE_PAGES)+tuple(SITE_DETAILS):
   local=OUT/name
   if local.is_file():atomic_send(local,name)
  if 'data.html' in {Path(n).name for n in remote_names()}:ftp.delete('data.html')
@@ -543,7 +543,7 @@ def generate(upload=False):
  winsight=weather_insight(weather,scene)+frost_notes(weather)+record_notes(weather,whistory)+([sc['note']] if sc and sc.get('note') and sc.get('verdict')!='AGREE' else [])
  schedule=mode_schedule(now)
  safe_config={
-  'release':'V54.8','telemetry_schema':4,'dashboard_refresh_minutes':5,'console_poll_seconds':30,
+  'release':'V54.9','telemetry_schema':4,'dashboard_refresh_minutes':5,'console_poll_seconds':30,
   'capture_interval_seconds':10,'ftp_configured':bool(os.getenv('DASHBOARD_FTP_HOST')),
   'ftp_tls':os.getenv('DASHBOARD_FTP_TLS','0')!='0',
   'thresholds':TH,'stale_after_minutes':TH['dashboard_stale_minutes'],'month_start':month_start(now).isoformat(),
@@ -606,7 +606,6 @@ def generate(upload=False):
  (OUT/'data.html').unlink(missing_ok=True)
  if os.environ.get('DASHBOARD_WRITE_REDIRECTS','').lower() in ('1','true','yes','on'):atomic(OUT/'redirects.htaccess',redirects_htaccess())
  atomic(OUT/'dashboard-data.json',json.dumps(payload,indent=2))
- atomic(OUT/'weather-live.json',json.dumps(weather or {},separators=(',',':')))
  result=publish() if upload else 'generated'
  print(json.dumps({'result':result,'state':state,'mode':mode,'capture_age_seconds':capture_age,'health_records':len(health_rows),'telemetry_records':len(telemetry_rows)}))
 def main():

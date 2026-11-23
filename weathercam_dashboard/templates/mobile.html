@@ -11,22 +11,23 @@ h1{margin:0 0 2px;font-size:20px}.muted{color:var(--muted)}a{color:var(--blue)}.
 </style></head><body><div class="page">
 <header class="s-head"><h1>Harpenden Weather</h1><div class="muted"><span id="dot" class="dot off"></span><span id="status">Waiting for data</span></div>
 <div class="s-nav">__NAV__</div></header>
+<div class="s-card s-warn" id="stale" hidden role="alert"></div>
 <div class="hero"><div class="t" id="temp">–</div><div class="f muted" id="feels"></div></div>
 <div class="tiles" id="tiles"></div><div class="fc" id="fc"></div>
 <img src="latest.jpg" alt="Latest weather camera image" id="cam" onerror="this.hidden=true">
 <script type="application/json" id="data">__DATA__</script>
 <script>
-const raw=document.getElementById('data').textContent.trim(),D=raw.startsWith('{')?JSON.parse(raw):{},POLL=30000;let W=D.weather||{};
+const raw=document.getElementById('data').textContent.trim(),D=raw.startsWith('{')?JSON.parse(raw):{},POLL=30000;let W=D.weather||{},refreshError=false;
 const has=v=>v!==null&&v!==undefined&&isFinite(Number(v)),NAMES=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'],compass=d=>has(d)?NAMES[Math.round((((Number(d)%360)+360)%360)/22.5)%16]:'–';
 const fmt=(v,d=0,u='')=>HWS.fmt(v,d,u);
 function icon(s){s=String(s||'').replace(/_(day|night|polartwilight)$/,'');if(/thunder/.test(s))return'⛈️';if(/snow/.test(s))return'❄️';if(/sleet/.test(s))return'🌨️';if(/rain/.test(s))return'🌧️';if(/fog/.test(s))return'🌫️';if(s==='clearsky')return'☀️';if(s==='fair')return'🌤️';if(s==='partlycloudy')return'⛅';if(s==='cloudy')return'☁️';return'·'}
 function render(){const el=id=>document.getElementById(id);el('temp').textContent=fmt(W.temperature_c,1,'°C');el('feels').textContent=has(W.heat_index_c)&&W.heat_index_c>W.temperature_c+.5?'Feels like '+fmt(W.heat_index_c,1,'°C'):has(W.wind_chill_c)&&W.wind_chill_c<W.temperature_c-.5?'Feels like '+fmt(W.wind_chill_c,1,'°C'):'';
 const tiles=[['Humidity',fmt(W.humidity_percent,0,'%')],['Dew point',fmt(W.dew_point_c,1,'°C')],['Wind',fmt(W.wind_speed_mph,0,' mph')+' '+compass(W.wind_direction_deg)],['Gust',fmt(W.wind_gust_mph,0,' mph')],['Pressure',fmt(W.pressure_hpa,0,' hPa')],['Rain today',fmt(W.rain_today_mm,1,' mm')],['Rain rate',fmt(W.rain_rate_mm_h,1,' mm/h')],['UV / solar',fmt(W.uv_index,1)+' / '+fmt(W.solar_radiation_wm2,0)]];
 el('tiles').textContent='';for(const[k,v]of tiles){const t=document.createElement('div');t.className='tile';t.innerHTML='<div class="k"></div><div class="v"></div>';t.firstChild.textContent=k;t.lastChild.textContent=v;el('tiles').append(t)}
-const ts=Date.parse(W.updated||''),age=(Date.now()-ts)/60000;el('dot').className='dot'+(isFinite(age)&&age<=10?'':' off');el('status').textContent=isFinite(ts)?'Updated '+new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'No data'}
+const status=HWS.weatherStatus(W,refreshError);el('dot').className='dot'+(status.fresh&&!refreshError?'':' off');el('status').textContent=status.last;el('stale').hidden=!status.warning;el('stale').textContent=status.warning}
 render();
 const F=D.forecast;if(F&&F.daily){const box=document.getElementById('fc');for(const d of F.daily.slice(0,3)){const e=document.createElement('div');e.innerHTML='<div class="muted"></div><div class="i"></div><div></div>';e.children[0].textContent=new Date(d.date+'T12:00:00').toLocaleDateString([],{weekday:'short'});e.children[1].textContent=icon(d.symbol);e.children[2].textContent=fmt(d.temp_max_c,0,'°')+' / '+fmt(d.temp_min_c,0,'°');box.append(e)}}
-async function poll(){if(location.protocol==='file:'||document.hidden)return;try{W=await HWS.refreshWeather(W);render()}catch(e){console.warn(e);document.getElementById('status').textContent=e.message}}
+async function poll(){if(location.protocol==='file:'||document.hidden)return;try{W=await HWS.refreshWeather(W);refreshError=false}catch(e){console.warn(e);refreshError=true}render()}
 poll();setInterval(poll,POLL);setInterval(render,POLL);document.addEventListener('visibilitychange',poll);
 setInterval(()=>{const i=document.getElementById('cam');if(i&&!i.hidden)i.src='latest.jpg?ts='+Date.now()},300000);
 </script></div></body></html>

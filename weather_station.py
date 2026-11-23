@@ -20,11 +20,15 @@ import os
 import sys
 import tempfile
 import time
+import urllib.error
 import urllib.request
 from datetime import datetime, timedelta
 
 MIN_FETCH_INTERVAL_SECONDS = 30
 MAX_BYTES = 65536
+METEOBRIDGE_TIMEOUT = 20.0
+METEOBRIDGE_RETRIES = 2
+METEOBRIDGE_RETRY_DELAY = 2.0
 
 HISTORY_INTERVAL_SECONDS = 1800
 SERIES_INTERVAL_SECONDS = 300
@@ -144,7 +148,7 @@ def fetch_meteobridge(base):
     if not url:
         return None
     try:
-        return parse_meteobridge(fetch_text(url, timeout=6, headers=_meteobridge_headers()), datetime.now().astimezone())
+        return parse_meteobridge(fetch_with_retry(url, METEOBRIDGE_TIMEOUT, METEOBRIDGE_RETRIES, METEOBRIDGE_RETRY_DELAY), datetime.now().astimezone())
     except (OSError, ValueError) as error:
         hint = ' (set HWS_METEOBRIDGE_USER / HWS_METEOBRIDGE_PASSWORD)' if '401' in str(error) else ''
         log(f'meteobridge unavailable: {error}{hint}')
@@ -161,7 +165,7 @@ def fetch_year_records(base):
     if not url:
         return {}
     try:
-        text = fetch_text(url, timeout=6, headers=_meteobridge_headers())
+        text = fetch_with_retry(url, METEOBRIDGE_TIMEOUT, METEOBRIDGE_RETRIES, METEOBRIDGE_RETRY_DELAY)
     except (OSError, ValueError) as error:
         log(f'meteobridge year records unavailable: {error}')
         return {}
@@ -426,13 +430,14 @@ def parse_backfill_day(text):
     return out
 
 
-def backfill_archive(base, path, days=4000, today=None, fetch=None, sleep=time.sleep, max_empty=45):
+def backfill_archive(base, path, days=4000, today=None, fetch=None, sleep=time.sleep, max_empty=45, delay=2.0, timeout=60.0, retries=2, retry_delay=2.0):
     """One-off import of old daily values from the Meteobridge database into an archive file; stops after a long run of empty days."""
-    fetch = fetch or (lambda url: fetch_text(url, timeout=10, headers=_meteobridge_headers()))
+    fetch = fetch or (lambda url: fetch_with_retry(url, timeout, retries, retry_delay, sleep=sleep))
     today = today or datetime.now().astimezone().date()
     archive = _load_json(path, {}).get('days')
     archive = archive if isinstance(archive, dict) else {}
     added = empty = 0
+    stopped = None
     for offset in range(1, days + 1):
         day = (today - timedelta(days=offset)).isoformat()
         if archive.get(day, {}).get('bf', 0) >= BACKFILL_VERSION:
@@ -440,9 +445,15 @@ def backfill_archive(base, path, days=4000, today=None, fetch=None, sleep=time.s
             continue
         url = meteobridge_url(base, backfill_expressions(offset))
         try:
+            sleep(delay)
             values = parse_backfill_day(fetch(url))
         except (OSError, ValueError) as error:
             log(f'backfill stopped at {day}: {error}')
+            stopped = day
+            break
+        except KeyboardInterrupt:
+            log(f'backfill interrupted at {day}; saving imported days')
+            stopped = day
             break
         if values.get('temp_max_c') is None and values.get('temp_min_c') is None:
             empty += 1
@@ -455,10 +466,12 @@ def backfill_archive(base, path, days=4000, today=None, fetch=None, sleep=time.s
         if added % 50 == 0:
             write_json_atomic(path, {'days': dict(sorted(archive.items()))})
             print(f'  ... {added} days (back to {day})', flush=True)
-        sleep(0.05)
     if added:
         write_json_atomic(path, {'days': dict(sorted(archive.items()))})
-    return {'added': added, 'total': len(archive), 'first': min(archive) if archive else None}
+    result = {'added': added, 'total': len(archive), 'first': min(archive) if archive else None}
+    if stopped:
+        result['stopped'] = stopped
+    return result
 
 
 def fetch_text(url, timeout=10, headers=None):
@@ -467,6 +480,20 @@ def fetch_text(url, timeout=10, headers=None):
     request = urllib.request.Request(url, headers={'User-Agent': 'HWS-Webcam-Control weather_station/1', **(headers or {})})
     with urllib.request.urlopen(request, timeout=timeout) as response:
         return response.read(MAX_BYTES).decode('utf-8', errors='replace')
+
+
+def fetch_with_retry(url, timeout, retries, retry_delay, sleep=time.sleep):
+    for attempt in range(retries + 1):
+        try:
+            return fetch_text(url, timeout=timeout, headers=_meteobridge_headers())
+        except (OSError, ValueError) as error:
+            transient = isinstance(error, OSError) and (
+                not isinstance(error, urllib.error.HTTPError) or error.code in (408, 429) or 500 <= error.code < 600
+            )
+            if not transient or attempt == retries:
+                raise
+            log(f'meteobridge request failed ({error}); retrying in {retry_delay:g}s ({attempt + 1}/{retries})')
+            sleep(retry_delay)
 
 
 def write_json_atomic(path, data):
@@ -587,25 +614,38 @@ def main(argv=None):
     parser.add_argument('--live-upload-seconds', type=int, default=int(os.getenv('HWS_LIVE_UPLOAD_SECONDS', '30') or 0), help='upload the small live file for the dashboard every N seconds (0 = never)')
     parser.add_argument('--diagnose', action='store_true', help='print the Meteobridge values for checking units against the console, then exit')
     parser.add_argument('--backfill', type=int, nargs='?', const=4000, default=0, metavar='DAYS', help='import up to DAYS (default 4000) of old daily values from the Meteobridge database into the archive file, then exit')
+    parser.add_argument('--request-timeout', type=float, default=os.getenv('HWS_METEOBRIDGE_TIMEOUT', '20'), help='live and year-record request timeout in seconds (default 20)')
+    parser.add_argument('--request-retries', type=int, default=os.getenv('HWS_METEOBRIDGE_RETRIES', '2'), help='retries for transient Meteobridge failures (default 2)')
+    parser.add_argument('--retry-delay', type=float, default=os.getenv('HWS_METEOBRIDGE_RETRY_DELAY', '2'), help='seconds between retries (default 2)')
+    parser.add_argument('--backfill-timeout', type=float, default=os.getenv('HWS_BACKFILL_TIMEOUT', '60'), help='backfill request timeout in seconds (default 60)')
+    parser.add_argument('--backfill-delay', type=float, default=os.getenv('HWS_BACKFILL_DELAY', '2'), help='pause before each backfill request in seconds (default 2)')
     parser.add_argument('--archive-output', default=os.getenv('HWS_WEATHER_ARCHIVE_PATH', '/mnt/weathercam/logs/' + BACKFILL_ARCHIVE_NAME))
     parser.add_argument('--interval', type=int, default=0, help='poll every N seconds (minimum %d); omit for a single run' % MIN_FETCH_INTERVAL_SECONDS)
     parser.add_argument('--once', action='store_true')
     args = parser.parse_args(argv)
+    if not all(math.isfinite(v) and v > 0 for v in (args.request_timeout, args.backfill_timeout)):
+        parser.error('request timeouts must be positive finite numbers')
+    if not all(math.isfinite(v) and v >= 0 for v in (args.retry_delay, args.backfill_delay)) or args.request_retries < 0:
+        parser.error('retry count and delays must be non-negative finite numbers')
+    if args.backfill < 0:
+        parser.error('--backfill DAYS must be positive')
     if not args.meteobridge:
         parser.error('set HWS_METEOBRIDGE_URL or pass --meteobridge')
-    global LIVE_PATH, LIVE_UPLOAD_SECONDS, MINUTE_PATH, DAILY_LOG_PATH, METEOBRIDGE_URL, METEOBRIDGE_USER, METEOBRIDGE_PASSWORD
+    global LIVE_PATH, LIVE_UPLOAD_SECONDS, MINUTE_PATH, DAILY_LOG_PATH, METEOBRIDGE_URL, METEOBRIDGE_USER, METEOBRIDGE_PASSWORD, METEOBRIDGE_TIMEOUT, METEOBRIDGE_RETRIES, METEOBRIDGE_RETRY_DELAY
     METEOBRIDGE_USER, METEOBRIDGE_PASSWORD = args.meteobridge_user, args.meteobridge_password
     LIVE_PATH, LIVE_UPLOAD_SECONDS = args.live_output, args.live_upload_seconds
     MINUTE_PATH, DAILY_LOG_PATH = args.minute_output, args.daily_log_output
     METEOBRIDGE_URL = args.meteobridge or None
+    METEOBRIDGE_TIMEOUT, METEOBRIDGE_RETRIES, METEOBRIDGE_RETRY_DELAY = args.request_timeout, args.request_retries, args.retry_delay
     if args.diagnose:
         return diagnose(args.meteobridge)
     if args.backfill:
         if not args.meteobridge:
             parser.error('--backfill needs HWS_METEOBRIDGE_URL')
-        result = backfill_archive(args.meteobridge, args.archive_output, args.backfill)
-        print(f"Backfill complete: {result['added']} new days, {result['total']} in archive (earliest {result['first']}) -> {args.archive_output}")
-        return 0 if result['total'] else 1
+        result = backfill_archive(args.meteobridge, args.archive_output, args.backfill, delay=args.backfill_delay, timeout=args.backfill_timeout, retries=args.request_retries, retry_delay=args.retry_delay)
+        status = f"stopped at {result['stopped']}" if result.get('stopped') else 'complete'
+        print(f"Backfill {status}: {result['added']} new days, {result['total']} in archive (earliest {result['first']}) -> {args.archive_output}")
+        return 0 if result['total'] and not result.get('stopped') else 1
     if args.once or not args.interval:
         update_history(args.history_output)
         return 0 if update_once(args.output, series_path=args.series_output) else 1

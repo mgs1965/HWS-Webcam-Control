@@ -1,11 +1,11 @@
-# V54.8 Deployment
+# V54.9 Deployment
 
-V54.8 adds scene analysis, a daily keogram, weekly/monthly timelapses and an optional weather overlay while retaining the V50.3.5 runtime reliability fixes and telemetry-v4 (58-field) contract. Camera-control behavior is unchanged.
+V54.9 adds scene analysis, a daily keogram, weekly/monthly timelapses and an optional weather overlay while retaining the V50.3.5 runtime reliability fixes and telemetry-v4 (58-field) contract. Camera-control behavior is unchanged.
 
 ## Pre-install
 
 ```bash
-python3 verify_v54_8.py
+python3 verify_v54_9.py
 ```
 
 For a clean install, create `/etc/weathercam/dashboard.env` from `dashboard.env.example` and set `HWS_FTP_PASSWORD`. The installer supplies `weathercam.service` only when no existing unit is registered and will not overwrite an on-disk unit file.
@@ -13,7 +13,7 @@ For a clean install, create `/etc/weathercam/dashboard.env` from `dashboard.env.
 ## Install
 
 ```bash
-sudo bash ./install_v54_8.sh
+sudo bash ./install_v54_9.sh
 ```
 
 ## Confirm active release
@@ -24,7 +24,7 @@ systemctl is-active weathercam.service
 systemctl is-active weathercam-dashboard.timer
 ```
 
-Expected release: `/mnt/weathercam/app/releases/HarpendenWeatherCamera-V54.8`. The dashboard publisher is a oneshot service and may be inactive between timer runs.
+Expected release: `/mnt/weathercam/app/releases/HarpendenWeatherCamera-V54.9`. The dashboard publisher is a oneshot service and may be inactive between timer runs.
 
 ## Force one publication
 
@@ -35,7 +35,7 @@ sudo bash -c 'set -a; . /etc/weathercam/dashboard.env; set +a; exec sudo -u mgs 
 ## Verify the generated dashboard
 
 ```bash
-grep -E 'V54.8|Recommended checks|Timelapse|Daily reliability reports|Recent captures|CPU temperature|30 days' /mnt/weathercam/dashboard/dashboard.html | head
+grep -E 'V54.9|Recommended checks|Timelapse|Daily reliability reports|Recent captures|CPU temperature|30 days' /mnt/weathercam/dashboard/dashboard.html | head
 ! grep -q '__DATA__' /mnt/weathercam/dashboard/dashboard.html
 ```
 
@@ -44,14 +44,16 @@ The dashboard displays recommended checks and historical readings but does not m
 ## Rollback
 
 ```bash
-sudo bash /mnt/weathercam/app/current/rollback_v54_8.sh
+sudo bash /mnt/weathercam/app/current/rollback_v54_9.sh
 ```
 
-## Replacing the old website (V54.8)
+## Replacing the old website (V54.9)
 
 The dashboard publishes `index.html` (the original/new site chooser) and `indexnew.html` (Home), followed by Live, Graphs, Rainfall, Wind, Forecast, Webcam, Radar, Records, Compare, Almanac, Reports, News, Donate, About, Mobile and HWS Health. Every page has the same logo, title, button menu, current-page highlight and station disclaimer. About includes the station details; the Data page is retired. `health.html` uses the camera dashboard design with camera, weather/Meteobridge and Pi status, plus buttons for detailed health pages. `satellite.html` is available from Radar and uses Windy's satellite embed, with a direct provider link if embedding is unavailable. Visitors can switch units and theme using the bottom toolbar.
 
-Graph, rainfall, wind and health filters use **Month** for the current calendar month in Europe/London, not a rolling 30-day window. Graphs and rainfall also offer a year selector for archived daily data. The live pages fetch uncached `weather-live.json`, fall back to `dashboard-data.json` if necessary, and never replace newer readings with older ones. The dashboard publishes a live snapshot on each publication; keep the weather-station service and live uploads enabled for updates between dashboard builds.
+Graph, rainfall, wind and health filters use **Month** for the current calendar month in Europe/London, not a rolling 30-day window. Graphs and rainfall also offer a year selector for archived daily data. Home, Live and Mobile show the time and age of the last reading and warn after 10 minutes or on refresh failure. The live pages fetch uncached `weather-live.json`, fall back to `dashboard-data.json` if necessary, and never replace newer readings with older ones. Only the weather-station service uploads `weather-live.json`; dashboard publication must not overwrite it. Keep the service and live uploads enabled for updates between dashboard builds.
+
+If live weather is unavailable, check `systemctl status weathercam-weather-station.service` and `journalctl -u weathercam-weather-station.service -n 50 --no-pager`. Check the Meteobridge connection and credentials in `/etc/weathercam/dashboard.env`, and confirm `DASHBOARD_FTP_DIR` is the same directory used by the dashboard publisher. Avoid sharing the environment file or its passwords. Restart the fetcher after correcting its configuration: `sudo systemctl restart weathercam-weather-station.service`.
 
 Recommended cut-over:
 
@@ -83,4 +85,17 @@ set -a; . /etc/weathercam/dashboard.env; set +a
 python3 weather_station.py --meteobridge 192.168.0.65 --backfill   # add --meteobridge-user/--meteobridge-password if needed
 ```
 
-This asks the Meteobridge for each past day (daily high/low, mean humidity, rain, pressure extremes, gust) and stops after 45 empty days, writing `weather_station_archive.json` in the logs folder (`HWS_WEATHER_ARCHIVE_PATH`). It is safe to re-run; days already imported are skipped. The records, reports and year graph then include the old data at the next dashboard refresh. It only works for as long as the Meteobridge kept its history.
+This asks the Meteobridge for each past day (daily high/low, mean humidity, rain, pressure extremes, gust) and stops after 45 empty days, writing `weather_station_archive.json` in the logs folder (`HWS_WEATHER_ARCHIVE_PATH`). By default it waits two seconds before each request, allows 60 seconds per request and retries transient failures twice, with a two-second delay. It saves progress even if interrupted or a request fails; rerun to resume. A failed or interrupted backfill exits nonzero and reports the stopped date. The records, reports and year graph include the old data at the next dashboard refresh. It only works for as long as the Meteobridge kept its history.
+
+Live requests default to a 20-second timeout and two retries for transient errors (including HTTP 504), with a two-second delay; authentication errors are not retried. Set `HWS_METEOBRIDGE_TIMEOUT`, `HWS_METEOBRIDGE_RETRIES`, `HWS_METEOBRIDGE_RETRY_DELAY`, `HWS_BACKFILL_TIMEOUT` or `HWS_BACKFILL_DELAY` in `/etc/weathercam/dashboard.env` to change these, or use `--request-timeout`, `--request-retries`, `--retry-delay`, `--backfill-timeout` and `--backfill-delay` on the command line.
+
+### Meteobridge credentials
+
+If a password has been exposed, change it in the Meteobridge's administration interface and update `/etc/weathercam/dashboard.env` locally with `HWS_METEOBRIDGE_USER` and `HWS_METEOBRIDGE_PASSWORD`. Keep the file owned by root with mode `0600`; restart `weathercam-weather-station.service` after changing it. Do not paste credentials into chat, command arguments, or logs. For an interactive one-off backfill, enter the new password without echo or shell history:
+
+```bash
+read -rsp 'Meteobridge password: ' HWS_METEOBRIDGE_PASSWORD; echo
+export HWS_METEOBRIDGE_PASSWORD HWS_METEOBRIDGE_USER=meteobridge
+python3 weather_station.py --meteobridge 192.168.0.65 --backfill
+unset HWS_METEOBRIDGE_PASSWORD
+```

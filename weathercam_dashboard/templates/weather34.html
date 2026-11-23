@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Weather34 console</title>
-<style>:root{color-scheme:dark;--bg:#071827;--card:#0e273b;--line:#2a4960;--text:#edf6ff;--muted:#a9bdce;--blue:#4ea9ff}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,"Segoe UI",sans-serif}a{color:var(--blue)}</style></head>
+<style>:root{color-scheme:dark;--bg:#071827;--card:#0e273b;--line:#2a4960;--text:#edf6ff;--muted:#a9bdce;--blue:#4ea9ff}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 Verdana,Geneva,sans-serif}a{color:var(--blue)}</style></head>
 <body><div class="s-page weather34-page">
 <header class="s-head"><h1>Weather34 console</h1><div class="s-nav">__NAV__</div></header>
 <div class="s-card"><iframe class="s-frame weather34-frame" src="/Weather34/index.php" title="Weather34 weather console" loading="lazy"></iframe>
@@ -12,9 +12,8 @@ frame.addEventListener('load',()=>{
  try{
   const doc=frame.contentDocument;
   if(!doc||!doc.body)return;
-  const resize=()=>{frame.style.height='1px';frame.style.height=Math.max(1,doc.documentElement.scrollHeight,doc.body.scrollHeight)+'px'};
-  resize();
-  if(window.ResizeObserver)new ResizeObserver(resize).observe(doc.body);
+  const resize=()=>{const h=Math.max(doc.documentElement.scrollHeight,doc.body.scrollHeight);if(h>200)frame.style.height=Math.min(h,2400)+'px'};
+  resize();setTimeout(resize,1500);
  }catch(error){console.warn('Weather34 frame cannot be resized automatically:',error)}
 });
 </script>

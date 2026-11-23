@@ -1,3 +1,8 @@
+#### V55.4
+- Doubled the logo size and switched the whole site to Verdana.
+- Fixed the Weather34 console frame so the page scrolls to the footer (resize once, capped at 2400px).
+- Footer disclaimer now breaks after "depend".
+
 #### V55.3
 - Added selectable-year daily and monthly Meteobridge health trends using available recorded and imported history.
 - Monthly health trends average available daily values, use the last uptime reading, and preserve signal extrema.

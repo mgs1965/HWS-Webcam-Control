@@ -1,4 +1,4 @@
-# V55.3 Architecture
+# V55.4 Architecture
 
 ## Runtime assembly
 
@@ -22,4 +22,4 @@ The Meteobridge health page uses the shared daily graph data, including availabl
 
 ## Release and deployment
 
-`version.py` is the release identity source for V55.3 and telemetry schema v4. `manifest.json` records the release baseline, package filename and file inventory. `verify_v55_3.py` checks the release identity, telemetry contract, dashboard payload structure and regression guards. The installer deploys to `/mnt/weathercam/app/releases/HarpendenWeatherCamera-V55.3`, records a rollback target, and installs the camera unit only when no existing unit is registered.
+`version.py` is the release identity source for V55.4 and telemetry schema v4. `manifest.json` records the release baseline, package filename and file inventory. `verify_v55_4.py` checks the release identity, telemetry contract, dashboard payload structure and regression guards. The installer deploys to `/mnt/weathercam/app/releases/HarpendenWeatherCamera-V55.4`, records a rollback target, and installs the camera unit only when no existing unit is registered.

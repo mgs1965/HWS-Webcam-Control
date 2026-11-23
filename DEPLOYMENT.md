@@ -1,11 +1,11 @@
-# V55.5 Deployment
+# V55.6 Deployment
 
-V55.5 adds selectable-year daily and monthly Meteobridge health trends, while retaining the telemetry-v4 (58-field) contract.
+V55.6 adds selectable-year daily and monthly Meteobridge health trends, while retaining the telemetry-v4 (58-field) contract.
 
 ## Pre-install
 
 ```bash
-python3 verify_v55_5.py
+python3 verify_v55_6.py
 ```
 
 For a clean install, create `/etc/weathercam/dashboard.env` from `dashboard.env.example` and set `HWS_FTP_PASSWORD`. The installer supplies `weathercam.service` only when no existing unit is registered and will not overwrite an on-disk unit file.
@@ -13,7 +13,7 @@ For a clean install, create `/etc/weathercam/dashboard.env` from `dashboard.env.
 ## Install
 
 ```bash
-sudo bash ./install_v55_5.sh
+sudo bash ./install_v55_6.sh
 ```
 
 ## Confirm active release
@@ -24,7 +24,7 @@ systemctl is-active weathercam.service
 systemctl is-active weathercam-dashboard.timer
 ```
 
-Expected release: `/mnt/weathercam/app/releases/HarpendenWeatherCamera-V55.5` (an updated V55.5 installation uses a timestamped suffix). The dashboard publisher is a oneshot service and may be inactive between timer runs.
+Expected release: `/mnt/weathercam/app/releases/HarpendenWeatherCamera-V55.6` (an updated V55.6 installation uses a timestamped suffix). The dashboard publisher is a oneshot service and may be inactive between timer runs.
 
 ## Force one publication
 
@@ -35,7 +35,7 @@ sudo bash -c 'set -a; . /etc/weathercam/dashboard.env; set +a; exec sudo -u mgs 
 ## Verify the generated dashboard
 
 ```bash
-grep -E 'V55.5|Recommended checks|Timelapse|Daily reliability reports|Recent captures|CPU temperature|30 days' /mnt/weathercam/dashboard/dashboard.html | head
+grep -E 'V55.6|Recommended checks|Timelapse|Daily reliability reports|Recent captures|CPU temperature|30 days' /mnt/weathercam/dashboard/dashboard.html | head
 ! grep -q '__DATA__' /mnt/weathercam/dashboard/dashboard.html
 ```
 
@@ -44,7 +44,7 @@ The dashboard displays recommended checks and historical readings but does not m
 ## Rollback
 
 ```bash
-sudo bash /mnt/weathercam/app/current/rollback_v55_5.sh
+sudo bash /mnt/weathercam/app/current/rollback_v55_6.sh
 ```
 
 ## Replacing the old website

@@ -32,3 +32,4 @@ html[data-theme=light] .banner{background:#fff3d6!important}
 
 header{background:linear-gradient(90deg,rgba(4,16,28,.72),rgba(4,16,28,.25) 55%,rgba(4,16,28,0)),url(banner.jpg) right center/cover no-repeat;border-radius:12px;padding:14px 18px;min-height:150px;color:#fff;box-shadow:0 2px 10px rgba(0,0,0,.35)}
 header h1{text-shadow:0 2px 8px rgba(0,0,0,.85)}header .muted,header .identity{color:#f2f6fa!important;text-shadow:0 1px 4px rgba(0,0,0,.8)}header .hws-logo{filter:drop-shadow(0 2px 6px rgba(0,0,0,.7))}
+html{overflow-y:scroll}.s-page,.page:not(.m){width:100%;max-width:1300px!important;margin-left:auto;margin-right:auto;box-sizing:border-box}

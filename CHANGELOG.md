@@ -1,3 +1,6 @@
+#### V55.6
+- Fixed all pages to a common 1300px width (Mobile excluded) so the header banner is the same on every page.
+
 #### V55.5
 - Added a sunset and full-moon banner behind the logo and title on every page header.
 

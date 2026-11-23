@@ -1,3 +1,6 @@
+#### V55.8
+- Pages 1500px wide; Meteobridge health graphs match Pi Health; slightly shorter webcam image; pages open scrolled to top.
+
 #### V55.7
 - Moved the Live page last-reading line below the header, as on Home.
 - Removed the keogram image from the Home page (still on the Archive).

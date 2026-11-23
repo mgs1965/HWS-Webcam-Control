@@ -1,4 +1,5 @@
 (function(){
+try{history.scrollRestoration='manual'}catch(e){}addEventListener('load',()=>{if(!location.hash)scrollTo(0,0)});
 const get=(k,d)=>{try{return localStorage.getItem(k)||d}catch(e){return d}},set=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
 const theme=get('hws-theme','green'),units=get('hws-units','uk'),root=document.documentElement;
 const resolved=theme==='auto'?(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):theme;root.dataset.theme=resolved;

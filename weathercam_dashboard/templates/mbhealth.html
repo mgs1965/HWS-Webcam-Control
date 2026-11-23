@@ -36,7 +36,7 @@ tile(tiles,'Base board temperature',F(W.base_board_temperature_c,1,' °C'));
 tile(tiles,'RF board temperature',F(W.rf_board_temperature_c,1,' °C'));
 
 c=el('section','s-card s-card-wide',undefined,$('grid'));el('h2','',"Health trends",c);
-const tabs=el('div','s-tabs',undefined,c),year=el('select','s-btn',undefined,c),note=el('p','muted','',c),chart=el('div','',undefined,c);
+const tabs=el('div','s-tabs',undefined,c),year=el('select','s-btn',undefined,c),note=el('p','muted','',c),chart=el('div','s-grid',undefined,c);chart.style.marginTop='12px';
 year.setAttribute('aria-label','History year');year.hidden=true;
 const specs=[['CPU load','cpu_load_percent','%', '#ff6075'],['Uptime','bridge_uptime_hours','h','#4ea9ff'],['Storage usage','storage_usage_percent','%','#ffd166'],['RAM usage','ram_usage_percent','%','#43aa8b'],['Power consumption','power_consumption_w','W','#ff9f43'],['Processes','process_count','','#c77dff'],['Data age','bridge_data_age_s','s','#a9bdc9'],['Voltage','voltage_v','V','#4ea9ff'],['Current','current_a','A','#ff6075'],['Base board temperature','base_board_temperature_c','°C','#f8961e'],['RF board temperature','rf_board_temperature_c','°C','#ff9b85']];
 const historyMap={
@@ -48,6 +48,13 @@ const historyMap={
  signal_min:'signal_min',signal_max:'signal_max'};
 const history=(D.graphs?.daily||[]).filter(r=>/^\d{4}-\d{2}-\d{2}$/.test(r.date||'')&&Object.values(historyMap).some(k=>has(r[k]))).sort((a,b)=>a.date.localeCompare(b.date));
 for(const y of [...new Set(history.map(r=>r.date.slice(0,4)))].sort().reverse()){const o=el('option','',y,year);o.value=y}
+
+function lineChart(box,list,unit,dig,xfmt){const all=list.flatMap(s=>s.pts),vs=all.map(p=>p[1]),lo0=Math.min(...vs),hi0=Math.max(...vs),padv=((hi0-lo0)||1)*.1,lo=lo0-padv,hi=hi0+padv,t0=Math.min(...all.map(p=>p[0])),t1=Math.max(...all.map(p=>p[0])),L=38,W=300,H=100,X=t=>L+(t-t0)/(t1-t0||1)*(W-L),Y=v=>H-(v-lo)/(hi-lo)*H,fm=v=>Math.abs(hi-lo)>=5?Math.round(v):v.toFixed(Math.max(dig,1));
+ let s='<svg viewBox="0 0 '+(W+4)+' '+(H+18)+'" style="width:100%;height:auto;font-size:8px" fill="#a9bdce">';
+ for(let i=0;i<=3;i++){const v=lo+(hi-lo)*i/3,y=Y(v);s+='<line x1="'+L+'" x2="'+W+'" y1="'+y.toFixed(1)+'" y2="'+y.toFixed(1)+'" stroke="#2a4960" stroke-width=".5"/><text x="'+(L-3)+'" y="'+(y+3).toFixed(1)+'" text-anchor="end">'+fm(v)+'</text>'}
+ for(let i=0;i<=4;i++){const t=t0+(t1-t0)*i/4;s+='<text x="'+X(t).toFixed(1)+'" y="'+(H+12)+'" text-anchor="'+(i===0?'start':i===4?'end':'middle')+'">'+xfmt(t)+'</text>'}
+ for(const se of list)s+='<polyline fill="none" stroke="'+se.color+'" stroke-width="1.5" stroke-linejoin="round" points="'+se.pts.map(p=>X(p[0]).toFixed(1)+','+Y(p[1]).toFixed(1)).join(' ')+'"/>';
+ box.insertAdjacentHTML('beforeend',s+'</svg>');const last=list[0].pts[list[0].pts.length-1][1];el('div','muted','Min '+fm(lo0)+' · max '+fm(hi0)+(list.length===1?' · now '+fm(last):''),box)}
 let activePeriod='24h';
 function renderPeriod(period){
  activePeriod=period;
@@ -78,11 +85,11 @@ function renderPeriod(period){
  for(const[name,key,unit,color]of specs){
   const pts=(series.t||[]).map((t,i)=>[Date.parse(t),series[key]?.[i]]).filter(p=>Number.isFinite(p[0])&&has(p[1]));
   if(!pts.length)continue;
-  const box=el('div','',undefined,chart);el('h3','',name,box);
-  HWS.chart(box,{series:[{name,color,pts}],unit,dig:key==='bridge_uptime_hours'||key==='bridge_data_age_s'||key==='process_count'?0:key==='current_a'?3:1,xfmt:t=>period==='24h'?new Date(t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):new Date(t).toLocaleDateString([],{day:'numeric',month:'short'})});
+  const box=el('section','s-card',undefined,chart);el('h2','',name+(unit?' ('+unit+')':''),box);
+  lineChart(box,[{name,color,pts}],unit,key==='bridge_uptime_hours'||key==='bridge_data_age_s'||key==='process_count'?0:key==='current_a'?3:1,t=>period==='24h'?new Date(t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):new Date(t).toLocaleDateString([],{day:'numeric',month:'short'}));
  }
   const signal=[['Minimum','signal_min','#ff6075'],['Maximum','signal_max','#4ea9ff']].map(([name,key,color])=>({name,color,pts:(series.t||[]).map((t,i)=>[Date.parse(t),series[key]?.[i]]).filter(p=>Number.isFinite(p[0])&&has(p[1]))})).filter(s=>s.pts.length);
-  if(signal.length){const box=el('div','',undefined,chart);el('h3','','Signal strength',box);el('p','muted','Minimum and maximum reported for each interval.',box);HWS.chart(box,{series:signal,unit:'dB',dig:0,xfmt:t=>period==='24h'?new Date(t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):new Date(t).toLocaleDateString([],{day:'numeric',month:'short'})});}
+  if(signal.length){const box=el('section','s-card',undefined,chart);el('h2','','Signal strength (dB)',box);lineChart(box,signal,'dB',0,t=>period==='24h'?new Date(t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):new Date(t).toLocaleDateString([],{day:'numeric',month:'short'}));}
  if(!chart.children.length)el('p','muted','No data available for this period yet.',chart);
 }
 for(const[period,label]of[['24h','24 hours'],['7d','7 days'],['month','Month'],['daily','Daily by year'],['monthly','Monthly by year']]){

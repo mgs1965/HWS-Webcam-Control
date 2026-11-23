@@ -15,13 +15,13 @@ for filename in modules:
 
 version = {}
 exec((root / 'version.py').read_text(encoding='utf-8'), version)
-assert version['VERSION'] == 'V55.9'
+assert version['VERSION'] == 'V55.10'
 assert version['TELEMETRY_SCHEMA_VERSION'] == 4
 
 manifest = json.loads((root / 'manifest.json').read_text(encoding='utf-8'))
-assert manifest['release'] == 'V55.9'
+assert manifest['release'] == 'V55.10'
 assert manifest['baseline'] == 'V51.0.2'
-assert manifest['package'] == 'HWS-Webcam-Control-55.9.zip'
+assert manifest['package'] == 'HWS-Webcam-Control-55.10.zip'
 assert manifest['package'] == f"HWS-Webcam-Control-{version['VERSION'][1:]}.zip"
 assert manifest['package_directory'] == manifest['package'][:-4]
 assert all((root / filename).exists() for filename in manifest['files'])
@@ -36,14 +36,14 @@ assignment = next(
 assert len(ast.literal_eval(assignment.value)) == 58
 
 core = (root / 'core.py').read_text(encoding='utf-8')
-assert "SCRIPT_VERSION = '2026-11-23 V55.9'" in core
-assert "V51_RELEASE = 'V55.9'" in core
+assert "SCRIPT_VERSION = '2026-11-23 V55.10'" in core
+assert "V51_RELEASE = 'V55.10'" in core
 assert "FTP_PASSWORD = os.getenv('HWS_FTP_PASSWORD', '')" in core
 
 dashboard = (root / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
 template = (root / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
-assert "V='55.9'" in dashboard
-assert "'release':'V55.9'" in dashboard
+assert "V='55.10'" in dashboard
+assert "'release':'V55.10'" in dashboard
 assert "('month',None)" in dashboard
 assert 'older_index%5==0' in dashboard
 assert "'timeline_events':timeline_events" in dashboard
@@ -92,16 +92,16 @@ assert (root / 'weather_station.py').is_file()
 mbhealth = (root / 'weathercam_dashboard/templates/mbhealth.html').read_text(encoding='utf-8')
 assert 'Daily by year' in mbhealth and 'Monthly by year' in mbhealth
 assert "year.onchange=()=>renderPeriod(activePeriod)" in mbhealth
-installer = (root / 'install_v55_9.sh').read_text(encoding='utf-8')
-rollback = (root / 'rollback_v55_9.sh').read_text(encoding='utf-8')
-assert 'HarpendenWeatherCamera-V55.9' in installer
-assert 'verify_v55_9.py' in installer
+installer = (root / 'install_v55_10.sh').read_text(encoding='utf-8')
+rollback = (root / 'rollback_v55_10.sh').read_text(encoding='utf-8')
+assert 'HarpendenWeatherCamera-V55.10' in installer
+assert 'verify_v55_10.py' in installer
 assert 'weathercam-weather-station.service' in installer
 assert 'systemctl cat weathercam.service' in installer
 assert 'refusing to overwrite it' in installer
-assert 'v55_9-rollback-target' in rollback
+assert 'v55_10-rollback-target' in rollback
 
-print('PASS: V55.9 release identity, manifest and telemetry-v4 contract')
+print('PASS: V55.10 release identity, manifest and telemetry-v4 contract')
 for feature in ('eventFilters', 'staleBanner', 'overlayLegend', 'qualitySummaryRows', 'timelapsePreview'):
     assert f'id="{feature}"' in template
 for feature in ("'sun':sun_events(now)", "'modes':chart_modes", "DASHBOARD_CAPTURE_CRITICAL_SECONDS", "PREVIEW_NAME"):

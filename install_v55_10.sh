@@ -2,9 +2,9 @@
 set -euo pipefail
 SRC=$(cd "$(dirname "$0")" && pwd -P)
 BASE=/mnt/weathercam/app
-DEST=$BASE/releases/HarpendenWeatherCamera-V55.9
-REC=/etc/weathercam/v55_9-rollback-target
-python3 "$SRC/verify_v55_9.py"
+DEST=$BASE/releases/HarpendenWeatherCamera-V55.10
+REC=/etc/weathercam/v55_10-rollback-target
+python3 "$SRC/verify_v55_10.py"
 if [ "$SRC" = "$DEST" ] || { [ -L "$BASE/current" ] && [ "$SRC" = "$(readlink -f "$BASE/current")" ]; }; then
   echo "Run the installer from an extracted staging directory, not the active release."
   exit 1
@@ -32,7 +32,7 @@ fi
 if [ -L "$BASE/current" ]; then
   PREVIOUS=$(readlink -f "$BASE/current")
 elif [ -d "$BASE/current" ]; then
-  PREVIOUS="$BASE/current-pre-v55.9-$(date +%Y%m%d-%H%M%S)"
+  PREVIOUS="$BASE/current-pre-v55.10-$(date +%Y%m%d-%H%M%S)"
   sudo systemctl stop weathercam-dashboard.timer 2>/dev/null || true
   sudo systemctl stop weathercam.service 2>/dev/null || true
   sudo mv "$BASE/current" "$PREVIOUS"
@@ -43,7 +43,7 @@ fi
 sudo systemctl stop weathercam-dashboard.timer 2>/dev/null || true
 sudo systemctl stop weathercam.service 2>/dev/null || true
 sudo cp -a "$SRC" "$DEST"
-python3 "$DEST/verify_v55_9.py"
+python3 "$DEST/verify_v55_10.py"
 sudo install -m 0644 "$DEST/systemd/weathercam-dashboard.service" /etc/systemd/system/weathercam-dashboard.service
 sudo install -m 0644 "$DEST/systemd/weathercam-dashboard.timer" /etc/systemd/system/weathercam-dashboard.timer
 if [ "$INSTALL_CAMERA_UNIT" -eq 1 ]; then
@@ -59,7 +59,7 @@ fi
 sudo systemctl start weathercam.service
 sleep 8
 if ! systemctl is-active --quiet weathercam.service; then
-  echo "Camera failed to start. Run sudo bash /mnt/weathercam/app/current/rollback_v55_9.sh"
+  echo "Camera failed to start. Run sudo bash /mnt/weathercam/app/current/rollback_v55_10.sh"
   exit 1
 fi
 if sudo grep -Eq '^HWS_METEOBRIDGE_URL=.+$' /etc/weathercam/dashboard.env; then
@@ -70,4 +70,4 @@ else
 fi
 sudo -u mgs /usr/bin/python3 "$BASE/current/weathercam_dashboard/dashboard.py"
 sudo systemctl enable --now weathercam-dashboard.timer
-echo "Installed V55.9 -> $(readlink -f "$BASE/current")"
+echo "Installed V55.10 -> $(readlink -f "$BASE/current")"

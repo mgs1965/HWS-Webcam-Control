@@ -1,3 +1,6 @@
+#### V55.10
+- Live webcam tile double width; header picture shows moon and tree top; webcam direction note; Greenhouse soil labels.
+
 #### V55.9
 - Webcam page shows full image; HWS Health removed from menu and linked from the logo; Live webcam tile matches Records tile height; Rainfall graphs laid out like Graphs; click any graph to enlarge.
 

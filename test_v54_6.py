@@ -969,6 +969,11 @@ def test_record_daily_tracks_rain_rate_pressure_and_gust(tmp_path):
     day = json.loads(open(path).read())['days']['2026-11-23']
     assert day['rain_max_mm_h'] == 4.2 and day['pressure_max_hpa'] == 1004.0 and day['pressure_min_hpa'] == 998.0 and day['wind_gust_mph'] == 12.0
 
+
+
+def test_wind_sensor_health_check(tmp_path):
+    dash = _dash(tmp_path)
+    now = datetime(2026, 11, 23, 7, 0, tzinfo=timezone.utc)
     live = {'updated': now.isoformat(), 'source': 'meteobridge', 'bridge_data_age_s': 3, 'temperature_c': 1.0}
     assert {c['name']: c['status'] for c in dash.meteobridge_health(now, live, {}, [], {})['checks']}['Wind sensor'] == 'warn'
     live.update(wind_speed_mph=2.0)

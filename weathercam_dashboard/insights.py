@@ -415,7 +415,7 @@ def graph_data(now,wseries,scene,days,history=None,archive=None):
  sources=[(str(r['date'])[:10],r) for r in (history or {}).get('daily') or [] if isinstance(r,dict) and r.get('date')]+list((archive or {}).items())
  for day,row in sources:
   entry=merged.setdefault(day,{})
-  for key in ('temp_max_c','temp_min_c','rain_mm','humidity_avg')+DAILY_EXTRA:
+  for key in ('temp_max_c','temp_min_c','rain_mm','humidity_avg','rain_max_mm_h')+DAILY_EXTRA:
    if entry.get(key) is None and num(row.get(key)) is not None:entry[key]=num(row.get(key))
  daily=[{'date':d,**{k:s.get(k) for k in ('temp_max_c','temp_min_c','humidity_avg','rain_max_mm_h','rain_mm')+DAILY_EXTRA}} for d,s in sorted(merged.items())[-DAILY_KEEP:]]
  return {'24h':bucket_series(live,now,24,5),'7d':bucket_series(hist,now,168,60),'30d':bucket_series(hist,now,720,180),'daily':daily}

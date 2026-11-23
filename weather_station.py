@@ -263,6 +263,11 @@ def record_daily(data, path=None):
         today['rain_mm'] = max(today.get('rain_mm', rain), rain)
     if pressure is not None:
         today['pressure_min_hpa'] = min(today.get('pressure_min_hpa', pressure), pressure)
+        today['pressure_max_hpa'] = max(today.get('pressure_max_hpa', pressure), pressure)
+    for key, field in (('rain_max_mm_h', 'rain_rate_mm_h'), ('wind_gust_mph', 'wind_gust_max_today_mph')):
+        value = data.get(field)
+        if value is not None:
+            today[key] = max(today.get(key, value), value)
     if today != before or len(days) > DAILY_LOG_DAYS:
         days = {day: days[day] for day in sorted(days)[-DAILY_LOG_DAYS:]}
         try:
@@ -383,7 +388,7 @@ def diagnose(base):
 
 BACKFILL_FIELDS = (('temp_max_c', 'th0temp-max', -60.0, 60.0), ('temp_min_c', 'th0temp-min', -60.0, 60.0), ('humidity_avg', 'th0hum-avg', 0.0, 100.0),
                    ('rain_mm', 'rain0total-sum', 0.0, 1000.0), ('pressure_max_hpa', 'thb0seapress-max', 850.0, 1100.0), ('pressure_min_hpa', 'thb0seapress-min', 850.0, 1100.0),
-                   ('wind_gust_mph', 'wind0wind-max=mph', 0.0, 200.0))
+                   ('wind_gust_mph', 'wind0wind-max=mph', 0.0, 200.0), ('rain_max_mm_h', 'rain0rate-max', 0.0, 1000.0))
 BACKFILL_ARCHIVE_NAME = 'weather_station_archive.json'
 
 
@@ -417,7 +422,7 @@ def backfill_archive(base, path, days=4000, today=None, fetch=None, sleep=time.s
     added = empty = 0
     for offset in range(1, days + 1):
         day = (today - timedelta(days=offset)).isoformat()
-        if day in archive and archive[day] and 'rain_mm' in archive[day]:
+        if day in archive and archive[day] and 'rain_mm' in archive[day] and 'rain_max_mm_h' in archive[day]:
             empty = 0
             continue
         url = meteobridge_url(base, backfill_expressions(offset))

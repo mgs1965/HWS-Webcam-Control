@@ -56,6 +56,8 @@ def meteobridge_health(now,weather,station,daily,archive):
  if w.get('source')=='meteobridge':
   need=(('temperature_c','temperature'),('humidity_percent','humidity'),('pressure_hpa','pressure'),('wind_speed_mph','wind speed'),('wind_gust_mph','gust'),('wind_direction_deg','wind direction'),('rain_rate_mm_h','rain rate'),('rain_today_mm','rain today'),('solar_radiation_wm2','solar'),('uv_index','UV'),('sunshine_hours_today','sunshine'))
   blank=[n for k,n in need if num(w.get(k)) is None]
+  wind_blank=all(num(w.get(k)) is None for k in ('wind_speed_mph','wind_gust_mph','wind_direction_deg'))
+  checks.append({'name':'Wind sensor','status':'warn' if wind_blank else 'ok','detail':'Not reporting; the wind sensor battery is probably flat (it only works in daylight on solar)' if wind_blank else 'Reporting'})
   checks.append({'name':'Live fields','status':'ok' if not blank else 'warn','detail':'All reporting' if not blank else 'Blank: '+', '.join(blank)})
  days={str(r.get('date'))[:10] for r in daily or [] if num(r.get('temp_max_c')) is not None or num(r.get('rain_mm')) is not None}
  today=now.date();gaps=[(today-timedelta(days=i)).isoformat() for i in range(1,31) if (today-timedelta(days=i)).isoformat() not in days]

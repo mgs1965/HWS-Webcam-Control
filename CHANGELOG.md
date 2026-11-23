@@ -1,3 +1,8 @@
+#### V55.1
+- Added Meteobridge base-board and RF-board temperatures, including daily history and backfill for board and extra weather sensors.
+- Enlarged the Weather34 console frame and adjusted its height for same-origin content.
+- Consolidated Meteobridge health graphs, clarified signal units and source details, and aligned health and radar navigation.
+
 #### V55.0
 - Corrected Meteobridge uptime to hours and soil wetness to centibars; added signal minimum/maximum health trends.
 - Corrected station coordinates for dashboard astronomy, forecast and camera solar calculations.

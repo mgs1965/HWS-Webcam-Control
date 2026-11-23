@@ -34,7 +34,7 @@ def weather_series(now,hours=24):
   try:t=datetime.fromisoformat(str(r.get('t')))
   except (ValueError,TypeError,AttributeError):continue
   if t.tzinfo is None:t=t.replace(tzinfo=now.tzinfo)
-  if cutoff<=t<=now:out.append({'t':t.isoformat(),**{k:num(weather_sample_value(r,k)) for k in ('temperature_c','humidity_percent','pressure_hpa','wind_speed_mph','wind_gust_mph','wind_direction_deg','dew_point_c','rain_rate_mm_h','rain_today_mm','lightning_strikes_today','lightning_distance','solar_radiation_wm2','uv_index','ground_temperature_c','soil_wetness_cbar','soil_temperature_c','greenhouse_temperature_c','cpu_load_percent','bridge_uptime_hours','storage_usage_percent','ram_usage_percent','power_consumption_w','process_count','bridge_data_age_s','voltage_v','current_a','signal_min','signal_max')}})
+  if cutoff<=t<=now:out.append({'t':t.isoformat(),**{k:num(weather_sample_value(r,k)) for k in ('temperature_c','humidity_percent','pressure_hpa','wind_speed_mph','wind_gust_mph','wind_direction_deg','dew_point_c','rain_rate_mm_h','rain_today_mm','lightning_strikes_today','lightning_distance','solar_radiation_wm2','uv_index','ground_temperature_c','soil_wetness_cbar','soil_temperature_c','greenhouse_temperature_c','cpu_load_percent','bridge_uptime_hours','storage_usage_percent','ram_usage_percent','power_consumption_w','process_count','bridge_data_age_s','voltage_v','current_a','signal_min','signal_max','base_board_temperature_c','rf_board_temperature_c')}})
  return out
 def solar_check(weather,scene,now):
  w=weather or {};s=scene or {};solar=num(w.get('solar_radiation_wm2'))

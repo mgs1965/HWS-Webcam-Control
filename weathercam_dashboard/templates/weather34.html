@@ -1,8 +1,20 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Weather34 console</title></head>
-<body><div class="s-page">
+<body><div class="s-page weather34-page">
 <header class="s-head"><h1>Weather34 console</h1><div class="s-nav">__NAV__</div></header>
-<div class="s-card"><iframe class="s-frame" src="/Weather34/index.php" title="Weather34 weather console" loading="lazy"></iframe>
+<div class="s-card"><iframe class="s-frame weather34-frame" src="/Weather34/index.php" title="Weather34 weather console" loading="lazy"></iframe>
 <p>If the console does not appear, <a href="/Weather34/index.php">open Weather34 directly</a>.</p></div>
 <script type="application/json" id="data">__DATA__</script>
+<script>
+const frame=document.querySelector('.weather34-frame');
+frame.addEventListener('load',()=>{
+ try{
+  const doc=frame.contentDocument;
+  if(!doc||!doc.body)return;
+  const resize=()=>{frame.style.height=Math.max(2400,doc.documentElement.scrollHeight,doc.body.scrollHeight)+'px'};
+  resize();
+  if(window.ResizeObserver)new ResizeObserver(resize).observe(doc.body);
+ }catch(error){console.warn('Weather34 frame cannot be resized automatically:',error)}
+});
+</script>
 </div></body></html>

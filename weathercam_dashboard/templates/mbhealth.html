@@ -16,8 +16,10 @@ for(const k of H.checks||[]){const r=el('div','',undefined,c);r.style.cssText='d
 c=el('section','s-card',undefined,$('grid'));el('h2','',"History",c);const t=el('table','s-table',undefined,c);
 for(const[a,b]of[['Days stored',H.days_stored],['First stored day',H.first_day],['Archive days (Meteobridge import)',H.archive_days],['Archive from',H.archive_first],['Archive to',H.archive_last],['Missing in last 30 days',(H.gaps||[]).join(', ')||'none']]){const r=t.insertRow();r.insertCell().textContent=a;r.insertCell().textContent=b??'–'}
 c=el('section','s-card',undefined,$('grid'));el('h2','',"Source",c);const t2=el('table','s-table',undefined,c);
-for(const[a,b]of[['Source',W.source],['Updated',W.updated],['Bridge data age (s)',W.bridge_data_age_s],['Station note',H.station_message]]){const r=t2.insertRow();r.insertCell().textContent=a;r.insertCell().textContent=b??'–'}
-c=el('section','s-card',undefined,$('grid'));el('h2','',"Meteobridge data",c);
+const stamp=Date.parse(W.updated||''),updated=Number.isFinite(stamp)?new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(new Date(stamp)).replace(',',''):null;
+for(const[a,b]of[['Source',W.source],['Updated',updated],['Bridge data age (s)',W.bridge_data_age_s],['Station note',H.station_message]]){if(b===null||b===undefined||String(b).trim()==='')continue;const r=t2.insertRow();r.insertCell().textContent=a;r.insertCell().textContent=b}
+if(!t2.rows.length)el('p','muted','No source information available.',c);
+c=el('section','s-card s-card-wide',undefined,$('grid'));el('h2','',"Meteobridge data",c);
 const tiles=el('div','s-tiles',undefined,c);
 tile(tiles,'CPU load',has(W.cpu_load_percent)?F(W.cpu_load_percent,1,'%'):'–');
 tile(tiles,'Uptime',F(W.bridge_uptime_hours,1,' hours'));
@@ -28,12 +30,14 @@ tile(tiles,'Processes',has(W.process_count)?String(Math.round(W.process_count)):
 tile(tiles,'Data age',has(W.bridge_data_age_s)?F(W.bridge_data_age_s,0,' s'):'–');
 tile(tiles,'Voltage',has(W.voltage_v)?F(W.voltage_v,2,' V'):'–');
 tile(tiles,'Current',has(W.current_a)?F(W.current_a,3,' A'):'–');
-tile(tiles,'Signal minimum (5 min)',F(W.signal_min,0,''));
-tile(tiles,'Signal maximum (5 min)',F(W.signal_max,0,''));
+tile(tiles,'Signal minimum (5 min)',F(W.signal_min,0,' dB'));
+tile(tiles,'Signal maximum (5 min)',F(W.signal_max,0,' dB'));
+tile(tiles,'Base board temperature',F(W.base_board_temperature_c,1,' °C'));
+tile(tiles,'RF board temperature',F(W.rf_board_temperature_c,1,' °C'));
 
-c=el('section','s-card',undefined,$('grid'));el('h2','',"Health trends",c);
+c=el('section','s-card s-card-wide',undefined,$('grid'));el('h2','',"Health trends",c);
 const tabs=el('div','s-tabs',undefined,c),chart=el('div','',undefined,c);
-const specs=[['CPU load','cpu_load_percent','%', '#ff6075'],['Uptime','bridge_uptime_hours','h','#4ea9ff'],['Storage usage','storage_usage_percent','%','#ffd166'],['RAM usage','ram_usage_percent','%','#43aa8b'],['Power','power_consumption_w','W','#ff9f43'],['Processes','process_count','','#c77dff'],['Data age','bridge_data_age_s','s','#a9bdc9'],['Voltage','voltage_v','V','#4ea9ff'],['Current','current_a','A','#ff6075']];
+const specs=[['CPU load','cpu_load_percent','%', '#ff6075'],['Uptime','bridge_uptime_hours','h','#4ea9ff'],['Storage usage','storage_usage_percent','%','#ffd166'],['RAM usage','ram_usage_percent','%','#43aa8b'],['Power consumption','power_consumption_w','W','#ff9f43'],['Processes','process_count','','#c77dff'],['Data age','bridge_data_age_s','s','#a9bdc9'],['Voltage','voltage_v','V','#4ea9ff'],['Current','current_a','A','#ff6075'],['Base board temperature','base_board_temperature_c','°C','#f8961e'],['RF board temperature','rf_board_temperature_c','°C','#ff9b85']];
 function renderPeriod(period){
  chart.textContent='';
  const G=D.graphs||{};
@@ -45,20 +49,21 @@ function renderPeriod(period){
    cpu_load_percent:'cpu_load_avg',bridge_uptime_hours:'uptime_last',
    storage_usage_percent:'storage_usage_avg',ram_usage_percent:'ram_usage_avg',
    power_consumption_w:'power_consumption_avg',process_count:'process_count_avg',
-   bridge_data_age_s:'data_age_avg',voltage_v:'voltage_avg',current_a:'current_avg'};
+   bridge_data_age_s:'data_age_avg',voltage_v:'voltage_avg',current_a:'current_avg',
+   base_board_temperature_c:'base_board_temp_avg_c',rf_board_temperature_c:'rf_board_temp_avg_c'};
   for(const[name,key]of specs){
    series[key]=daily.map(r=>r[map[key]]);
   }
   for(const key of ['signal_min','signal_max'])series[key]=daily.map(r=>r[key]);
  }
  for(const[name,key,unit,color]of specs){
-  const pts=(series.t||[]).map((t,i)=>[Date.parse(t),series[key]?.[i]]).filter(p=>has(p[1]));
+  const pts=(series.t||[]).map((t,i)=>[Date.parse(t),series[key]?.[i]]).filter(p=>Number.isFinite(p[0])&&has(p[1]));
   if(!pts.length)continue;
   const box=el('div','',undefined,chart);el('h3','',name,box);
   HWS.chart(box,{series:[{name,color,pts}],unit,dig:key==='bridge_uptime_hours'||key==='bridge_data_age_s'||key==='process_count'?0:key==='current_a'?3:1,xfmt:t=>period==='24h'?new Date(t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):new Date(t).toLocaleDateString([],{day:'numeric',month:'short'})});
  }
   const signal=[['Minimum','signal_min','#ff6075'],['Maximum','signal_max','#4ea9ff']].map(([name,key,color])=>({name,color,pts:(series.t||[]).map((t,i)=>[Date.parse(t),series[key]?.[i]]).filter(p=>Number.isFinite(p[0])&&has(p[1]))})).filter(s=>s.pts.length);
-  if(signal.length){const box=el('div','',undefined,chart);el('h3','','Signal strength',box);el('p','muted','Minimum and maximum reported for each interval.',box);HWS.chart(box,{series:signal,dig:0,xfmt:t=>period==='24h'?new Date(t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):new Date(t).toLocaleDateString([],{day:'numeric',month:'short'})});}
+  if(signal.length){const box=el('div','',undefined,chart);el('h3','','Signal strength',box);el('p','muted','Minimum and maximum reported for each interval.',box);HWS.chart(box,{series:signal,unit:'dB',dig:0,xfmt:t=>period==='24h'?new Date(t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):new Date(t).toLocaleDateString([],{day:'numeric',month:'short'})});}
  if(!chart.children.length)el('p','muted','No data available for this period yet.',chart);
 }
 for(const[period,label]of[['24h','24 hours'],['7d','7 days'],['month','Month'],['daily','Year']]){

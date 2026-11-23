@@ -1,11 +1,11 @@
-# V55.0 Deployment
+# V55.1 Deployment
 
-V55.0 updates the station coordinates, weather and Meteobridge sensors, graphs and site navigation while retaining the telemetry-v4 (58-field) contract. The corrected coordinates also affect solar-based camera mode transitions.
+V55.1 adds board temperatures and historical imports, updates the console and health pages, and retains the telemetry-v4 (58-field) contract.
 
 ## Pre-install
 
 ```bash
-python3 verify_v55_0.py
+python3 verify_v55_1.py
 ```
 
 For a clean install, create `/etc/weathercam/dashboard.env` from `dashboard.env.example` and set `HWS_FTP_PASSWORD`. The installer supplies `weathercam.service` only when no existing unit is registered and will not overwrite an on-disk unit file.
@@ -13,7 +13,7 @@ For a clean install, create `/etc/weathercam/dashboard.env` from `dashboard.env.
 ## Install
 
 ```bash
-sudo bash ./install_v55_0.sh
+sudo bash ./install_v55_1.sh
 ```
 
 ## Confirm active release
@@ -24,7 +24,7 @@ systemctl is-active weathercam.service
 systemctl is-active weathercam-dashboard.timer
 ```
 
-Expected release: `/mnt/weathercam/app/releases/HarpendenWeatherCamera-V55.0` (an updated V55.0 installation uses a timestamped suffix). The dashboard publisher is a oneshot service and may be inactive between timer runs.
+Expected release: `/mnt/weathercam/app/releases/HarpendenWeatherCamera-V55.1` (an updated V55.1 installation uses a timestamped suffix). The dashboard publisher is a oneshot service and may be inactive between timer runs.
 
 ## Force one publication
 
@@ -35,7 +35,7 @@ sudo bash -c 'set -a; . /etc/weathercam/dashboard.env; set +a; exec sudo -u mgs 
 ## Verify the generated dashboard
 
 ```bash
-grep -E 'V55.0|Recommended checks|Timelapse|Daily reliability reports|Recent captures|CPU temperature|30 days' /mnt/weathercam/dashboard/dashboard.html | head
+grep -E 'V55.1|Recommended checks|Timelapse|Daily reliability reports|Recent captures|CPU temperature|30 days' /mnt/weathercam/dashboard/dashboard.html | head
 ! grep -q '__DATA__' /mnt/weathercam/dashboard/dashboard.html
 ```
 
@@ -44,10 +44,10 @@ The dashboard displays recommended checks and historical readings but does not m
 ## Rollback
 
 ```bash
-sudo bash /mnt/weathercam/app/current/rollback_v55_0.sh
+sudo bash /mnt/weathercam/app/current/rollback_v55_1.sh
 ```
 
-## Replacing the old website (V55.0)
+## Replacing the old website (V55.1)
 
 The dashboard publishes `index.html` (the original/new site chooser) and `indexnew.html` (Home), followed by Live, Graphs, Rainfall, Wind, Forecast, Webcam, Radar, Records, Compare, Almanac, Reports, News, Donate, About, Mobile and HWS Health. Every page has the same logo, title, button menu, current-page highlight and station disclaimer. About includes the station details; the Data page is retired. `health.html` uses the camera dashboard design with camera, weather/Meteobridge and Pi status, plus buttons for detailed health pages. `satellite.html` is available from Radar and uses Windy's satellite embed, with a direct provider link if embedding is unavailable. Visitors can switch units and theme using the bottom toolbar.
 
@@ -55,7 +55,7 @@ Graph, rainfall, wind and health filters use **Month** for the current calendar 
 
 The default coordinates are 51.829105, -0.380987. Existing `/etc/weathercam/dashboard.env` files are preserved by the installer: update `DASHBOARD_LATITUDE` and `DASHBOARD_LONGITUDE` there if they still contain the old values. Check the `Console` page on the deployed host: it embeds `/Weather34/index.php` and links to it directly if the web server blocks framing.
 
-Meteobridge uptime (`data11num`) is in hours; voltage and power are in volts and watts. Soil wetness is measured in centibars (0–200), not percent. Signal charts use five-minute minimum and maximum readings, with daily extrema for the year view; older signal history is available only if recorded or imported from the Meteobridge. Run `--diagnose` against the station to confirm the readings and selectors.
+Meteobridge uptime (`data11num`) is in hours; voltage and power are in volts and watts. Soil wetness is measured in centibars (0–200), not percent. Signal charts show the station's reported values in dB, with five-minute minimum and maximum readings and daily extrema for the year view. Base-board and RF-board temperatures use `thb9temp` and `thb0temp`. Older readings are available only if recorded or imported from the Meteobridge. Run `--diagnose` against the station to confirm the readings and selectors.
 
 If live weather is unavailable, check `systemctl status weathercam-weather-station.service` and `journalctl -u weathercam-weather-station.service -n 50 --no-pager`. Check the Meteobridge connection and credentials in `/etc/weathercam/dashboard.env`, and confirm `DASHBOARD_FTP_DIR` is the same directory used by the dashboard publisher. Avoid sharing the environment file or its passwords. Restart the fetcher after correcting its configuration: `sudo systemctl restart weathercam-weather-station.service`.
 
@@ -91,7 +91,7 @@ python3 weather_station.py --meteobridge 192.168.0.65 --backfill   # add --meteo
 
 This asks the Meteobridge for each past day (daily high/low, mean humidity, rain, pressure extremes, gust) and stops after 45 empty days, writing `weather_station_archive.json` in the logs folder (`HWS_WEATHER_ARCHIVE_PATH`). By default it waits two seconds before each request, allows 60 seconds per request and retries transient failures twice, with a two-second delay. It saves progress even if interrupted or a request fails; rerun to resume. A failed or interrupted backfill exits nonzero and reports the stopped date. The records, reports and year graph include the old data at the next dashboard refresh. It only works for as long as the Meteobridge kept its history.
 
-Backfill version 3 also requests daily signal minima and maxima. Re-running it revisits previously imported version 2 days, so choose an appropriate `--backfill DAYS` limit for the history needed.
+Backfill version 4 requests daily signal minima and maxima, Meteobridge health readings, base-board (`thb9temp`) and RF-board (`thb0temp`) mean temperatures, and ground, soil and greenhouse sensor means. Re-running it revisits earlier imported days and preserves previously saved fields when a sensor has no value. Choose an appropriate `--backfill DAYS` limit: the default can take several hours. Only readings retained by the Meteobridge can be imported; unavailable historical values remain blank.
 
 Live requests default to a 20-second timeout and two retries for transient errors (including HTTP 504), with a two-second delay; authentication errors are not retried. Set `HWS_METEOBRIDGE_TIMEOUT`, `HWS_METEOBRIDGE_RETRIES`, `HWS_METEOBRIDGE_RETRY_DELAY`, `HWS_BACKFILL_TIMEOUT` or `HWS_BACKFILL_DELAY` in `/etc/weathercam/dashboard.env` to change these, or use `--request-timeout`, `--request-retries`, `--retry-delay`, `--backfill-timeout` and `--backfill-delay` on the command line.
 

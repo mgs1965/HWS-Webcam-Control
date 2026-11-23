@@ -1,6 +1,6 @@
 # Predictive analytics, event detection, daily summaries and long-term statistics (included into dashboard.py).
 QUALITY_BANDS=((75,'GOOD'),(60,'FAIR'),(40,'WARNING'))
-SCENE_FIELDS=('cloud_cover_pct','sky_clarity_pct','fog_index','visibility','droplet_score','lens_condition','focus','alerts','fog_risk','mode','temperature_c','humidity_percent','pressure_hpa','wind_speed_mph','rain_rate_mm_h','rain_today_mm','dew_point_c','solar_radiation_wm2','wind_direction_deg','wind_gust_mph','ground_temperature_c','soil_wetness_cbar','soil_temperature_c','greenhouse_temperature_c','cpu_load_percent','bridge_uptime_hours','storage_usage_percent','ram_usage_percent','power_consumption_w','process_count','bridge_data_age_s','voltage_v','current_a','signal_min','signal_max')
+SCENE_FIELDS=('cloud_cover_pct','sky_clarity_pct','fog_index','visibility','droplet_score','lens_condition','focus','alerts','fog_risk','mode','temperature_c','humidity_percent','pressure_hpa','wind_speed_mph','rain_rate_mm_h','rain_today_mm','dew_point_c','solar_radiation_wm2','wind_direction_deg','wind_gust_mph','ground_temperature_c','soil_wetness_cbar','soil_temperature_c','greenhouse_temperature_c','cpu_load_percent','bridge_uptime_hours','storage_usage_percent','ram_usage_percent','power_consumption_w','process_count','bridge_data_age_s','voltage_v','current_a','signal_min','signal_max','base_board_temperature_c','rf_board_temperature_c')
 FOG_WARNING_INDEX=35.0
 DAILY_STATS_DAYS=1200
 def quality_label(value):
@@ -389,7 +389,7 @@ def long_term_report(days):
   year['foggy_days']=sum(1 for _,s in items if (s.get('fog_max') or 0)>=FOG_WARNING_INDEX)
   year['rainy_days']=sum(1 for _,s in items if (s.get('rain_max_mm_h') or 0)>0)
  return {'days_tracked':len(days),'first_day':min(days) if days else None,'months':report,'year':year}
-GRAPH_FIELDS=(('temperature_c','mean'),('dew_point_c','mean'),('humidity_percent','mean'),('pressure_hpa','mean'),('wind_speed_mph','mean'),('wind_gust_mph','max'),('rain_rate_mm_h','max'),('rain_today_mm','last'),('solar_radiation_wm2','mean'),('ground_temperature_c','mean'),('soil_wetness_cbar','mean'),('soil_temperature_c','mean'),('greenhouse_temperature_c','mean'),('cpu_load_percent','mean'),('bridge_uptime_hours','last'),('storage_usage_percent','mean'),('ram_usage_percent','mean'),('power_consumption_w','mean'),('process_count','mean'),('bridge_data_age_s','mean'),('voltage_v','mean'),('current_a','mean'),('signal_min','min'),('signal_max','max'))
+GRAPH_FIELDS=(('temperature_c','mean'),('dew_point_c','mean'),('humidity_percent','mean'),('pressure_hpa','mean'),('wind_speed_mph','mean'),('wind_gust_mph','max'),('rain_rate_mm_h','max'),('rain_today_mm','last'),('solar_radiation_wm2','mean'),('ground_temperature_c','mean'),('soil_wetness_cbar','mean'),('soil_temperature_c','mean'),('greenhouse_temperature_c','mean'),('cpu_load_percent','mean'),('bridge_uptime_hours','last'),('storage_usage_percent','mean'),('ram_usage_percent','mean'),('power_consumption_w','mean'),('process_count','mean'),('bridge_data_age_s','mean'),('voltage_v','mean'),('current_a','mean'),('signal_min','min'),('signal_max','max'),('base_board_temperature_c','mean'),('rf_board_temperature_c','mean'))
 def bucket_series(rows,now,hours,step_minutes):
  """Aggregate [(time, {field: value})] into fixed time buckets: mean, max or last value per field."""
  start=now-timedelta(hours=hours);step=step_minutes*60;buckets={}
@@ -405,7 +405,7 @@ def bucket_series(rows,now,hours,step_minutes):
    out[field].append(None if not vals else round(max(vals) if how=='max' else min(vals) if how=='min' else vals[-1] if how=='last' else sum(vals)/len(vals),3 if field=='current_a' else 2))
  return out
 DAILY_KEEP=4200
-DAILY_EXTRA=('pressure_max_hpa','pressure_min_hpa','wind_gust_mph','temp_avg_c','humidity_max','humidity_min','dew_max_c','dew_min_c','pressure_avg_hpa','wind_avg_mph','wind_chill_min_c','heat_index_max_c','solar_max_wm2','uv_max','sunshine_hours','cpu_load_avg','uptime_last','storage_usage_avg','ram_usage_avg','power_consumption_avg','process_count_avg','data_age_avg','voltage_avg','current_avg','signal_min','signal_max')
+DAILY_EXTRA=('pressure_max_hpa','pressure_min_hpa','wind_gust_mph','temp_avg_c','humidity_max','humidity_min','dew_max_c','dew_min_c','pressure_avg_hpa','wind_avg_mph','wind_chill_min_c','heat_index_max_c','solar_max_wm2','uv_max','sunshine_hours','cpu_load_avg','uptime_last','storage_usage_avg','ram_usage_avg','power_consumption_avg','process_count_avg','data_age_avg','voltage_avg','current_avg','signal_min','signal_max','base_board_temp_avg_c','rf_board_temp_avg_c','ground_temp_avg_c','soil_wetness_avg_cbar','soil_temp_avg_c','greenhouse_temp_avg_c')
 def graph_data(now,wseries,scene,days,history=None,archive=None,local_daily=None):
  """Chart data for 24 h, 7 days, the current calendar month and daily history."""
  live=[(dt(p.get('t')),{k:num(p.get(k)) for k,_ in GRAPH_FIELDS}) for p in wseries or []]

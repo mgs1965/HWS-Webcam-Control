@@ -18,6 +18,8 @@ html[data-theme=light] .banner{background:#fff3d6!important}
 .s-table{border-collapse:collapse;width:100%}.s-table th,.s-table td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}.s-table th:first-child,.s-table td:first-child{text-align:left}.s-table th{color:var(--muted);font-weight:600}
 .s-grid>*{min-width:0}.s-grid .s-table td,.s-grid .s-table th{white-space:normal;padding:6px 4px}.s-grid .s-table td:nth-child(2){white-space:nowrap}.s-scroll{overflow-x:auto}.s-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}.s-tabs button,.s-btn{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 12px;font:inherit;cursor:pointer;text-decoration:none;display:inline-block}
 .s-tabs button.on{border-color:var(--blue);color:var(--blue)}.s-media img,.s-media video,.s-frame{width:100%;border-radius:10px;display:block;border:0}.s-frame{height:70vh;min-height:420px;background:#000}
+.weather34-page{max-width:1600px}.s-frame.weather34-frame{height:2400px;min-height:2400px}
+.s-grid>.s-card-wide{grid-column:1/-1}
 .s-tabs a[aria-current=page]{border-color:var(--blue);color:var(--blue)}
 .s-dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--green);margin-right:6px}.s-dot.off{background:var(--red)}.s-dot.warn{background:var(--amber)}.s-good{color:var(--green)}.s-bad{color:var(--red)}.s-warn{color:var(--amber)}
 .s-thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px}.s-thumbs img{width:100%;border-radius:8px;display:block}

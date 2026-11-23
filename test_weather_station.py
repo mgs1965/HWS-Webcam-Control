@@ -149,6 +149,43 @@ def test_centibars_hours_and_signal_extremes(tmp_path):
     assert ws.parse_backfill_day('signal_min=4;signal_max=91') == {'signal_min': 4, 'signal_max': 91}
 
 
+def test_new_sensors_live_daily_and_backfill(tmp_path, monkeypatch):
+    fields = dict(ws.METEOBRIDGE_FIELDS)
+    assert fields['base_board_temperature_c'] == 'thb9temp-act'
+    assert fields['rf_board_temperature_c'] == 'thb0temp-act'
+    data = ws.parse_meteobridge('temperature_c=5;base_board_temperature_c=35.5;rf_board_temperature_c=42;ground_temperature_c=7;soil_wetness_cbar=70', NOW)
+    monkeypatch.setattr(ws, 'LIVE_PATH', str(tmp_path / 'live.json'))
+    monkeypatch.setattr(ws, 'LIVE_UPLOAD_SECONDS', 0)
+    assert ws.publish_live(data)
+    assert json.loads((tmp_path / 'live.json').read_text())['base_board_temperature_c'] == 35.5
+    series = str(tmp_path / 'series.json')
+    ws.append_series(series, data)
+    assert json.loads((tmp_path / 'series.json').read_text())['samples'][0]['rf_board_temperature_c'] == 42
+    daily = str(tmp_path / 'daily.json')
+    ws.record_daily(data, daily)
+    ws.record_daily({**data, 'base_board_temperature_c': 37.5}, daily)
+    day = json.loads((tmp_path / 'daily.json').read_text())['days']['2026-11-20']
+    assert day['base_board_temp_avg_c'] == 36.5
+    assert day['rf_board_temp_avg_c'] == 42
+    assert day['soil_wetness_avg_cbar'] == 70
+    expressions = dict(ws.backfill_expressions(1))
+    for key, sensor in [('base_board_temp_avg_c', 'thb9temp'), ('rf_board_temp_avg_c', 'thb0temp'),
+                        ('ground_temp_avg_c', 't3temp'), ('soil_wetness_avg_cbar', 'soil0hum'),
+                        ('soil_temp_avg_c', 'soil0temp'), ('greenhouse_temp_avg_c', 'soil1temp')]:
+        assert expressions[key] == f'{sensor}-avg@D1'
+    archive = tmp_path / 'archive.json'
+    archive.write_text(json.dumps({'days': {'2026-11-19': {'bf': 3, 'rain_mm': 4, 'rf_board_temp_avg_c': 38}}}))
+    calls = []
+    def fetch(url):
+        calls.append(url)
+        return 'base_board_temp_avg_c=33;rf_board_temp_avg_c=--;soil_wetness_avg_cbar=75'
+    result = ws.backfill_archive('bridge', str(archive), days=1, today=NOW.date(), fetch=fetch, sleep=lambda _: None)
+    saved = json.loads(archive.read_text())['days']['2026-11-19']
+    assert result['added'] == 1 and len(calls) == 1
+    assert saved == {'bf': 4, 'rain_mm': 4, 'rf_board_temp_avg_c': 38, 'base_board_temp_avg_c': 33, 'soil_wetness_avg_cbar': 75}
+    assert ws.backfill_archive('bridge', str(archive), days=1, today=NOW.date(), fetch=fetch, sleep=lambda _: None)['added'] == 0
+
+
 def test_local_history_from_meteobridge(tmp_path):
     import weather_station as ws
     old = (ws.fetch_text, ws.METEOBRIDGE_URL, ws.MINUTE_PATH, ws.DAILY_LOG_PATH)

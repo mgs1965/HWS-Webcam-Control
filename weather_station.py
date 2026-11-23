@@ -38,7 +38,7 @@ SERIES_KEYS = ('temperature_c', 'humidity_percent', 'pressure_hpa', 'wind_speed_
                'ground_temperature_c', 'soil_wetness_cbar', 'soil_temperature_c', 'greenhouse_temperature_c',
                'cpu_load_percent', 'bridge_uptime_hours', 'storage_usage_percent', 'ram_usage_percent',
                'power_consumption_w', 'process_count', 'bridge_data_age_s', 'voltage_v', 'current_a',
-               'signal_min', 'signal_max')
+               'signal_min', 'signal_max', 'base_board_temperature_c', 'rf_board_temperature_c')
 DAILY_DAYS = 30
 
 LIMITS = {
@@ -83,6 +83,8 @@ LIMITS = {
     'signal_max': (-200.0, 1000.0),
     'signal_day_min': (-200.0, 1000.0),
     'signal_day_max': (-200.0, 1000.0),
+    'base_board_temperature_c': (-60.0, 125.0),
+    'rf_board_temperature_c': (-60.0, 125.0),
 }
 
 
@@ -118,6 +120,7 @@ METEOBRIDGE_FIELDS = (
     ('bridge_data_age_s', 'data16num-act'), ('voltage_v', 'data17num-act'), ('current_a', 'data18num-act'),
     ('signal_min', 'th0signal-min5'), ('signal_max', 'th0signal-max5'),
     ('signal_day_min', 'th0signal-dmin'), ('signal_day_max', 'th0signal-dmax'),
+    ('base_board_temperature_c', 'thb9temp-act'), ('rf_board_temperature_c', 'thb0temp-act'),
 )
 METEOBRIDGE_ALIASES = {
     't3temp': 'ground_temperature_c',
@@ -248,7 +251,7 @@ MINUTE_KEYS = ('temperature_c', 'humidity_percent', 'pressure_hpa', 'wind_speed_
                'ground_temperature_c', 'soil_wetness_cbar', 'soil_temperature_c', 'greenhouse_temperature_c',
                'cpu_load_percent', 'bridge_uptime_hours', 'storage_usage_percent', 'ram_usage_percent',
                'power_consumption_w', 'process_count', 'bridge_data_age_s', 'voltage_v', 'current_a',
-               'signal_min', 'signal_max')
+               'signal_min', 'signal_max', 'base_board_temperature_c', 'rf_board_temperature_c')
 DAILY_LOG_DAYS = 400
 
 
@@ -340,7 +343,10 @@ def record_daily(data, path=None):
     for key, field in (('cpu_load_avg', 'cpu_load_percent'), ('storage_usage_avg', 'storage_usage_percent'),
                        ('ram_usage_avg', 'ram_usage_percent'), ('power_consumption_avg', 'power_consumption_w'),
                        ('process_count_avg', 'process_count'), ('data_age_avg', 'bridge_data_age_s'),
-                       ('voltage_avg', 'voltage_v'), ('current_avg', 'current_a')):
+                       ('voltage_avg', 'voltage_v'), ('current_avg', 'current_a'),
+                       ('base_board_temp_avg_c', 'base_board_temperature_c'), ('rf_board_temp_avg_c', 'rf_board_temperature_c'),
+                       ('ground_temp_avg_c', 'ground_temperature_c'), ('soil_wetness_avg_cbar', 'soil_wetness_cbar'),
+                       ('soil_temp_avg_c', 'soil_temperature_c'), ('greenhouse_temp_avg_c', 'greenhouse_temperature_c')):
         value = data.get(field)
         if value is not None:
             previous = today.get(key)
@@ -399,7 +405,8 @@ LIVE_KEYS = ('updated', 'source', 'temperature_c', 'humidity_percent', 'pressure
              'lightning_distance', 'bridge_data_age_s', 'temp_change_1h_c', 'humidity_change_1h', 'pressure_change_1h_hpa', 'wind_gust_max_1h_mph', 'wind_gust_max_today_mph', 'sunshine_hours_today', 'lightning_energy',
              'ground_temperature_c', 'soil_wetness_cbar', 'soil_temperature_c', 'greenhouse_temperature_c',
              'cpu_load_percent', 'bridge_uptime_hours', 'storage_usage_percent', 'ram_usage_percent',
-             'power_consumption_w', 'process_count', 'voltage_v', 'current_a', 'signal_min', 'signal_max')
+             'power_consumption_w', 'process_count', 'voltage_v', 'current_a', 'signal_min', 'signal_max',
+             'base_board_temperature_c', 'rf_board_temperature_c')
 _live_state = {'next': 0.0}
 
 
@@ -486,8 +493,14 @@ BACKFILL_FIELDS = (('temp_max_c', 'th0temp-max', -60.0, 60.0), ('temp_min_c', 't
                    ('power_consumption_avg', 'data14num-avg', 0.0, 1000.0), ('process_count_avg', 'data15num-avg', 0.0, 10000.0),
                    ('data_age_avg', 'data16num-avg', 0.0, 1e7), ('voltage_avg', 'data17num-avg', 0.0, 100.0),
                    ('current_avg', 'data18num-avg', 0.0, 100.0),
-                   ('signal_min', 'th0signal-min', -200.0, 1000.0), ('signal_max', 'th0signal-max', -200.0, 1000.0))
-BACKFILL_VERSION = 3
+                   ('signal_min', 'th0signal-min', -200.0, 1000.0), ('signal_max', 'th0signal-max', -200.0, 1000.0),
+                   ('base_board_temp_avg_c', 'thb9temp-avg', -60.0, 125.0),
+                   ('rf_board_temp_avg_c', 'thb0temp-avg', -60.0, 125.0),
+                   ('ground_temp_avg_c', 't3temp-avg', -60.0, 60.0),
+                   ('soil_wetness_avg_cbar', 'soil0hum-avg', 0.0, 200.0),
+                   ('soil_temp_avg_c', 'soil0temp-avg', -60.0, 60.0),
+                   ('greenhouse_temp_avg_c', 'soil1temp-avg', -60.0, 60.0))
+BACKFILL_VERSION = 4
 BACKFILL_ARCHIVE_NAME = 'weather_station_archive.json'
 
 
@@ -539,7 +552,7 @@ def backfill_archive(base, path, days=4000, today=None, fetch=None, sleep=time.s
             log(f'backfill interrupted at {day}; saving imported days')
             stopped = day
             break
-        if values.get('temp_max_c') is None and values.get('temp_min_c') is None:
+        if not values:
             empty += 1
             if empty >= max_empty:
                 break

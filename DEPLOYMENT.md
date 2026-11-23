@@ -1,11 +1,11 @@
-# V55.1 Deployment
+# V55.2 Deployment
 
-V55.1 adds board temperatures and historical imports, updates the console and health pages, and retains the telemetry-v4 (58-field) contract.
+V55.2 improves console frame sizing, button fonts, radar navigation and the shared health menu, while retaining the telemetry-v4 (58-field) contract.
 
 ## Pre-install
 
 ```bash
-python3 verify_v55_1.py
+python3 verify_v55_2.py
 ```
 
 For a clean install, create `/etc/weathercam/dashboard.env` from `dashboard.env.example` and set `HWS_FTP_PASSWORD`. The installer supplies `weathercam.service` only when no existing unit is registered and will not overwrite an on-disk unit file.
@@ -13,7 +13,7 @@ For a clean install, create `/etc/weathercam/dashboard.env` from `dashboard.env.
 ## Install
 
 ```bash
-sudo bash ./install_v55_1.sh
+sudo bash ./install_v55_2.sh
 ```
 
 ## Confirm active release
@@ -24,7 +24,7 @@ systemctl is-active weathercam.service
 systemctl is-active weathercam-dashboard.timer
 ```
 
-Expected release: `/mnt/weathercam/app/releases/HarpendenWeatherCamera-V55.1` (an updated V55.1 installation uses a timestamped suffix). The dashboard publisher is a oneshot service and may be inactive between timer runs.
+Expected release: `/mnt/weathercam/app/releases/HarpendenWeatherCamera-V55.2` (an updated V55.2 installation uses a timestamped suffix). The dashboard publisher is a oneshot service and may be inactive between timer runs.
 
 ## Force one publication
 
@@ -35,7 +35,7 @@ sudo bash -c 'set -a; . /etc/weathercam/dashboard.env; set +a; exec sudo -u mgs 
 ## Verify the generated dashboard
 
 ```bash
-grep -E 'V55.1|Recommended checks|Timelapse|Daily reliability reports|Recent captures|CPU temperature|30 days' /mnt/weathercam/dashboard/dashboard.html | head
+grep -E 'V55.2|Recommended checks|Timelapse|Daily reliability reports|Recent captures|CPU temperature|30 days' /mnt/weathercam/dashboard/dashboard.html | head
 ! grep -q '__DATA__' /mnt/weathercam/dashboard/dashboard.html
 ```
 
@@ -44,16 +44,18 @@ The dashboard displays recommended checks and historical readings but does not m
 ## Rollback
 
 ```bash
-sudo bash /mnt/weathercam/app/current/rollback_v55_1.sh
+sudo bash /mnt/weathercam/app/current/rollback_v55_2.sh
 ```
 
-## Replacing the old website (V55.1)
+## Replacing the old website (V55.2)
 
 The dashboard publishes `index.html` (the original/new site chooser) and `indexnew.html` (Home), followed by Live, Graphs, Rainfall, Wind, Forecast, Webcam, Radar, Records, Compare, Almanac, Reports, News, Donate, About, Mobile and HWS Health. Every page has the same logo, title, button menu, current-page highlight and station disclaimer. About includes the station details; the Data page is retired. `health.html` uses the camera dashboard design with camera, weather/Meteobridge and Pi status, plus buttons for detailed health pages. `satellite.html` is available from Radar and uses Windy's satellite embed, with a direct provider link if embedding is unavailable. Visitors can switch units and theme using the bottom toolbar.
 
 Graph, rainfall, wind and health filters use **Month** for the current calendar month in Europe/London, not a rolling 30-day window. Graphs offers daily and monthly summaries for the selected year; 24-hour data is current only. Rainfall monthly totals show the selected year, based on the days actually recorded. Meteobridge health trends accumulate as readings are collected; existing archived daily sensor averages appear if present. Home, Live and Mobile show the time and age of the last reading and warn after 10 minutes or on refresh failure. The live pages fetch uncached `weather-live.json`, fall back to `dashboard-data.json` if necessary, and never replace newer readings with older ones. Only the weather-station service uploads `weather-live.json`; dashboard publication must not overwrite it. Keep the service and live uploads enabled for updates between dashboard builds.
 
 The default coordinates are 51.829105, -0.380987. Existing `/etc/weathercam/dashboard.env` files are preserved by the installer: update `DASHBOARD_LATITUDE` and `DASHBOARD_LONGITUDE` there if they still contain the old values. Check the `Console` page on the deployed host: it embeds `/Weather34/index.php` and links to it directly if the web server blocks framing.
+
+The console frame sizes itself to same-origin Weather34 content; if access is blocked by the browser or a redirect, it uses a fixed fallback height. The health navigation offers the same dashboard views and detailed health pages on each health page.
 
 Meteobridge uptime (`data11num`) is in hours; voltage and power are in volts and watts. Soil wetness is measured in centibars (0–200), not percent. Signal charts show the station's reported values in dB, with five-minute minimum and maximum readings and daily extrema for the year view. Base-board and RF-board temperatures use `thb9temp` and `thb0temp`. Older readings are available only if recorded or imported from the Meteobridge. Run `--diagnose` against the station to confirm the readings and selectors.
 
@@ -84,9 +86,10 @@ This saves the entry to `/mnt/weathercam/logs/dashboard_news.json` and regenerat
 
 ### Importing old Meteobridge history
 
+The environment file is root-readable; load it as root and run the import as the station user:
+
 ```bash
-set -a; . /etc/weathercam/dashboard.env; set +a
-python3 weather_station.py --meteobridge 192.168.0.65 --backfill   # add --meteobridge-user/--meteobridge-password if needed
+sudo bash -c 'set -a; . /etc/weathercam/dashboard.env; set +a; exec sudo -u mgs -E /usr/bin/python3 /mnt/weathercam/app/current/weather_station.py --backfill'
 ```
 
 This asks the Meteobridge for each past day (daily high/low, mean humidity, rain, pressure extremes, gust) and stops after 45 empty days, writing `weather_station_archive.json` in the logs folder (`HWS_WEATHER_ARCHIVE_PATH`). By default it waits two seconds before each request, allows 60 seconds per request and retries transient failures twice, with a two-second delay. It saves progress even if interrupted or a request fails; rerun to resume. A failed or interrupted backfill exits nonzero and reports the stopped date. The records, reports and year graph include the old data at the next dashboard refresh. It only works for as long as the Meteobridge kept its history.

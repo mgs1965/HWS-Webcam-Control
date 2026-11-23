@@ -5,7 +5,7 @@ from datetime import datetime,timedelta,timezone
 from html import escape
 from pathlib import Path
 from zoneinfo import ZoneInfo
-V='55.1'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
+V='55.2'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
 IMG=Path(os.getenv('WEATHERCAM_LATEST_IMAGE',str(ROOT/'frames/latest.jpg'))); HD=Path(os.getenv('WEATHERCAM_HEALTH_DIR',str(ROOT/'telemetry/health'))); TD=Path(os.getenv('WEATHERCAM_TELEMETRY_DIR',str(ROOT/'logs'))); LD=Path(os.getenv('WEATHERCAM_LOG_DIR',str(ROOT/'logs')))
 def envnum(name,default):
  try:
@@ -330,6 +330,13 @@ for _part in ('astronomy.py','analytics.py','station.py','insights.py','recommen
 SITE_PAGES=(('indexnew.html','Home'),('console.html','Live'),('weather34.html','Console'),('graphs.html','Graphs'),('rainfall.html','Rainfall'),('wind.html','Wind'),('forecast.html','Forecast'),('webcam.html','Webcam'),('radar.html','Radar'),('records.html','Records'),('compare.html','Compare'),('almanac.html','Almanac'),('reports.html','Reports'),('news.html','News'),('donate.html','Donate'),('about.html','About'),('mobile.html','Mobile'),('health.html','HWS Health'))
 SITE_DETAILS={'index.html':('Site Chooser','indexnew.html'),'station.html':('About','about.html'),'dashboard.html':('HWS Health','health.html'),'webcamhealth.html':('Webcam Health','health.html'),'mbhealth.html':('Meteobridge','health.html'),'pihealth.html':('Pi Health','health.html'),'satellite.html':('Satellite','radar.html')}
 SITE_NAV='<nav class="hws-nav" aria-label="Main menu">'+''.join(f'<a class="s-btn" href="{h}">{t}</a>' for h,t in SITE_PAGES)+'</nav>'
+HEALTH_VIEWS=(('live','Current'),('trends','Trends'),('events','Events'),('advanced','Advanced'),('reports','Reports'),('archive','Archive'),('weather','Weather'),('insights','Insights'))
+HEALTH_PAGES=(('webcamhealth.html','Webcam Health'),('mbhealth.html','Meteobridge'),('pihealth.html','Pi Health'))
+def health_navigation(name):
+ dashboard=name in ('dashboard.html','health.html')
+ views=''.join(f'<label class="health-tab" for="view-{key}">{label}</label>' if dashboard else f'<a class="health-tab" href="health.html#{key}">{label}</a>' for key,label in HEALTH_VIEWS)
+ pages=''.join(f'<a class="health-tab" href="{href}"'+(' aria-current="page"' if href==name else '')+f'>{label}</a>' for href,label in HEALTH_PAGES)
+ return '<nav id="viewNav" class="health-nav" aria-label="Dashboard views">'+views+pages+'</nav>'
 SITE_EXTRAS=('share.png',)
 SITE_ASSETS=('site.css','site.js','favicon.svg','favicon.png','logo.svg','logo.png')
 SITE_HEAD='<link rel="icon" href="favicon.png" type="image/png"><link rel="apple-touch-icon" href="logo.png"><link rel="stylesheet" href="site.css"><script src="site.js"></script></head>'
@@ -343,9 +350,9 @@ def site_document(name,text):
  text=re.sub(r'(<h1\b[^>]*>).*?(</h1>)',lambda m:m[1]+'<img class="hws-logo" src="logo.svg" alt="">'+escape(title)+m[2],text,count=1,flags=re.S)
  if name=='index.html':text=text.replace('</header>',nav+'</header>',1)
  if name in ('dashboard.html','health.html','webcamhealth.html','mbhealth.html','pihealth.html'):
-  selected='health.html' if name=='dashboard.html' else name
-  sub='<nav class="s-tabs" aria-label="Health pages">'+''.join(f'<a class="s-btn" href="{href}"'+(' aria-current="page"' if href==selected else '')+f'>{label}</a>' for href,label in (('health.html','HWS Health'),('webcamhealth.html','Webcam Health'),('mbhealth.html','Meteobridge'),('pihealth.html','Pi Health')))+'</nav>'
-  text=text.replace('</header>','</header>'+sub,1)
+  sub=health_navigation(name)
+  if '__HEALTH_NAV__' in text:text=text.replace('__HEALTH_NAV__',sub,1)
+  else:text=text.replace('</header>','</header>'+sub,1)
  return text.replace('</body>',SITE_FOOT+'</body>',1)
 def month_start(now):
  return now.astimezone(ZoneInfo('Europe/London')).replace(day=1,hour=0,minute=0,second=0,microsecond=0).astimezone(timezone.utc)
@@ -547,7 +554,7 @@ def generate(upload=False):
  winsight=weather_insight(weather,scene)+frost_notes(weather)+record_notes(weather,whistory)+([sc['note']] if sc and sc.get('note') and sc.get('verdict')!='AGREE' else [])
  schedule=mode_schedule(now)
  safe_config={
-  'release':'V55.1','telemetry_schema':4,'dashboard_refresh_minutes':5,'console_poll_seconds':30,
+  'release':'V55.2','telemetry_schema':4,'dashboard_refresh_minutes':5,'console_poll_seconds':30,
   'capture_interval_seconds':10,'ftp_configured':bool(os.getenv('DASHBOARD_FTP_HOST')),
   'ftp_tls':os.getenv('DASHBOARD_FTP_TLS','0')!='0',
   'thresholds':TH,'stale_after_minutes':TH['dashboard_stale_minutes'],'month_start':month_start(now).isoformat(),

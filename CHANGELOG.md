@@ -1,3 +1,7 @@
+#### V55.2
+- Reduced the Weather34 frame fallback height and allowed automatic resizing to shrink or grow with same-origin content.
+- Unified health view and detail navigation, made button fonts consistent and added Wind to the Satellite page.
+
 #### V55.1
 - Added Meteobridge base-board and RF-board temperatures, including daily history and backfill for board and extra weather sensors.
 - Enlarged the Weather34 console frame and adjusted its height for same-origin content.

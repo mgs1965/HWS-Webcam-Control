@@ -2,7 +2,7 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Rain radar and satellite</title>
 <style>:root{color-scheme:dark;--bg:#071827;--card:#0e273b;--line:#2a4960;--text:#edf6ff;--muted:#a9bdce;--blue:#4ea9ff;--amber:#ffd166;--green:#4bd66a;--red:#ff6075}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,"Segoe UI",sans-serif}a{color:var(--blue)}.muted{color:var(--muted)}</style></head><body><div class="s-page">
 <header class="s-head"><h1>Rain radar and satellite</h1><div class="s-nav muted">__NAV__</div></header>
-<nav class="s-tabs" aria-label="Radar pages"><a class="s-btn" href="radar.html" aria-current="page">Rain Radar</a><a class="s-btn" href="satellite.html">Satellite</a><button type="button" id="wind">Wind</button></nav><div class="s-card"><iframe class="s-frame" id="frame" title="Radar" loading="lazy" referrerpolicy="no-referrer"></iframe><p class="muted">Maps are provided by Windy.com and open in a separate frame. Radar coverage and timing are not controlled by this site.</p></div>
+<nav class="s-tabs" aria-label="Radar pages"><a class="s-btn" href="radar.html" aria-current="page">Rain Radar</a><a class="s-btn" href="satellite.html">Satellite</a><a class="s-btn" href="radar.html#wind" id="wind">Wind</a></nav><div class="s-card"><iframe class="s-frame" id="frame" title="Radar" loading="lazy" referrerpolicy="no-referrer"></iframe><p class="muted">Maps are provided by Windy.com and open in a separate frame. Radar coverage and timing are not controlled by this site.</p></div>
 <script type="application/json" id="data">__DATA__</script>
 <script>
 const raw=document.getElementById('data').textContent.trim(),D=raw.startsWith('{')?JSON.parse(raw):{},$=id=>document.getElementById(id),has=v=>v!==null&&v!==undefined&&v!==''&&isFinite(Number(v));
@@ -13,5 +13,6 @@ const S=D.site||{},lat=Number(S.latitude)||51.8,lon=Number(S.longitude)||-0.35;
 const win=o=>'https://embed.windy.com/embed2.html?lat='+lat+'&lon='+lon+'&detailLat='+lat+'&detailLon='+lon+'&zoom=7&level=surface&overlay='+o+'&menu=&message=true&marker=true&calendar=now&type=map&location=coordinates&metricWind=mph&metricTemp=%C2%B0C';
 const ok=u=>typeof u==='string'&&/^https:\/\//.test(u);
 $('frame').src=ok(S.radar_rain)?S.radar_rain:win('radar');
-$('wind').addEventListener('click',()=>{ $('frame').src=win('wind');$('frame').title='Wind';$('wind').classList.add('on');document.querySelector('[aria-label="Radar pages"] a[aria-current]')?.removeAttribute('aria-current')});
+function selectMap(){const wind=location.hash==='#wind';$('frame').src=wind?win('wind'):(ok(S.radar_rain)?S.radar_rain:win('radar'));$('frame').title=wind?'Wind':'Radar';$('wind').toggleAttribute('aria-current',wind);if(wind)$('wind').setAttribute('aria-current','page');document.querySelector('[aria-label="Radar pages"] a[href="radar.html"]').toggleAttribute('aria-current',!wind);if(!wind)document.querySelector('[aria-label="Radar pages"] a[href="radar.html"]').setAttribute('aria-current','page')}
+window.addEventListener('hashchange',selectMap);selectMap();
 </script></div></body></html>

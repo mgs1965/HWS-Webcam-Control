@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parent
 def test_release_identity():
     namespace = {}
     exec((ROOT / 'version.py').read_text(encoding='utf-8'), namespace)
-    assert namespace['VERSION'] == 'V55.1'
+    assert namespace['VERSION'] == 'V55.2'
     assert namespace['TELEMETRY_SCHEMA_VERSION'] == 4
 
 def test_telemetry_schema():
@@ -32,11 +32,11 @@ def test_credentials_are_not_embedded():
     assert "FTP_PASSWORD = os.getenv('HWS_FTP_PASSWORD', '')" in core
     assert 'cGnRUCGhc' not in core
 
-def test_dashboard_v55_1_payload():
+def test_dashboard_v55_2_payload():
     dashboard = (ROOT / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
     template = (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
-    assert "V='55.1'" in dashboard
-    assert "'release':'V55.1'" in dashboard
+    assert "V='55.2'" in dashboard
+    assert "'release':'V55.2'" in dashboard
     assert "('month',None)" in dashboard
     assert 'incidents' in dashboard
     assert "'process_memory':('health','memory.process_rss_bytes',1/1048576)" in dashboard
@@ -57,7 +57,7 @@ def test_dashboard_v55_1_payload():
     assert "template.count('__DATA__') != 1:raise RuntimeError" in dashboard
     for view in ('live', 'trends', 'events', 'advanced', 'reports', 'archive'):
         assert f'id="view-{view}"' in template
-        assert f'for="view-{view}"' in template
+    assert '__HEALTH_NAV__' in template
     assert '#view-live:checked~.page #live' in template
     assert '#view-trends:checked~.page #trends' in template
     assert '#view-reports:checked~.page #reports' in template
@@ -232,7 +232,7 @@ def test_controller_configuration_fingerprint_tracks_real_limits():
 
 def test_camera_service_unit_and_install_preserve_existing_unit():
     service = (ROOT / 'systemd/weathercam.service').read_text(encoding='utf-8')
-    installer = (ROOT / 'install_v55_1.sh').read_text(encoding='utf-8')
+    installer = (ROOT / 'install_v55_2.sh').read_text(encoding='utf-8')
     assert 'EnvironmentFile=/etc/weathercam/dashboard.env' in service
     assert 'Restart=on-failure' in service
     assert 'TimeoutStopSec=240' in service
@@ -571,9 +571,9 @@ def test_release_zip_extracts_to_matching_directory(tmp_path):
     manifest = json.loads((ROOT / 'manifest.json').read_text(encoding='utf-8'))
     with zipfile.ZipFile(tmp_path / manifest['package']) as archive:
         names = archive.namelist()
-    assert manifest['package'] == 'HWS-Webcam-Control-55.1.zip'
-    assert all(name.startswith('HWS-Webcam-Control-55.1/') for name in names)
-    assert 'HWS-Webcam-Control-55.1/manifest.json' in names
+    assert manifest['package'] == 'HWS-Webcam-Control-55.2.zip'
+    assert all(name.startswith('HWS-Webcam-Control-55.2/') for name in names)
+    assert 'HWS-Webcam-Control-55.2/manifest.json' in names
 
 def _load_dashboard(tmp_path, monkeypatch):
     monkeypatch.setenv('WEATHERCAM_ROOT', str(tmp_path))
@@ -603,7 +603,7 @@ def test_dashboard_moon_and_disk_forecast(tmp_path, monkeypatch):
     assert forecast['percent_per_day'] > 0 and forecast['days_to_full'] > 0
     assert dash.disk_forecast(rows[:5], now) is None
 
-def test_dashboard_v55_1_template_and_event_tag():
+def test_dashboard_v55_2_template_and_event_tag():
     dashboard = (ROOT / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
     template = (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
     assert '[MODE TRANSITION]' in dashboard and '[MODE CHANGE]' not in dashboard
@@ -846,29 +846,30 @@ def test_shared_site_layout_keogram_and_live_snapshot(tmp_path, monkeypatch):
     assert 'function station()' in (dash.OUT / 'about.html').read_text()
     health = (dash.OUT / 'health.html').read_text()
     assert 'id="piStats"' in health and 'id="bridgeChecks"' in health
-    nav = re.search(r'<nav id="viewNav".*?</nav>', health, re.S).group()
-    assert '<label class="nav-tab" for="view-live">Current</label>' in nav
-    for href in ('webcamhealth.html', 'mbhealth.html', 'pihealth.html'):
-        assert f'href="{href}"' not in nav
-    assert 'Camera Dashboard' not in nav
     assert json.loads((dash.OUT / 'weather-live.json').read_text()) == {'updated': 'existing'}
     assert json.loads((dash.OUT / 'dashboard-data.json').read_text())['weather']['temperature_c'] == 8.5
-    subnav = None
     for name in ('health.html', 'webcamhealth.html', 'mbhealth.html', 'pihealth.html'):
         page = (dash.OUT / name).read_text()
         main_nav = re.search(r'<nav class="hws-nav".*?</nav>', page).group()
         assert main_nav.replace(' aria-current="page"', '') == dash.SITE_NAV
         assert 'href="health.html" aria-current="page"' in main_nav
-        nav = re.search(r'<nav class="s-tabs" aria-label="Health pages">.*?</nav>', page).group()
-        assert f'href="{name}" aria-current="page"' in nav
-        common_nav = nav.replace(' aria-current="page"', '')
-        if subnav is None:
-            subnav = common_nav
-        assert common_nav == subnav
+        nav = re.search(r'<nav id="viewNav".*?</nav>', page).group()
+        assert re.findall(r'>([^<>]+)</(?:label|a)>', nav) == [
+            'Current', 'Trends', 'Events', 'Advanced', 'Reports', 'Archive', 'Weather', 'Insights',
+            'Webcam Health', 'Meteobridge', 'Pi Health',
+        ]
+        assert 'HWS Health' not in nav
+        for key, label in dash.HEALTH_VIEWS:
+            assert (f'for="view-{key}"' if name == 'health.html' else f'href="health.html#{key}"') in nav
+        for href, _ in dash.HEALTH_PAGES:
+            assert f'href="{href}"' in nav
+        if name != 'health.html':
+            assert f'href="{name}" aria-current="page"' in nav
     assert 'src="/Weather34/index.php"' in (dash.OUT / 'weather34.html').read_text()
     radar = (dash.OUT / 'radar.html').read_text()
     assert radar.count('>Rain Radar</a>') == radar.count('>Satellite</a>') == 1
     assert "win('wind')" in radar
+    assert 'href="radar.html#wind"' in (dash.OUT / 'satellite.html').read_text()
 
 
 def test_meteobridge_daily_history_reaches_year_graph(tmp_path):
@@ -1106,7 +1107,7 @@ def test_sun_highlight_frame_selection():
     assert len(namespace['select_highlight_frames'](frames, datetime(2026, 11, 22, 8, 0), 120, limit=50)) == 50
 
 
-def test_v55_1_alerts_and_share_card(tmp_path, monkeypatch):
+def test_v55_2_alerts_and_share_card(tmp_path, monkeypatch):
     dash = _dash(tmp_path)
     now = datetime(2026, 11, 22, 12, 0, tzinfo=timezone.utc)
     alerts = dash.weather_alerts({'temperature_c': -1.0, 'wind_gust_mph': 45, 'rain_rate_mm_h': 2})

@@ -1,3 +1,6 @@
+#### V55.5
+- Added a sunset and full-moon banner behind the logo and title on every page header.
+
 #### V55.4
 - Doubled the logo size and switched the whole site to Verdana.
 - Fixed the Weather34 console frame so the page scrolls to the footer (resize once, capped at 2400px).

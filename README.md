@@ -1,6 +1,6 @@
-# Harpenden Weather Camera V55.4
+# Harpenden Weather Camera V55.5
 
-V55.4 adds selectable-year Meteobridge health trends, with daily and monthly views of available history. Telemetry-v4 remains unchanged.
+V55.5 adds selectable-year Meteobridge health trends, with daily and monthly views of available history. Telemetry-v4 remains unchanged.
 
 ## Camera and image features
 
@@ -26,10 +26,10 @@ Trend history is kept bounded for Raspberry Pi memory: the most recent 24 hours 
 Create `/etc/weathercam/dashboard.env` from `dashboard.env.example` and set `HWS_FTP_PASSWORD` before installing on a new host.
 
 ```bash
-unzip HWS-Webcam-Control-55.4.zip
-cd HWS-Webcam-Control-55.4
-python3 verify_v55_4.py
-sudo bash ./install_v55_4.sh
+unzip HWS-Webcam-Control-55.5.zip
+cd HWS-Webcam-Control-55.5
+python3 verify_v55_5.py
+sudo bash ./install_v55_5.sh
 ```
 
 The installer preserves an existing `weathercam.service`; on a clean installation it installs the included unit after credential preflight.
@@ -43,5 +43,5 @@ sudo bash -c 'set -a; . /etc/weathercam/dashboard.env; set +a; exec sudo -u mgs 
 ## Rollback
 
 ```bash
-sudo bash /mnt/weathercam/app/current/rollback_v55_4.sh
+sudo bash /mnt/weathercam/app/current/rollback_v55_5.sh
 ```

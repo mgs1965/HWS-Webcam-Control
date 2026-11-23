@@ -12,6 +12,14 @@ const HWS={units,theme,
  label(unit){const r=rule(unit);if(!r)return unit;const lead=String(unit).match(/^\s*/)[0];return lead+r[2]},
  digits(unit,d){const r=rule(unit);return r&&r[3]?Math.max(d,r[3]):d},
  fmt(v,d,unit,delta){if(!has(v))return'–';d=d||0;unit=unit||'';return Number(HWS.conv(v,unit,delta)).toFixed(HWS.digits(unit,d))+HWS.label(unit)},
+ page(id){const n=document.getElementById(id||'data'),raw=n?n.textContent.trim():'',D=raw.startsWith('{')?JSON.parse(raw):{},$=i=>document.getElementById(i);
+  const el=(tag,cls,text,parent)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;if(parent)parent.append(e);return e};
+  const tile=(box,k,v)=>{const t=el('div','s-tile',undefined,box);el('div','k',k,t);el('div','v',v,t)};
+  return{D,$,has,el,tile}},
+ csv(name,header,rows){const q=v=>{v=v===null||v===undefined?'':String(v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+  const text=[header].concat(rows).map(r=>r.map(q).join(',')).join('\r\n')+'\r\n';
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:'text/csv'}));a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000)},
+ csvButton(parent,label,name,build){const b=document.createElement('button');b.className='s-btn s-export';b.textContent=label||'Download CSV';b.onclick=()=>{const r=build();if(r&&r.rows.length)HWS.csv(name,r.header,r.rows)};parent.prepend(b);return b},
  compass(deg){const N=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];return has(deg)?N[Math.round((((Number(deg)%360)+360)%360)/22.5)%16]:'–'}};
 window.HWS=HWS;
 HWS.rainfallMonths=function(rows,year){return Array.from({length:12},(_,i)=>{const month=year+'-'+String(i+1).padStart(2,'0'),data=rows.filter(r=>r.d.startsWith(month)&&has(r.v));return [new Date(2000,i,1).toLocaleDateString('en-GB',{month:'short'}),data.length?data.reduce((sum,r)=>sum+Number(r.v),0):null]})};

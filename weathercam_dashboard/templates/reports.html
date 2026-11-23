@@ -1,14 +1,12 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Weather reports</title>
-<style>:root{color-scheme:dark;--bg:#071827;--card:#0e273b;--line:#2a4960;--text:#edf6ff;--muted:#a9bdce;--blue:#4ea9ff;--amber:#ffd166;--green:#4bd66a;--red:#ff6075}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 Verdana,Geneva,sans-serif}a{color:var(--blue)}.muted{color:var(--muted)}</style></head><body><div class="s-page">
+</head><body class="s-base"><div class="s-page">
 <header class="s-head"><h1>Weather reports</h1><div class="s-nav muted">__NAV__</div></header>
 <div class="s-tabs" id="tabs"></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><select id="pick" class="s-btn" aria-label="Period"></select><button class="s-btn" id="csv">Download CSV</button><button class="s-btn" id="prt" onclick="window.print()">Print / save as PDF</button></div><div class="s-card s-scroll"><table class="s-table" id="tbl"></table></div>
 <script type="application/json" id="data">__DATA__</script>
 <script>
-const raw=document.getElementById('data').textContent.trim(),D=raw.startsWith('{')?JSON.parse(raw):{},$=id=>document.getElementById(id),has=v=>v!==null&&v!==undefined&&v!==''&&isFinite(Number(v));
-const el=(tag,cls,text,parent)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;if(parent)parent.append(e);return e};
+const {D,$,has,el,tile}=HWS.page();
 const F=(v,d,u,delta)=>HWS.fmt(v,d,u,delta),day=s=>new Date(s+'T12:00:00'),hm=s=>s?new Date(s).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'–';
-const tile=(box,k,v)=>{const t=el('div','s-tile',undefined,box);el('div','k',k,t);el('div','v',v,t)};
 const days=(D.daily||[]).filter(d=>d.date),VIEWS=[['month','Day by day'],['year','Month by month'],['all','Year by year']];let view='month';
 const U={t:'°C',mm:'mm',mph:'mph',p:'hPa'};
 const agg=rows=>{const n=k=>rows.map(r=>r[k]).filter(has).map(Number),mx=a=>a.length?Math.max(...a):null,mn=a=>a.length?Math.min(...a):null,rain=n('rain_mm'),h=n('humidity_avg');return{temp_max_c:mx(n('temp_max_c')),temp_min_c:mn(n('temp_min_c')),humidity_avg:h.length?h.reduce((a,b)=>a+b,0)/h.length:null,rain_mm:rain.length?rain.reduce((a,b)=>a+b,0):null,rain_days:rows.some(r=>r.rain_days!==undefined)?rows.reduce((t,r)=>t+(Number(r.rain_days)||0),0):rain.filter(v=>v>=.2).length,wind_gust_mph:mx(n('wind_gust_mph')),pressure_min_hpa:mn(n('pressure_min_hpa')),pressure_max_hpa:mx(n('pressure_max_hpa'))}};

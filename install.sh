@@ -2,9 +2,10 @@
 set -euo pipefail
 SRC=$(cd "$(dirname "$0")" && pwd -P)
 BASE=/mnt/weathercam/app
-DEST=$BASE/releases/HarpendenWeatherCamera-V55.11
-REC=/etc/weathercam/v55_11-rollback-target
-python3 "$SRC/verify_v55_11.py"
+VERSION=$(python3 -c "import re,sys;print(re.search(r'VERSION=\"(V[0-9.]+)\"',open(sys.argv[1]).read()).group(1))" "$SRC/version.py")
+DEST=$BASE/releases/HarpendenWeatherCamera-$VERSION
+REC=/etc/weathercam/rollback-target
+python3 "$SRC/verify.py"
 if [ "$SRC" = "$DEST" ] || { [ -L "$BASE/current" ] && [ "$SRC" = "$(readlink -f "$BASE/current")" ]; }; then
   echo "Run the installer from an extracted staging directory, not the active release."
   exit 1
@@ -32,7 +33,7 @@ fi
 if [ -L "$BASE/current" ]; then
   PREVIOUS=$(readlink -f "$BASE/current")
 elif [ -d "$BASE/current" ]; then
-  PREVIOUS="$BASE/current-pre-v55.11-$(date +%Y%m%d-%H%M%S)"
+  PREVIOUS="$BASE/current-pre-install-$(date +%Y%m%d-%H%M%S)"
   sudo systemctl stop weathercam-dashboard.timer 2>/dev/null || true
   sudo systemctl stop weathercam.service 2>/dev/null || true
   sudo mv "$BASE/current" "$PREVIOUS"
@@ -43,13 +44,15 @@ fi
 sudo systemctl stop weathercam-dashboard.timer 2>/dev/null || true
 sudo systemctl stop weathercam.service 2>/dev/null || true
 sudo cp -a "$SRC" "$DEST"
-python3 "$DEST/verify_v55_11.py"
+python3 "$DEST/verify.py"
 sudo install -m 0644 "$DEST/systemd/weathercam-dashboard.service" /etc/systemd/system/weathercam-dashboard.service
 sudo install -m 0644 "$DEST/systemd/weathercam-dashboard.timer" /etc/systemd/system/weathercam-dashboard.timer
 if [ "$INSTALL_CAMERA_UNIT" -eq 1 ]; then
   sudo install -m 0644 "$DEST/systemd/weathercam.service" /etc/systemd/system/weathercam.service
 fi
 sudo install -m 0644 "$DEST/systemd/weathercam-weather-station.service" /etc/systemd/system/weathercam-weather-station.service
+sudo install -m 0644 "$DEST/systemd/weathercam-alerts.service" /etc/systemd/system/weathercam-alerts.service
+sudo install -m 0644 "$DEST/systemd/weathercam-alerts.timer" /etc/systemd/system/weathercam-alerts.timer
 sudo rm -f "$BASE/current"
 sudo ln -s "$DEST" "$BASE/current"
 sudo systemctl daemon-reload
@@ -59,7 +62,7 @@ fi
 sudo systemctl start weathercam.service
 sleep 8
 if ! systemctl is-active --quiet weathercam.service; then
-  echo "Camera failed to start. Run sudo bash /mnt/weathercam/app/current/rollback_v55_11.sh"
+  echo "Camera failed to start. Run sudo bash /mnt/weathercam/app/current/rollback.sh"
   exit 1
 fi
 if sudo grep -Eq '^HWS_METEOBRIDGE_URL=.+$' /etc/weathercam/dashboard.env; then
@@ -68,6 +71,11 @@ if sudo grep -Eq '^HWS_METEOBRIDGE_URL=.+$' /etc/weathercam/dashboard.env; then
 else
   echo "Weather station fetcher not started: set HWS_METEOBRIDGE_URL in /etc/weathercam/dashboard.env, then run: sudo systemctl enable --now weathercam-weather-station.service"
 fi
+if sudo grep -Eq '^HWS_ALERT_(NTFY_URL|WEBHOOK_URL|SMTP_HOST)=.+$' /etc/weathercam/dashboard.env; then
+  sudo systemctl enable --now weathercam-alerts.timer
+else
+  echo "Health alerts not enabled: set HWS_ALERT_NTFY_URL (or webhook/SMTP) in /etc/weathercam/dashboard.env, then run: sudo systemctl enable --now weathercam-alerts.timer"
+fi
 sudo -u mgs /usr/bin/python3 "$BASE/current/weathercam_dashboard/dashboard.py"
 sudo systemctl enable --now weathercam-dashboard.timer
-echo "Installed V55.11 -> $(readlink -f "$BASE/current")"
+echo "Installed $VERSION -> $(readlink -f "$BASE/current")"

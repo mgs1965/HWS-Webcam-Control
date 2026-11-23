@@ -1,0 +1,9 @@
+[Unit]
+Description=Check Harpenden Weather Camera health every 5 minutes
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=5min
+Persistent=true
+Unit=weathercam-alerts.service
+[Install]
+WantedBy=timers.target

@@ -6,16 +6,20 @@ import hashlib
 import json
 import logging
 import os
+import pytest
+import re
 import subprocess
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parent
+VERSION = re.search(r'VERSION="(V[\d.]+)"', (ROOT / 'version.py').read_text(encoding='utf-8')).group(1)
+NUM = VERSION[1:]
 
 def test_release_identity():
     namespace = {}
     exec((ROOT / 'version.py').read_text(encoding='utf-8'), namespace)
-    assert namespace['VERSION'] == 'V55.11'
+    assert namespace['VERSION'] == VERSION
     assert namespace['TELEMETRY_SCHEMA_VERSION'] == 4
 
 def test_telemetry_schema():
@@ -32,11 +36,11 @@ def test_credentials_are_not_embedded():
     assert "FTP_PASSWORD = os.getenv('HWS_FTP_PASSWORD', '')" in core
     assert 'cGnRUCGhc' not in core
 
-def test_dashboard_v55_11_payload():
+def test_dashboard_payload():
     dashboard = (ROOT / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
     template = (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
-    assert "V='55.11'" in dashboard
-    assert "'release':'V55.11'" in dashboard
+    assert f"V='{NUM}'" in dashboard
+    assert f"'release':'{VERSION}'" in dashboard
     assert "('month',None)" in dashboard
     assert 'incidents' in dashboard
     assert "'process_memory':('health','memory.process_rss_bytes',1/1048576)" in dashboard
@@ -232,7 +236,7 @@ def test_controller_configuration_fingerprint_tracks_real_limits():
 
 def test_camera_service_unit_and_install_preserve_existing_unit():
     service = (ROOT / 'systemd/weathercam.service').read_text(encoding='utf-8')
-    installer = (ROOT / 'install_v55_11.sh').read_text(encoding='utf-8')
+    installer = (ROOT / 'install.sh').read_text(encoding='utf-8')
     assert 'EnvironmentFile=/etc/weathercam/dashboard.env' in service
     assert 'Restart=on-failure' in service
     assert 'TimeoutStopSec=240' in service
@@ -571,11 +575,11 @@ def test_release_zip_extracts_to_matching_directory(tmp_path):
     manifest = json.loads((ROOT / 'manifest.json').read_text(encoding='utf-8'))
     with zipfile.ZipFile(tmp_path / manifest['package']) as archive:
         names = archive.namelist()
-    assert manifest['package'] == 'HWS-Webcam-Control-55.11.zip'
-    assert all(name.startswith('HWS-Webcam-Control-55.11/') for name in names)
-    assert 'HWS-Webcam-Control-55.11/manifest.json' in names
-    for name in ('install_v55_11.sh', 'rollback_v55_11.sh', 'verify_v55_11.py'):
-        assert 'HWS-Webcam-Control-55.11/' + name in names
+    assert manifest['package'] == f'HWS-Webcam-Control-{NUM}.zip'
+    assert all(name.startswith(f'HWS-Webcam-Control-{NUM}/') for name in names)
+    assert f'HWS-Webcam-Control-{NUM}/manifest.json' in names
+    for name in ('install.sh', 'rollback.sh', 'verify.py', 'release.py', 'update.sh', 'alerts.py'):
+        assert f'HWS-Webcam-Control-{NUM}/' + name in names
 
 def _load_dashboard(tmp_path, monkeypatch):
     monkeypatch.setenv('WEATHERCAM_ROOT', str(tmp_path))
@@ -605,7 +609,7 @@ def test_dashboard_moon_and_disk_forecast(tmp_path, monkeypatch):
     assert forecast['percent_per_day'] > 0 and forecast['days_to_full'] > 0
     assert dash.disk_forecast(rows[:5], now) is None
 
-def test_dashboard_v55_11_template_and_event_tag():
+def test_dashboard_template_and_event_tag():
     dashboard = (ROOT / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
     template = (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
     assert '[MODE TRANSITION]' in dashboard and '[MODE CHANGE]' not in dashboard
@@ -837,7 +841,8 @@ def test_shared_site_layout_keogram_and_live_snapshot(tmp_path, monkeypatch):
         page = (dash.OUT / name).read_text()
         nav = re.search(r'<nav class="hws-nav".*?</nav>', page).group()
         assert nav.replace(' aria-current="page"', '') == dash.SITE_NAV
-        assert f'href="{name}" aria-current="page"' in nav
+        if name != 'health.html':  # HWS Health is linked from the logo, not the menu
+            assert f'href="{name}" aria-current="page"' in nav
         assert f'<title>Harpenden Weather Station - {label}</title>' in page
         assert 'class="hws-logo"' in page and page.count('id="hws-foot"') == 1
         assert page.index('private automatic weather station') < page.index('&copy; 2026')
@@ -854,7 +859,7 @@ def test_shared_site_layout_keogram_and_live_snapshot(tmp_path, monkeypatch):
         page = (dash.OUT / name).read_text()
         main_nav = re.search(r'<nav class="hws-nav".*?</nav>', page).group()
         assert main_nav.replace(' aria-current="page"', '') == dash.SITE_NAV
-        assert 'href="health.html" aria-current="page"' in main_nav
+        assert 'aria-current' not in main_nav  # HWS Health is reached from the logo
         nav = re.search(r'<nav id="viewNav".*?</nav>', page).group()
         assert re.findall(r'>([^<>]+)</(?:label|a)>', nav) == [
             'Current', 'Trends', 'Events', 'Advanced', 'Reports', 'Archive', 'Weather', 'Insights',
@@ -887,6 +892,9 @@ def test_meteobridge_daily_history_reaches_year_graph(tmp_path):
 
 
 def test_meteobridge_health_history_year_selection_and_monthly_aggregation():
+    import shutil
+    if not shutil.which('node'):
+        pytest.skip('Node is required for the Meteobridge history regression')
     template = (ROOT / 'weathercam_dashboard/templates/mbhealth.html').read_text(encoding='utf-8')
     script = template[template.index('const historyMap='):template.index('</script></div>')]
     harness = r"""
@@ -1149,7 +1157,7 @@ def test_sun_highlight_frame_selection():
     assert len(namespace['select_highlight_frames'](frames, datetime(2026, 11, 22, 8, 0), 120, limit=50)) == 50
 
 
-def test_v55_11_alerts_and_share_card(tmp_path, monkeypatch):
+def test_alerts_and_share_card(tmp_path, monkeypatch):
     dash = _dash(tmp_path)
     now = datetime(2026, 11, 22, 12, 0, tzinfo=timezone.utc)
     alerts = dash.weather_alerts({'temperature_c': -1.0, 'wind_gust_mph': 45, 'rain_rate_mm_h': 2})
@@ -1247,3 +1255,15 @@ def test_backfill_parses_extra_daily_fields():
     out = ws.parse_backfill_day('wind_avg_mph=4.2;dew_min_c=-2.5;solar_max_wm2=310;uv_max=1.2;sunshine_min=354;humidity_max=99;heat_index_max_c=[bad]')
     assert out == {'wind_avg_mph': 4.2, 'dew_min_c': -2.5, 'solar_max_wm2': 310.0, 'uv_max': 1.2, 'sunshine_hours': 5.9, 'humidity_max': 99.0}
     assert ws.parse_backfill_day('sunshine_min=50000') == {}
+
+
+def test_alerts_report_once_repeat_and_recover():
+    spec = importlib.util.spec_from_file_location('hws_alerts', ROOT / 'alerts.py')
+    alerts = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(alerts)
+    messages, state = alerts.decide({'capture': 'old image'}, {}, 1000, 3600)
+    assert messages == ['PROBLEM: old image']
+    assert alerts.decide({'capture': 'old image'}, state, 1100, 3600)[0] == []
+    assert alerts.decide({'capture': 'old image'}, state, 5000, 3600)[0] == ['STILL: old image']
+    messages, state = alerts.decide({}, state, 5100, 3600)
+    assert messages == ['RECOVERED: old image'] and state == {}

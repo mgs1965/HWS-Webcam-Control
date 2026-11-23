@@ -1,0 +1,8 @@
+[Unit]
+Description=Harpenden Weather Camera health alerts
+After=network-online.target
+[Service]
+Type=oneshot
+User=mgs
+EnvironmentFile=-/etc/weathercam/dashboard.env
+ExecStart=/usr/bin/python3 /mnt/weathercam/app/current/alerts.py

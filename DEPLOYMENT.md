@@ -1,11 +1,11 @@
-# V55.11 Deployment
+# V55.12 Deployment
 
-V55.11 adds selectable-year daily and monthly Meteobridge health trends, while retaining the telemetry-v4 (58-field) contract.
+V55.12 adds selectable-year daily and monthly Meteobridge health trends, while retaining the telemetry-v4 (58-field) contract.
 
 ## Pre-install
 
 ```bash
-python3 verify_v55_11.py
+python3 verify.py
 ```
 
 For a clean install, create `/etc/weathercam/dashboard.env` from `dashboard.env.example` and set `HWS_FTP_PASSWORD`. The installer supplies `weathercam.service` only when no existing unit is registered and will not overwrite an on-disk unit file.
@@ -13,7 +13,7 @@ For a clean install, create `/etc/weathercam/dashboard.env` from `dashboard.env.
 ## Install
 
 ```bash
-sudo bash ./install_v55_11.sh
+sudo bash ./install.sh
 ```
 
 ## Confirm active release
@@ -24,7 +24,7 @@ systemctl is-active weathercam.service
 systemctl is-active weathercam-dashboard.timer
 ```
 
-Expected release: `/mnt/weathercam/app/releases/HarpendenWeatherCamera-V55.11` (an updated V55.11 installation uses a timestamped suffix). The dashboard publisher is a oneshot service and may be inactive between timer runs.
+Expected release: `/mnt/weathercam/app/releases/HarpendenWeatherCamera-V55.12` (an updated V55.12 installation uses a timestamped suffix). The dashboard publisher is a oneshot service and may be inactive between timer runs.
 
 ## Force one publication
 
@@ -35,16 +35,25 @@ sudo bash -c 'set -a; . /etc/weathercam/dashboard.env; set +a; exec sudo -u mgs 
 ## Verify the generated dashboard
 
 ```bash
-grep -E 'V55.11|Recommended checks|Timelapse|Daily reliability reports|Recent captures|CPU temperature|30 days' /mnt/weathercam/dashboard/dashboard.html | head
+grep -E 'V55.12|Recommended checks|Timelapse|Daily reliability reports|Recent captures|CPU temperature|30 days' /mnt/weathercam/dashboard/dashboard.html | head
 ! grep -q '__DATA__' /mnt/weathercam/dashboard/dashboard.html
 ```
 
-The dashboard displays recommended checks and historical readings but does not modify camera controls or send external alerts.
+The dashboard displays recommended checks and historical readings but does not modify camera controls. Optional health alerts are sent by `alerts.py` (below).
+
+## Updating from a release
+`bash update.sh --check` reports whether a newer GitHub release exists; `bash update.sh` downloads it, runs `install.sh`, and rolls back automatically if the camera does not start. The repository is private, so set `GITHUB_TOKEN` (read access to contents) in `/etc/weathercam/dashboard.env` or the environment. There is no automatic update timer by default.
+
+## Health alerts
+`alerts.py` (run every 5 minutes by `weathercam-alerts.timer`) reports a stale camera image, stale weather data, a full disk or a stopped service, repeats after `HWS_ALERT_REPEAT_HOURS`, and sends a recovery message. Set `HWS_ALERT_NTFY_URL`, `HWS_ALERT_WEBHOOK_URL` or the `HWS_ALERT_SMTP_*` settings in `/etc/weathercam/dashboard.env`; the installer enables the timer only when one is set. `python3 alerts.py --test` sends a test message.
+
+## Releasing (maintainers)
+`python3 release.py 55.13 "What changed"` bumps the version everywhere, updates the changelog and manifest, runs `verify.py` and the tests, and builds the zip. Add `--publish` to commit, push `main` and create the GitHub release.
 
 ## Rollback
 
 ```bash
-sudo bash /mnt/weathercam/app/current/rollback_v55_11.sh
+sudo bash /mnt/weathercam/app/current/rollback.sh
 ```
 
 ## Replacing the old website

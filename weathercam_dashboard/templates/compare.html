@@ -1,14 +1,13 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Compare periods</title>
-<style>:root{color-scheme:dark;--bg:#071827;--card:#0e273b;--line:#2a4960;--text:#edf6ff;--muted:#a9bdce;--blue:#4ea9ff;--amber:#ffd166;--green:#4bd66a;--red:#ff6075}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 Verdana,Geneva,sans-serif}a{color:var(--blue)}.muted{color:var(--muted)}</style></head><body><div class="s-page">
+</head><body class="s-base"><div class="s-page">
 <header class="s-head"><h1>Compare periods</h1><div class="s-nav muted">__NAV__</div></header>
 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><select id="a" class="s-btn" aria-label="Period A"></select><span class="muted" style="align-self:center">against</span><select id="b" class="s-btn" aria-label="Period B"></select></div>
 <div class="s-card"><h2>Summary</h2><table class="s-table" id="sum"></table></div>
 <div class="s-grid" id="charts"></div>
 <script type="application/json" id="data">__DATA__</script>
 <script>
-const raw=document.getElementById('data').textContent.trim(),D=raw.startsWith('{')?JSON.parse(raw):{},$=id=>document.getElementById(id),has=v=>v!==null&&v!==undefined&&v!==''&&isFinite(Number(v));
-const el=(tag,cls,text,parent)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;if(parent)parent.append(e);return e};
+const {D,$,has,el,tile}=HWS.page();
 const F=(v,d,u,delta)=>HWS.fmt(v,d,u,delta),rows=(D.daily||[]).filter(r=>r.date),COL=['#ffd166','#4ea9ff'];
 const periods=[...new Set(rows.flatMap(r=>[r.date.slice(0,4),r.date.slice(0,7)]))].sort().reverse();
 for(const id of['a','b'])for(const p of periods){const o=el('option','',p.length===4?p+' (whole year)':p,$(id));o.value=p}

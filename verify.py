@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import ast
 import json
+import re
 from pathlib import Path
 
 root = Path(__file__).resolve().parent
@@ -15,13 +16,12 @@ for filename in modules:
 
 version = {}
 exec((root / 'version.py').read_text(encoding='utf-8'), version)
-assert version['VERSION'] == 'V55.11'
+assert re.fullmatch(r'V\d+\.\d+', version['VERSION'])
 assert version['TELEMETRY_SCHEMA_VERSION'] == 4
 
 manifest = json.loads((root / 'manifest.json').read_text(encoding='utf-8'))
-assert manifest['release'] == 'V55.11'
+assert manifest['release'] == version['VERSION']
 assert manifest['baseline'] == 'V51.0.2'
-assert manifest['package'] == 'HWS-Webcam-Control-55.11.zip'
 assert manifest['package'] == f"HWS-Webcam-Control-{version['VERSION'][1:]}.zip"
 assert manifest['package_directory'] == manifest['package'][:-4]
 assert all((root / filename).exists() for filename in manifest['files'])
@@ -36,14 +36,14 @@ assignment = next(
 assert len(ast.literal_eval(assignment.value)) == 58
 
 core = (root / 'core.py').read_text(encoding='utf-8')
-assert "SCRIPT_VERSION = '2026-11-23 V55.11'" in core
-assert "V51_RELEASE = 'V55.11'" in core
+assert re.search(r"SCRIPT_VERSION = '[\d-]+ " + version['VERSION'] + "'", core)
+assert f"V51_RELEASE = '{version['VERSION']}'" in core
 assert "FTP_PASSWORD = os.getenv('HWS_FTP_PASSWORD', '')" in core
 
 dashboard = (root / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
 template = (root / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
-assert "V='55.11'" in dashboard
-assert "'release':'V55.11'" in dashboard
+assert f"V='{version['VERSION'][1:]}'" in dashboard
+assert f"'release':'{version['VERSION']}'" in dashboard
 assert "('month',None)" in dashboard
 assert 'older_index%5==0' in dashboard
 assert "'timeline_events':timeline_events" in dashboard
@@ -92,16 +92,16 @@ assert (root / 'weather_station.py').is_file()
 mbhealth = (root / 'weathercam_dashboard/templates/mbhealth.html').read_text(encoding='utf-8')
 assert 'Daily by year' in mbhealth and 'Monthly by year' in mbhealth
 assert "year.onchange=()=>renderPeriod(activePeriod)" in mbhealth
-installer = (root / 'install_v55_11.sh').read_text(encoding='utf-8')
-rollback = (root / 'rollback_v55_11.sh').read_text(encoding='utf-8')
-assert 'HarpendenWeatherCamera-V55.11' in installer
-assert 'verify_v55_11.py' in installer
+installer = (root / 'install.sh').read_text(encoding='utf-8')
+rollback = (root / 'rollback.sh').read_text(encoding='utf-8')
+assert 'HarpendenWeatherCamera-$VERSION' in installer
+assert 'verify.py' in installer
 assert 'weathercam-weather-station.service' in installer
 assert 'systemctl cat weathercam.service' in installer
 assert 'refusing to overwrite it' in installer
-assert 'v55_11-rollback-target' in rollback
+assert 'rollback-target' in rollback
 
-print('PASS: V55.11 release identity, manifest and telemetry-v4 contract')
+print(f"PASS: {version['VERSION']} release identity, manifest and telemetry-v4 contract")
 for feature in ('eventFilters', 'staleBanner', 'overlayLegend', 'qualitySummaryRows', 'timelapsePreview'):
     assert f'id="{feature}"' in template
 for feature in ("'sun':sun_events(now)", "'modes':chart_modes", "DASHBOARD_CAPTURE_CRITICAL_SECONDS", "PREVIEW_NAME"):

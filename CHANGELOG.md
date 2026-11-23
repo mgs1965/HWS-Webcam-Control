@@ -1,3 +1,6 @@
+#### V55.12
+- Live webcam shows the whole image with its overlay; all pages 1550px wide; CSV download on Graphs, Rainfall and Records; health alerts (alerts.py); one-command release.py and Pi update.sh; version-neutral install/rollback/verify scripts; shared page helper and tidied stylesheet; headless-Chrome smoke test
+
 #### V55.11
 - Greenhouse soil labels everywhere; About page shows project version.
 

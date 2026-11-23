@@ -1,14 +1,12 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>System health</title>
-<style>:root{color-scheme:dark;--bg:#071827;--card:#0e273b;--line:#2a4960;--text:#edf6ff;--muted:#a9bdce;--blue:#4ea9ff;--amber:#ffd166;--green:#4bd66a;--red:#ff6075}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 Verdana,Geneva,sans-serif}a{color:var(--blue)}.muted{color:var(--muted)}</style></head><body><div class="s-page">
+</head><body class="s-base"><div class="s-page">
 <header class="s-head"><h1>System health</h1><div class="s-nav muted">__NAV__</div></header>
 <div class="s-grid" id="grid"></div>
 <script type="application/json" id="data">__DATA__</script>
 <script>
-const raw=document.getElementById('data').textContent.trim(),D=raw.startsWith('{')?JSON.parse(raw):{},$=id=>document.getElementById(id),has=v=>v!==null&&v!==undefined&&v!==''&&isFinite(Number(v));
-const el=(tag,cls,text,parent)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;if(parent)parent.append(e);return e};
+const {D,$,has,el,tile}=HWS.page();
 const F=(v,d,u,delta)=>HWS.fmt(v,d,u,delta),day=s=>new Date(s+'T12:00:00'),hm=s=>s?new Date(s).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'–';
-const tile=(box,k,v)=>{const t=el('div','s-tile',undefined,box);el('div','k',k,t);el('div','v',v,t)};
 const W=D.weather||{},S=D.station_status||{},M=D.metrics||{};
 function card(title,rows){const c=el('section','s-card',undefined,$('grid'));el('h2','',title,c);for(const[k,v,cls]of rows){const r=el('div','',undefined,c);r.style.cssText='display:flex;justify-content:space-between;gap:8px;padding:3px 0';el('span','muted',k,r);el('b',cls||'',v,r)}}
 const age=Date.parse(W.updated||'');

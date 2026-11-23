@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Rainfall</title>
-<style>:root{color-scheme:dark;--bg:#071827;--card:#0e273b;--line:#2a4960;--text:#edf6ff;--muted:#a9bdce;--blue:#4ea9ff;--amber:#ffd166;--green:#4bd66a;--red:#ff6075}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 Verdana,Geneva,sans-serif}a{color:var(--blue)}.muted{color:var(--muted)}</style></head><body><div class="s-page">
+</head><body class="s-base"><div class="s-page">
 <header class="s-head"><h1>Rainfall</h1><div class="s-nav muted">__NAV__</div></header>
 <div class="s-tiles" id="tiles"></div>
 <div class="s-tabs" id="tabs"></div><label for="year">Year for historical rainfall</label> <select class="s-btn" id="year"></select>
@@ -13,10 +13,8 @@
 <div class="s-card"><h2>Wettest days</h2><table class="s-table" id="wet"></table></div>
 <script type="application/json" id="data">__DATA__</script>
 <script>
-const raw=document.getElementById('data').textContent.trim(),D=raw.startsWith('{')?JSON.parse(raw):{},$=id=>document.getElementById(id),has=v=>v!==null&&v!==undefined&&v!==''&&isFinite(Number(v));
-const el=(tag,cls,text,parent)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;if(parent)parent.append(e);return e};
+const {D,$,has,el,tile}=HWS.page();
 const F=(v,d,u,delta)=>HWS.fmt(v,d,u,delta),NS='http://www.w3.org/2000/svg';
-const tile=(box,k,v)=>{const t=el('div','s-tile',undefined,box);el('div','k',k,t);el('div','v',v,t)};
 function bars(box,rows,color,unit,dig,name){HWS.chart(box,{bars:true,cats:rows.map(r=>r[0]),series:[{name,color,pts:rows.map((r,i)=>[i,r[1]]).filter(p=>has(p[1]))}],unit,dig})}
 
 const G=D.graphs||{},rows=(G.daily||[]).filter(r=>has(r.rain_mm)).map(r=>({d:r.date,v:Number(r.rain_mm)}));
@@ -24,6 +22,7 @@ const T=$('tiles'),today=HWS.stationDate(),yr=today.slice(0,4),ym=today.slice(0,
 const sum=a=>a.reduce((s,r)=>s+r.v,0),last=n=>rows.filter(r=>Date.parse(r.d)>Date.now()-n*864e5);
 tile(T,'This month',F(sum(rows.filter(r=>r.d.startsWith(ym))),1,' mm'));tile(T,'This year',F(sum(rows.filter(r=>r.d.startsWith(yr))),1,' mm'));tile(T,'Last 7 days',F(sum(last(7)),1,' mm'));
 const ranges=[['24h','24h'],['7d','7d'],['month','Month'],['year','Years']];
+HWS.csvButton($('tabs'),'Download CSV','hws-daily-rainfall.csv',()=>({header:['date','rain_mm'],rows:rows.map(r=>[r.d,r.v])}));
 for(const y of [...new Set([yr,...rows.map(r=>r.d.slice(0,4))])].sort().reverse()){const o=el('option','',y,$('year'));o.value=y}
 let active='24h';
 function show(k){active=k;for(const b of $('tabs').children)b.classList.toggle('on',b.dataset.range===k);$('ratecard').hidden=k==='year';

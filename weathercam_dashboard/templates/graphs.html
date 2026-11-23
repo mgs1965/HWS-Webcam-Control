@@ -41,5 +41,7 @@ document.getElementById('note').textContent=days.length+' recorded days in '+(ye
 for(const[t,u,s,d]of YEAR)grid.append(chart(period==='year'?t.replace('Daily','Monthly'):t,u,s,d,times,data,'year'));return}
 const data=G[period]||{t:[]};document.getElementById('note').textContent=period==='24h'?'Five-minute averages from the weather station.':period==='7d'?'Hourly averages (from the camera scene log).':'Current calendar month: three-hourly averages (from the camera scene log).';for(const[t,u,s,d]of CHARTS)grid.append(chart(t,u,s,d,data.t||[],data,period))}
 const tabs=document.getElementById('tabs');for(const[p,l]of PERIODS){const b=document.createElement('button');b.textContent=l;b.dataset.p=p;b.addEventListener('click',()=>{show(p);if(location.protocol!=='file:')history.replaceState(null,'','#'+p)});tabs.append(b)}
+HWS.csvButton(tabs,'Download CSV','hws-graph-data.csv',()=>{if(active==='day'||active==='year'){const days=(G.daily||[]).filter(r=>r.date.startsWith(year.value)),cols=[...new Set(days.flatMap(r=>Object.keys(r)))].filter(k=>k!=='date');return{header:['date'].concat(cols),rows:days.map(r=>[r.date].concat(cols.map(k=>r[k])))}}
+const d=G[active]||{t:[]},cols=Object.keys(d).filter(k=>k!=='t'&&Array.isArray(d[k]));return{header:['time'].concat(cols),rows:(d.t||[]).map((t,i)=>[t].concat(cols.map(k=>d[k][i])))}});
 const start=location.hash.slice(1);show(PERIODS.some(p=>p[0]===start)?start:'24h');
 </script></body></html>

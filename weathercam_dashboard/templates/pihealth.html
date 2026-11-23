@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Raspberry Pi health</title>
-<style>:root{color-scheme:dark;--bg:#071827;--card:#0e273b;--line:#2a4960;--text:#edf6ff;--muted:#a9bdce;--blue:#4ea9ff;--amber:#ffd166;--green:#4bd66a;--red:#ff6075}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 Verdana,Geneva,sans-serif}a{color:var(--blue)}.muted{color:var(--muted)}</style></head><body><div class="s-page">
+</head><body class="s-base"><div class="s-page">
 <header class="s-head"><h1>Raspberry Pi health</h1><div class="s-nav muted">__NAV__</div></header>
 <div class="s-tiles" id="tiles"></div>
 <div class="s-tabs" id="tabs"></div>
@@ -8,10 +8,8 @@
 <div class="s-card" id="fc" hidden><h2>Disk forecast</h2><p id="fct"></p></div>
 <script type="application/json" id="data">__DATA__</script>
 <script>
-const raw=document.getElementById('data').textContent.trim(),D=raw.startsWith('{')?JSON.parse(raw):{},$=id=>document.getElementById(id),has=v=>v!==null&&v!==undefined&&v!==''&&isFinite(Number(v));
-const el=(tag,cls,text,parent)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;if(parent)parent.append(e);return e};
+const {D,$,has,el,tile}=HWS.page();
 const F=(v,d,u,delta)=>HWS.fmt(v,d,u,delta),NS='http://www.w3.org/2000/svg';
-const tile=(box,k,v)=>{const t=el('div','s-tile',undefined,box);el('div','k',k,t);el('div','v',v,t)};
 
 const M=D.metrics||{},S=D.series||{},T=$('tiles');
 tile(T,'CPU temperature',F(M.cpu_temp_c,1,'°C'));tile(T,'CPU load',F(M.cpu_load_percent,0,'%'));tile(T,'Memory',F(M.memory_percent,0,'%'));tile(T,'Disk used',F(M.disk_percent,0,'%'));tile(T,'Disk free',F(M.disk_free_gb,1,' GB'));

@@ -1,6 +1,6 @@
 # Function map
 
-Current release: V55.11. The dashboard template is rendered by `weathercam_dashboard/dashboard.py` and is not deployed with its `__DATA__` placeholder intact.
+Current release: V55.12. The dashboard template is rendered by `weathercam_dashboard/dashboard.py` and is not deployed with its `__DATA__` placeholder intact.
 
 ## camera.py
 - `CameraAcquisitionError`
@@ -159,10 +159,12 @@ Current release: V55.11. The dashboard template is rendered by `weathercam_dashb
 - Reads dashboard data from the `dashboard-data` JSON block; the source template remains navigable before data injection.
 
 ## Release and package files
-- `version.py` contains the V55.11 release identity and telemetry schema version.
+- `version.py` contains the V55.12 release identity and telemetry schema version.
 - `manifest.json` records the release baseline, package filename and release file inventory.
-- `verify_v55_11.py` validates release identity, telemetry contract, dashboard structure and release guards.
+- `verify.py` validates release identity, telemetry contract, dashboard structure and release guards.
 - `test_v54_9.py` contains focused dashboard-data and runtime regression checks.
-- `install_v55_11.sh` installs the release; `rollback_v55_11.sh` restores its recorded previous target.
+- `install.sh` installs the release; `rollback.sh` restores its recorded previous target (`/etc/weathercam/rollback-target`). Both, and `verify.py`, are version-neutral.
+- `release.py` bumps, tests, builds and optionally publishes a release; `update.sh` installs the latest release on the Pi; `alerts.py` with `systemd/weathercam-alerts.*` sends health alerts.
+- `test_site_smoke.py` loads every generated page in headless Chrome and fails on JavaScript errors.
 - `build_release.py` builds `HWS-Webcam-Control-<version>.zip` (top-level directory `HWS-Webcam-Control-<version>/`) from `manifest.json`.
 - `systemd/weathercam.service` provides the camera runtime unit on clean installs; the installer leaves an existing unit untouched.

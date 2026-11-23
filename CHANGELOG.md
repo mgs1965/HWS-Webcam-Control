@@ -1,3 +1,7 @@
+#### V55.7
+- Moved the Live page last-reading line below the header, as on Home.
+- Removed the keogram image from the Home page (still on the Archive).
+
 #### V55.6
 - Fixed all pages to a common 1300px width (Mobile excluded) so the header banner is the same on every page.
 

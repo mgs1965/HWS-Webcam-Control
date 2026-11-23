@@ -13,6 +13,19 @@ const HWS={units,theme,
  fmt(v,d,unit,delta){if(!has(v))return'–';d=d||0;unit=unit||'';return Number(HWS.conv(v,unit,delta)).toFixed(HWS.digits(unit,d))+HWS.label(unit)},
  compass(deg){const N=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];return has(deg)?N[Math.round((((Number(deg)%360)+360)%360)/22.5)%16]:'–'}};
 window.HWS=HWS;
+HWS.date=function(value){const s=String(value||''),iso=/^\d{8}$/.test(s)?s.slice(0,4)+'-'+s.slice(4,6)+'-'+s.slice(6,8):s,d=new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso)?iso+'T12:00:00':iso);return Number.isFinite(d.getTime())?d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'Date unavailable'};
+HWS.stationDate=function(){const parts=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()),part=k=>parts.find(p=>p.type===k).value;return part('year')+'-'+part('month')+'-'+part('day')};
+HWS.refreshWeather=async function(current){
+ async function read(url){const r=await fetch(url+'?ts='+Date.now(),{cache:'no-store'});if(!r.ok)throw new Error(url+': HTTP '+r.status);return r.json()}
+ let next,error;
+ try{next=await read('weather-live.json');if(!next||!Number.isFinite(Date.parse(next.updated)))throw new Error('Live weather has no valid timestamp')}
+ catch(e){error=e;next=null}
+ if(!next||Date.now()-Date.parse(next.updated)>120000){
+  try{const data=await read('dashboard-data.json'),w=data.weather;if(!w||!Number.isFinite(Date.parse(w.updated)))throw new Error('Dashboard weather has no valid timestamp');if(!next||Date.parse(w.updated)>Date.parse(next.updated))next=w}
+  catch(e){if(!next)throw new Error('Weather refresh failed: '+(error?error.message+'; ':'')+e.message)}
+ }
+ return Date.parse(next.updated)>=Date.parse(current.updated||'')||!Number.isFinite(Date.parse(current.updated))?next:current;
+};
 HWS.chart=function(box,o){const S=(o.series||[]).filter(s=>s.pts&&s.pts.length),esc=t=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;');
  if(!S.length){box.insertAdjacentHTML('beforeend','<p class="muted">No data yet</p>');return}
  const w=o.w||700,h=o.h||190,L=o.L||50,R=8,T=8,B=22,pw=w-L-R,ph=h-T-B,ys=S.flatMap(s=>s.pts.map(p=>p[1])),cats=o.cats,n=cats?cats.length:0;
@@ -29,7 +42,5 @@ HWS.chart=function(box,o){const S=(o.series||[]).filter(s=>s.pts&&s.pts.length),
 function bar(){if(document.getElementById('hws-bar'))return;const b=document.createElement('div');b.id='hws-bar';
  const mk=(label,key,cur,opts)=>{const s=document.createElement('select');s.setAttribute('aria-label',label);for(const[v,t]of opts){const o=document.createElement('option');o.value=v;o.textContent=t;if(v===cur)o.selected=true;s.append(o)}s.addEventListener('change',()=>{set(key,s.value);location.reload()});b.append(s)};
  mk('Units','hws-units',units,[['uk','°C · mph'],['metric','°C · km/h'],['us','°F · inHg']]);mk('Theme','hws-theme',theme,[['green','Racing green'],['dark','Navy'],['light','Light'],['auto','Auto']]);document.body.append(b)}
-function foot(){if(document.getElementById('hws-foot'))return;const f=document.createElement('footer');f.id='hws-foot';f.style.cssText='text-align:center;padding:24px 12px 60px;opacity:.8;font-size:13px';f.innerHTML='© 2026 Mark Sanders &nbsp; <a href="mailto:info@harpendenweatherstation.co.uk">Contact Me</a>';document.body.append(f)}
-if(document.body){foot();bar()}else document.addEventListener('DOMContentLoaded',foot);
 if(document.body)bar();else document.addEventListener('DOMContentLoaded',bar);
 })();

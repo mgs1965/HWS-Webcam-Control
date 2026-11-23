@@ -2,8 +2,10 @@
 from __future__ import annotations
 import argparse,csv,ftplib,json,math,os,re,shutil,socket,tempfile
 from datetime import datetime,timedelta,timezone
+from html import escape
 from pathlib import Path
-V='54.7'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
+from zoneinfo import ZoneInfo
+V='54.8'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
 IMG=Path(os.getenv('WEATHERCAM_LATEST_IMAGE',str(ROOT/'frames/latest.jpg'))); HD=Path(os.getenv('WEATHERCAM_HEALTH_DIR',str(ROOT/'telemetry/health'))); TD=Path(os.getenv('WEATHERCAM_TELEMETRY_DIR',str(ROOT/'logs'))); LD=Path(os.getenv('WEATHERCAM_LOG_DIR',str(ROOT/'logs')))
 def envnum(name,default):
  try:
@@ -217,9 +219,11 @@ def sync_keogram():
   return None
  src=files[-1]
  try:
-  if target.exists() and target.stat().st_size==src.stat().st_size and int(target.stat().st_mtime)==int(src.stat().st_mtime):return {'filename':KEOGRAM_NAME,'date':src.stem[8:]}
+  if target.exists() and target.stat().st_size==src.stat().st_size and int(target.stat().st_mtime)==int(src.stat().st_mtime):return {'filename':KEOGRAM_NAME,'date':keogram_date(src)}
  except OSError:pass
- return {'filename':KEOGRAM_NAME,'date':src.stem[8:]} if copy(src,target) else None
+ return {'filename':KEOGRAM_NAME,'date':keogram_date(src)} if copy(src,target) else None
+def keogram_date(path):
+ return datetime.strptime(path.stem[8:],'%Y%m%d').date().isoformat()
 def seconds_since(value,now):
  stamp=dt(value);return None if stamp is None else max(0,int((now-stamp).total_seconds()))
 def publish():
@@ -291,9 +295,10 @@ def publish_with(ftp,host,user,pw,remote,desired):
   try:ftp.voidcmd('TYPE I');remote_size=ftp.size(KEOGRAM_NAME)
   except (ftplib.error_perm,ftplib.error_reply,AttributeError):remote_size=None
   if remote_size!=keogram.stat().st_size:atomic_send(keogram,KEOGRAM_NAME)
- for name in ('latest.jpg','dashboard-data.json')+tuple(h for h,_ in SITE_PAGES)+SITE_ASSETS+SITE_EXTRAS:
+ for name in ('latest.jpg','dashboard-data.json','weather-live.json')+SITE_ASSETS+SITE_EXTRAS+tuple(h for h,_ in SITE_PAGES)+tuple(SITE_DETAILS):
   local=OUT/name
   if local.is_file():atomic_send(local,name)
+ if 'data.html' in {Path(n).name for n in remote_names()}:ftp.delete('data.html')
  ftp.quit()
  return {'state':'published','gallery_files':len(desired),'obsolete_deleted':deleted,'remote_verified':True}
 
@@ -313,7 +318,7 @@ def sync_keogram_archive(limit=7):
    if src.stat().st_size>KEOGRAM_MAX_MB*1048576:continue
   except OSError:continue
   target=directory/src.name
-  if copy(src,target):wanted.add(src.name);out.append({'date':src.stem[8:],'src':'keograms/'+src.name})
+  if copy(src,target):wanted.add(src.name);out.append({'date':keogram_date(src),'src':'keograms/'+src.name})
  for old in directory.glob('keogram_*.png'):
   if old.name not in wanted:
    try:old.unlink()
@@ -322,11 +327,24 @@ def sync_keogram_archive(limit=7):
 _PARTS=Path(__file__).resolve().parent
 for _part in ('astronomy.py','analytics.py','station.py','insights.py','recommendations.py','forecast.py','extras.py'):
   exec(compile((_PARTS/_part).read_text(encoding='utf-8'),str(_PARTS/_part),'exec'),globals())
-SITE_PAGES=(('index.html','Site chooser'),('indexnew.html','Home'),('console.html','Live'),('graphs.html','Graphs'),('rainfall.html','Rainfall'),('compare.html','Compare'),('wind.html','Wind'),('forecast.html','Forecast'),('webcam.html','Webcam'),('radar.html','Radar'),('records.html','Records'),('reports.html','Reports'),('almanac.html','Almanac'),('news.html','News'),('donate.html','Donate'),('data.html','Data'),('health.html','Webcam health'),('mbhealth.html','Meteobridge'),('pihealth.html','Pi health'),('station.html','Station'),('about.html','About'),('mobile.html','Mobile'),('dashboard.html','Camera dashboard'))
-SITE_NAV=' · '.join(f'<a href="{h}">{t}</a>' for h,t in SITE_PAGES if h!='index.html')
+SITE_PAGES=(('indexnew.html','Home'),('console.html','Live'),('graphs.html','Graphs'),('rainfall.html','Rainfall'),('wind.html','Wind'),('forecast.html','Forecast'),('webcam.html','Webcam'),('radar.html','Radar'),('records.html','Records'),('compare.html','Compare'),('almanac.html','Almanac'),('reports.html','Reports'),('news.html','News'),('donate.html','Donate'),('about.html','About'),('mobile.html','Mobile'),('health.html','HWS Health'))
+SITE_DETAILS={'index.html':('Site Chooser','indexnew.html'),'station.html':('About','about.html'),'dashboard.html':('HWS Health','health.html'),'webcamhealth.html':('Webcam Health','health.html'),'mbhealth.html':('Meteobridge','health.html'),'pihealth.html':('Pi Health','health.html'),'satellite.html':('Satellite','radar.html')}
+SITE_NAV='<nav class="hws-nav" aria-label="Main menu">'+''.join(f'<a class="s-btn" href="{h}">{t}</a>' for h,t in SITE_PAGES)+'</nav>'
 SITE_EXTRAS=('share.png',)
 SITE_ASSETS=('site.css','site.js','favicon.svg','favicon.png','logo.svg','logo.png')
 SITE_HEAD='<link rel="icon" href="favicon.png" type="image/png"><link rel="apple-touch-icon" href="logo.png"><link rel="stylesheet" href="site.css"><script src="site.js"></script></head>'
+SITE_FOOT='<footer id="hws-foot"><p class="hws-disclaimer">This information is provided by a private automatic weather station.<br>Though we strive to achieve accurate reporting for our own use, it is important that you DO NOT depend on the data provided here for any purpose. If you have found this site useful please visit the <a href="donate.html">donation page</a>.</p><p>&copy; 2026 Mark Sanders &nbsp; <a href="mailto:info@harpendenweatherstation.co.uk">Contact Me</a></p></footer>'
+def site_document(name,text):
+ title,current=SITE_DETAILS.get(name,(dict(SITE_PAGES).get(name,'Home'),name))
+ title='Harpenden Weather Station - '+title
+ nav=SITE_NAV.replace(f'href="{current}"',f'href="{current}" aria-current="page"')
+ text=text.replace('__NAV__',nav).replace('</head>',SITE_HEAD,1)
+ text=re.sub(r'<title>.*?</title>','<title>'+escape(title)+'</title>',text,count=1,flags=re.S)
+ text=re.sub(r'(<h1\b[^>]*>).*?(</h1>)',lambda m:m[1]+'<img class="hws-logo" src="logo.svg" alt="">'+escape(title)+m[2],text,count=1,flags=re.S)
+ if name=='index.html':text=text.replace('</header>',nav+'</header>',1)
+ return text.replace('</body>',SITE_FOOT+'</body>',1)
+def month_start(now):
+ return now.astimezone(ZoneInfo('Europe/London')).replace(day=1,hour=0,minute=0,second=0,microsecond=0).astimezone(timezone.utc)
 def generate(upload=False):
  now=datetime.now(timezone.utc)
  status_data=status()
@@ -437,8 +455,8 @@ def generate(upload=False):
   'gain':('telemetry','analogue_gain',1),
   'capture_completeness':('reports','capture_completeness_percent',1),
  }
- for period,hours in (('24h',24),('7d',168),('30d',720)):
-  trend_cutoff=now-timedelta(hours=hours)
+ for period,hours in (('24h',24),('7d',168),('30d',720),('month',None)):
+  trend_cutoff=month_start(now) if hours is None else now-timedelta(hours=hours)
   recent_telemetry=[row for row in telemetry_rows if row.get('_ts') and row['_ts']>=trend_cutoff]
   recent_health=[row for row in health_rows if row.get('_ts') and row['_ts']>=trend_cutoff]
   recent_reports=[row for row in report_series if row['_ts']>=trend_cutoff]
@@ -477,7 +495,7 @@ def generate(upload=False):
   events_payload.append({'time':item.get('time'),'severity':item.get('level','INFO'),'message':item.get('message','Operational event')})
  wseries_all=weather_series(now)
  events_payload.extend(weather_events(wseries_all))
- scene_rows=scene_records(now,30)
+ scene_rows=scene_records(now,max(31,(now-month_start(now)).days+1))
  smart=smart_events(scene_rows,wseries_all,now)
  events_payload.extend(smart)
  daily_stats=update_daily_stats(LD/'dashboard_daily_stats.json',telemetry_rows,scene_rows,report_rows,now)
@@ -525,10 +543,10 @@ def generate(upload=False):
  winsight=weather_insight(weather,scene)+frost_notes(weather)+record_notes(weather,whistory)+([sc['note']] if sc and sc.get('note') and sc.get('verdict')!='AGREE' else [])
  schedule=mode_schedule(now)
  safe_config={
-  'release':'V54.7','telemetry_schema':4,'dashboard_refresh_minutes':5,'console_poll_seconds':30,
+  'release':'V54.8','telemetry_schema':4,'dashboard_refresh_minutes':5,'console_poll_seconds':30,
   'capture_interval_seconds':10,'ftp_configured':bool(os.getenv('DASHBOARD_FTP_HOST')),
   'ftp_tls':os.getenv('DASHBOARD_FTP_TLS','0')!='0',
-  'thresholds':TH,'stale_after_minutes':TH['dashboard_stale_minutes'],
+  'thresholds':TH,'stale_after_minutes':TH['dashboard_stale_minutes'],'month_start':month_start(now).isoformat(),
  }
  payload={
   'version':V,'generated':now.isoformat(),'capture_time':capture_text,
@@ -544,12 +562,14 @@ def generate(upload=False):
   'config':safe_config,
  }
  template=(Path(__file__).resolve().parent/'templates/dashboard.html').read_text()
+ payload['meteobridge_health']=meteobridge_health(now,weather,station,graphs.get('daily') or [],weather_archive())
  if template.count('__DATA__') != 1:raise RuntimeError('Dashboard template must contain exactly one data placeholder')
- template=template.replace('__NAV__',SITE_NAV).replace('</head>',SITE_HEAD,1)
+ template=site_document('dashboard.html',template)
  template=template.replace('__DATA__',json.dumps(payload,separators=(',',':')).replace('</','<\\/'),1)
  atomic(OUT/'dashboard.html',template)
+ atomic(OUT/'health.html',template)
  def page(name,data,out=None):
-  text=(Path(__file__).resolve().parent/'templates'/name).read_text().replace('__NAV__',SITE_NAV).replace('</head>',SITE_HEAD,1)
+  text=site_document(out or name,(Path(__file__).resolve().parent/'templates'/name).read_text())
   atomic(OUT/(out or name),text.replace('__DATA__',json.dumps(data,separators=(',',':')).replace('</','<\\/'),1))
  for asset in SITE_ASSETS:
   src=Path(__file__).resolve().parent/'templates'/asset;dest=OUT/asset;dest.parent.mkdir(parents=True,exist_ok=True)
@@ -571,8 +591,9 @@ def generate(upload=False):
  page('indexnew.html',{'alert_limits':limits,'today':today,'news':news[:3],'media_base':media,'keogram':payload.get('keogram'),'weather':weather,'forecast':forecast,'sun_moon':payload['sun_moon'],'weather_series':wseries,'site':site,'state':state,'capture_time':capture_text,'insights':winsight[:3]})
  page('webcam.html',{k:payload.get(k) for k in ('timelapse_library','keogram','keogram_archive','gallery','state','capture_time','mode')}|{'media_base':media})
  page('radar.html',{'site':site})
+ page('satellite.html',{'site':site,'satellite':True})
  page('compare.html',{'daily':daily})
- page('rainfall.html',{'graphs':{k:graphs.get(k) for k in ('24h','7d','daily')},'generated':now.isoformat()})
+ page('rainfall.html',{'graphs':{k:graphs.get(k) for k in ('24h','7d','month','daily')},'generated':now.isoformat()})
  page('wind.html',{'rose':rose,'weather':weather,'generated':now.isoformat()})
  page('news.html',{'news':news})
  page('donate.html',{'paypal_button':os.environ.get('DASHBOARD_PAYPAL_BUTTON_ID','EX92D2ZBL7V3Y')})
@@ -581,12 +602,28 @@ def generate(upload=False):
  page('records.html',{'legacy':LEGACY_RECORDS,'records':records_data(daily,now),'year_records':(whistory or {}).get('year_records')})
  page('reports.html',{'daily':daily})
  page('almanac.html',{'sun_moon':payload['sun_moon'],'almanac':almanac_data(now),'weather':weather,'scene':scene})
- page('data.html',{'weather':weather})
- page('health.html',{k:payload.get(k) for k in ('station_status','state','reasons','metrics','mode','capture_time','counts','generated','hostname','version')}|{'weather':weather})
+ page('health.html',{k:payload.get(k) for k in ('station_status','state','reasons','metrics','mode','capture_time','counts','generated','hostname','version')}|{'weather':weather},'webcamhealth.html')
+ (OUT/'data.html').unlink(missing_ok=True)
  if os.environ.get('DASHBOARD_WRITE_REDIRECTS','').lower() in ('1','true','yes','on'):atomic(OUT/'redirects.htaccess',redirects_htaccess())
  atomic(OUT/'dashboard-data.json',json.dumps(payload,indent=2))
+ atomic(OUT/'weather-live.json',json.dumps(weather or {},separators=(',',':')))
  result=publish() if upload else 'generated'
  print(json.dumps({'result':result,'state':state,'mode':mode,'capture_age_seconds':capture_age,'health_records':len(health_rows),'telemetry_records':len(telemetry_rows)}))
 def main():
- p=argparse.ArgumentParser();p.add_argument('--upload',action='store_true');p.add_argument('--version',action='version',version=V);a=p.parse_args();generate(a.upload)
+ p=argparse.ArgumentParser()
+ p.add_argument('--upload',action='store_true')
+ p.add_argument('--version',action='version',version=V)
+ p.add_argument('--add-news',metavar='TITLE',help='save a news entry locally before generating the site')
+ body=p.add_mutually_exclusive_group()
+ body.add_argument('--news-text',metavar='TEXT')
+ body.add_argument('--news-file',type=Path,help='UTF-8 text file containing the news entry')
+ p.add_argument('--news-date',help='entry date in YYYY-MM-DD format (default today)')
+ a=p.parse_args()
+ if a.add_news:
+  if not (a.news_text or a.news_file):p.error('--add-news requires --news-text or --news-file')
+  if a.upload and not all(os.getenv(k) for k in ('DASHBOARD_FTP_HOST','DASHBOARD_FTP_USER','DASHBOARD_FTP_PASSWORD')):p.error('set DASHBOARD_FTP_HOST, DASHBOARD_FTP_USER and DASHBOARD_FTP_PASSWORD before uploading news')
+  try:add_news(a.add_news,a.news_file.read_text(encoding='utf-8') if a.news_file else a.news_text,a.news_date)
+  except (OSError,ValueError) as exc:p.error(str(exc))
+ elif a.news_text or a.news_file or a.news_date:p.error('news options require --add-news')
+ generate(a.upload)
 if __name__=='__main__':main()

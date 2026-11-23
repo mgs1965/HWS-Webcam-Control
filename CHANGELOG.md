@@ -1,3 +1,11 @@
+#### V54.8
+
+- Shared logo/title, ordered button navigation with current-page highlight, and station disclaimer on every page. About includes Station; Data and Home's More tile are removed.
+- HWS Health uses the camera dashboard layout with Meteobridge checks and links to detailed health pages. Satellite imagery is accessible from Radar.
+- Fixed compact keogram dates and live refresh fallback; dashboard publications also include a live weather snapshot.
+- Calendar-month filters, selectable rainfall/graph years, expanded Compare charts and wider Records cards.
+- Add and publish news locally using `dashboard.py --add-news TITLE --news-text TEXT --upload`; entries persist in the logs directory.
+
 #### V54.7
 
 - Meteobridge data: backfill and daily recording now include average temperature, humidity high/low, dew point high/low, average pressure, average wind, wind chill low, heat index high, peak solar and UV, sunshine hours, peak rain rate, max pressure and gust. Re-run `--backfill` after installing.

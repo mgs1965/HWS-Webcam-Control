@@ -18,7 +18,7 @@ def weather_series(now,hours=24):
   try:t=datetime.fromisoformat(str(r.get('t')))
   except (ValueError,TypeError,AttributeError):continue
   if t.tzinfo is None:t=t.replace(tzinfo=now.tzinfo)
-  if cutoff<=t<=now:out.append({'t':t.isoformat(),**{k:num(r.get(k)) for k in ('temperature_c','humidity_percent','pressure_hpa','wind_speed_mph','wind_gust_mph','wind_direction_deg','dew_point_c','rain_today_mm','lightning_strikes_today','lightning_distance','solar_radiation_wm2','uv_index')}})
+  if cutoff<=t<=now:out.append({'t':t.isoformat(),**{k:num(r.get(k)) for k in ('temperature_c','humidity_percent','pressure_hpa','wind_speed_mph','wind_gust_mph','wind_direction_deg','dew_point_c','rain_rate_mm_h','rain_today_mm','lightning_strikes_today','lightning_distance','solar_radiation_wm2','uv_index')}})
  return out
 def solar_check(weather,scene,now):
  w=weather or {};s=scene or {};solar=num(w.get('solar_radiation_wm2'))

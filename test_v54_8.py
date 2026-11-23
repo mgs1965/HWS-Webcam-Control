@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parent
 def test_release_identity():
     namespace = {}
     exec((ROOT / 'version.py').read_text(encoding='utf-8'), namespace)
-    assert namespace['VERSION'] == 'V54.7'
+    assert namespace['VERSION'] == 'V54.8'
     assert namespace['TELEMETRY_SCHEMA_VERSION'] == 4
 
 def test_telemetry_schema():
@@ -32,12 +32,12 @@ def test_credentials_are_not_embedded():
     assert "FTP_PASSWORD = os.getenv('HWS_FTP_PASSWORD', '')" in core
     assert 'cGnRUCGhc' not in core
 
-def test_dashboard_v54_7_payload():
+def test_dashboard_v54_8_payload():
     dashboard = (ROOT / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
     template = (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
-    assert "V='54.7'" in dashboard
-    assert "'release':'V54.7'" in dashboard
-    assert "for period,hours in (('24h',24),('7d',168),('30d',720))" in dashboard
+    assert "V='54.8'" in dashboard
+    assert "'release':'V54.8'" in dashboard
+    assert "('month',None)" in dashboard
     assert 'incidents' in dashboard
     assert "'process_memory':('health','memory.process_rss_bytes',1/1048576)" in dashboard
     assert 'V49.11.2' not in template
@@ -46,7 +46,7 @@ def test_dashboard_v54_7_payload():
         assert f'id="{view}"' in template
     assert 'Diagnostics</button>' not in template
     assert 'data-view="controller"' not in template
-    for period in ('24h', '7d', '30d'):
+    for period in ('24h', '7d', 'month'):
         assert f'data-period="{period}"' in template
     assert 'id="processMemoryChart"' in template
     assert 'id="trendCharts"' in template
@@ -65,8 +65,8 @@ def test_dashboard_v54_7_payload():
     assert template.index('id="view-live"') < template.index('<div class="page">')
     assert "document.querySelectorAll('.view-select')" in template
     assert 'Last 24 hours' in template
-    assert 'Last 7 days' in template
-    assert 'Last 30 days' in template
+    assert 'Last 7 Days' in template
+    assert 'This Calendar Month' in template
     assert 'Recent events' in template
     assert 'Raspberry Pi status' in template
     assert 'id="piStats"' in template
@@ -232,7 +232,7 @@ def test_controller_configuration_fingerprint_tracks_real_limits():
 
 def test_camera_service_unit_and_install_preserve_existing_unit():
     service = (ROOT / 'systemd/weathercam.service').read_text(encoding='utf-8')
-    installer = (ROOT / 'install_v54_7.sh').read_text(encoding='utf-8')
+    installer = (ROOT / 'install_v54_8.sh').read_text(encoding='utf-8')
     assert 'EnvironmentFile=/etc/weathercam/dashboard.env' in service
     assert 'Restart=on-failure' in service
     assert 'TimeoutStopSec=240' in service
@@ -571,9 +571,9 @@ def test_release_zip_extracts_to_matching_directory(tmp_path):
     manifest = json.loads((ROOT / 'manifest.json').read_text(encoding='utf-8'))
     with zipfile.ZipFile(tmp_path / manifest['package']) as archive:
         names = archive.namelist()
-    assert manifest['package'] == 'HWS-Webcam-Control-54.7.zip'
-    assert all(name.startswith('HWS-Webcam-Control-54.7/') for name in names)
-    assert 'HWS-Webcam-Control-54.7/manifest.json' in names
+    assert manifest['package'] == 'HWS-Webcam-Control-54.8.zip'
+    assert all(name.startswith('HWS-Webcam-Control-54.8/') for name in names)
+    assert 'HWS-Webcam-Control-54.8/manifest.json' in names
 
 def _load_dashboard(tmp_path, monkeypatch):
     monkeypatch.setenv('WEATHERCAM_ROOT', str(tmp_path))
@@ -603,7 +603,7 @@ def test_dashboard_moon_and_disk_forecast(tmp_path, monkeypatch):
     assert forecast['percent_per_day'] > 0 and forecast['days_to_full'] > 0
     assert dash.disk_forecast(rows[:5], now) is None
 
-def test_dashboard_v54_7_template_and_event_tag():
+def test_dashboard_v54_8_template_and_event_tag():
     dashboard = (ROOT / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
     template = (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
     assert '[MODE TRANSITION]' in dashboard and '[MODE CHANGE]' not in dashboard
@@ -755,7 +755,7 @@ def test_console_page_is_generated(tmp_path, monkeypatch):
     monkeypatch.setattr(dash, 'OUT', tmp_path / 'out')
     dash.generate(False)
     page = (tmp_path / 'out' / 'console.html').read_text()
-    assert 'Wind compass' in page and '__DATA__' not in page and 'weather-live.json' in page
+    assert 'Wind compass' in page and '__DATA__' not in page and 'HWS.refreshWeather' in page
 
 
 def test_graph_data_buckets_and_pages(tmp_path, monkeypatch):
@@ -816,18 +816,138 @@ def test_daily_rainfall_total_reaches_graph_data(tmp_path):
     graphs = dash.graph_data(now, [], [], {'2026-11-19': {'rain_mm': 5.75}}, {'daily': [{'date': '2026-11-18', 'rain_mm': 2.0}]})
     assert [d['rain_mm'] for d in graphs['daily']] == [2.0, 5.75]
 
+def test_shared_site_layout_keogram_and_live_snapshot(tmp_path, monkeypatch):
+    import re
+    dash = _dash(tmp_path)
+    monkeypatch.setattr(dash, 'OUT', tmp_path / 'out')
+    monkeypatch.setattr(dash, 'ROOT', tmp_path)
+    dash.OUT.mkdir()
+    (dash.OUT / 'data.html').write_text('Retired page')
+    (tmp_path / 'keogram').mkdir()
+    (tmp_path / 'keogram' / 'keogram_20261122.png').write_bytes(b'keogram')
+    weather = {'updated': datetime.now(timezone.utc).isoformat(), 'temperature_c': 8.5}
+    (tmp_path / 'weather_station.json').write_text(json.dumps(weather))
+    dash.generate(False)
+    assert dash.sync_keogram()['date'] == '2026-11-22'
+    assert dash.sync_keogram_archive()[0]['date'] == '2026-11-22'
+    for name, label in dash.SITE_PAGES:
+        page = (dash.OUT / name).read_text()
+        nav = re.search(r'<nav class="hws-nav".*?</nav>', page).group()
+        assert nav.replace(' aria-current="page"', '') == dash.SITE_NAV
+        assert f'href="{name}" aria-current="page"' in nav
+        assert f'<title>Harpenden Weather Station - {label}</title>' in page
+        assert 'class="hws-logo"' in page and page.count('id="hws-foot"') == 1
+        assert page.index('private automatic weather station') < page.index('&copy; 2026')
+        assert '<a href="donate.html">donation page</a>' in page
+    assert not (dash.OUT / 'data.html').exists()
+    assert '<h2>More</h2>' not in (dash.OUT / 'indexnew.html').read_text()
+    assert 'function station()' in (dash.OUT / 'about.html').read_text()
+    health = (dash.OUT / 'health.html').read_text()
+    assert 'id="piStats"' in health and 'id="bridgeChecks"' in health
+    assert 'href="webcamhealth.html"' in health and 'href="mbhealth.html"' in health
+    assert json.loads((dash.OUT / 'weather-live.json').read_text())['temperature_c'] == 8.5
+
+def test_publication_removes_only_retired_data_page(tmp_path):
+    dash = _dash(tmp_path)
+    dash.OUT = tmp_path
+    class FTP:
+        directory = '/'
+        deleted = []
+        def connect(self, *args, **kwargs): pass
+        def login(self, *args): pass
+        def cwd(self, directory): self.directory = directory
+        def mkd(self, directory): pass
+        def nlst(self): return ['data.html', 'unrelated.html'] if self.directory == '/' else []
+        def delete(self, name): self.deleted.append(name)
+        def quit(self): pass
+    ftp = FTP()
+    assert dash.publish_with(ftp, 'host', 'user', 'password', '/', set())['remote_verified']
+    assert ftp.deleted == ['data.html']
+
+
+def test_calendar_month_filters_include_31st_and_exclude_previous_month(tmp_path):
+    dash = _dash(tmp_path)
+    now = datetime(2026, 7, 31, 12, tzinfo=timezone.utc)
+    start = dash.month_start(now)
+    assert start == datetime(2026, 6, 30, 23, tzinfo=timezone.utc)
+    scene = [{'t': start + timedelta(minutes=i), 'temperature_c': 7.0,
+              'wind_direction_deg': 90, 'wind_speed_mph': 8.0} for i in range(6)]
+    scene.insert(0, {'t': start - timedelta(seconds=1), 'temperature_c': 99.0,
+                     'wind_direction_deg': 180, 'wind_speed_mph': 25.0})
+    graph = dash.graph_data(now, [], scene, {})['month']
+    assert graph['temperature_c'] == [7.0]
+    rose = dash.wind_rose_periods(now, [], scene)['month']
+    assert rose['samples'] == 6
+    assert rose['percent'][4][1] == 100
+    feb = datetime(2026, 2, 1, tzinfo=timezone.utc)
+    assert dash.graph_data(feb, [], scene, {})['month']['t'] == []
+    october = datetime(2026, 10, 31, 23, 30, tzinfo=timezone.utc)
+    start = dash.month_start(october)
+    assert october - start > timedelta(days=31)
+    first = [{'t': start, 'temperature_c': 6.0}]
+    assert dash.graph_data(october, [], first, {})['month']['temperature_c'] == [6.0]
+
+
+def test_news_command_persists_and_renders_and_rejects_bad_input(tmp_path, monkeypatch):
+    import pytest
+    dash = _dash(tmp_path)
+    monkeypatch.setattr(dash, 'OUT', tmp_path / 'out')
+    dash.add_news('Station Update', 'Serviced.\nNew sensors.', '2026-11-23')
+    stored = json.loads((tmp_path / 'dashboard_news.json').read_text())
+    assert stored[0]['text'] == 'Serviced.\nNew sensors.'
+    dash.generate(False)
+    assert 'Station Update' in (dash.OUT / 'news.html').read_text()
+    assert 'Station Update' in (dash.OUT / 'indexnew.html').read_text()
+    with pytest.raises(ValueError, match='already exists'):
+        dash.add_news('Station Update', 'Duplicate', '2026-11-23')
+    with pytest.raises(ValueError):
+        dash.add_news('Invalid Date', 'Text', '2026-02-30')
+    assert len(dash.local_news()) == 1
+    (tmp_path / 'dashboard_news.json').write_text('{broken')
+    with pytest.raises(ValueError):
+        dash.add_news('New Entry', 'Do not overwrite corrupt history')
+
+
+def test_browser_weather_refresh_fallback_and_monotonic_dates():
+    import shutil
+    import pytest
+    if not shutil.which('node'):
+        pytest.skip('Node is required for the browser helper regression')
+    script = r"""
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const context={console,Date,Intl,Number,Error,localStorage:{getItem(){return null}},
+ document:{documentElement:{dataset:{}},addEventListener(){}},window:{},fetch:null};
+vm.createContext(context);vm.runInContext(fs.readFileSync(process.argv[1],'utf8'),context);
+const H=context.window.HWS;
+assert.equal(H.date('20261122'),'22 Nov 2026');
+assert.equal(H.date('2026-11-22'),'22 Nov 2026');
+assert.equal(H.date('broken'),'Date unavailable');
+(async()=>{
+ const old={updated:'2026-01-01T00:00:00Z',temperature_c:1},fresh={updated:new Date().toISOString(),temperature_c:9};
+ const calls=[];
+ context.fetch=async(url,opts)=>{calls.push(url);assert.equal(opts.cache,'no-store');return {ok:!url.startsWith('weather-live'),status:404,json:async()=>({weather:fresh})}};
+ assert.equal((await H.refreshWeather(old)).temperature_c,9);
+ assert.equal(calls.length,2);
+ context.fetch=async()=>({ok:true,json:async()=>old});
+ assert.equal((await H.refreshWeather(fresh)).temperature_c,9);
+ context.fetch=async()=>({ok:false,status:503});
+ await assert.rejects(()=>H.refreshWeather(old),/Weather refresh failed/);
+})().catch(e=>{console.error(e);process.exitCode=1});
+"""
+    subprocess.run(['node', '-e', script, str(ROOT / 'weathercam_dashboard/templates/site.js')], check=True)
+
 
 def test_site_pages_assets_records_and_almanac(tmp_path, monkeypatch):
     dash = _dash(tmp_path)
     monkeypatch.setattr(dash, 'OUT', tmp_path / 'out')
     dash.generate(False)
     out = tmp_path / 'out'
-    for name in ('index.html', 'indexnew.html', 'webcam.html', 'radar.html', 'records.html', 'reports.html', 'almanac.html', 'data.html', 'health.html', 'rainfall.html', 'donate.html', 'compare.html', 'wind.html', 'news.html', 'mbhealth.html', 'pihealth.html'):
+    for name in ('index.html', 'indexnew.html', 'webcam.html', 'radar.html', 'satellite.html', 'records.html', 'reports.html', 'almanac.html', 'health.html', 'webcamhealth.html', 'rainfall.html', 'donate.html', 'compare.html', 'wind.html', 'news.html', 'mbhealth.html', 'pihealth.html'):
         page = (out / name).read_text()
         assert '__DATA__' not in page and '__NAV__' not in page and 'site.js' in page and ('reports.html' in page or name == 'index.html')
     chooser = (out / 'index.html').read_text()
     assert 'indexold.php' in chooser and 'indexnew.html' in chooser and 'mailto:info@harpendenweatherstation.co.uk' in chooser
-    assert '© 2026 Mark Sanders' in (out / 'site.js').read_text()
+    assert '&copy; 2026 Mark Sanders' in chooser
     assert 'site.js' in (out / 'dashboard.html').read_text()
     assert (out / 'site.css').is_file() and (out / 'favicon.png').is_file() and (out / 'logo.png').is_file()
     assert not (out / 'redirects.htaccess').exists()
@@ -895,7 +1015,7 @@ def test_sun_highlight_frame_selection():
     assert len(namespace['select_highlight_frames'](frames, datetime(2026, 11, 22, 8, 0), 120, limit=50)) == 50
 
 
-def test_v54_7_alerts_and_share_card(tmp_path, monkeypatch):
+def test_v54_8_alerts_and_share_card(tmp_path, monkeypatch):
     dash = _dash(tmp_path)
     now = datetime(2026, 11, 22, 12, 0, tzinfo=timezone.utc)
     alerts = dash.weather_alerts({'temperature_c': -1.0, 'wind_gust_mph': 45, 'rain_rate_mm_h': 2})

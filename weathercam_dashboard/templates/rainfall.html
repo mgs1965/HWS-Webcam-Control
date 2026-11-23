@@ -3,8 +3,9 @@
 <style>:root{color-scheme:dark;--bg:#071827;--card:#0e273b;--line:#2a4960;--text:#edf6ff;--muted:#a9bdce;--blue:#4ea9ff;--amber:#ffd166;--green:#4bd66a;--red:#ff6075}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,"Segoe UI",sans-serif}a{color:var(--blue)}.muted{color:var(--muted)}</style></head><body><div class="s-page">
 <header class="s-head"><h1>Rainfall</h1><div class="s-nav muted">__NAV__</div></header>
 <div class="s-tiles" id="tiles"></div>
-<div class="s-card"><h2>Rain rate, last 24 hours</h2><div id="rate"></div></div>
-<div class="s-card"><h2>Daily rainfall, last 90 days</h2><div id="d90"></div></div>
+<div class="s-tabs" id="tabs"></div><select class="s-btn" id="year" aria-label="Year" hidden></select>
+<div class="s-card" id="ratecard"><h2 id="ratetitle">Rain Rate</h2><div id="rate"></div></div>
+<div class="s-card"><h2 id="dtitle">Daily Rainfall</h2><div id="d90"></div></div>
 <div class="s-card"><h2>Monthly totals</h2><div id="months"></div></div>
 <div class="s-card"><h2>Cumulative rainfall by year</h2><div id="cum"></div></div>
 <div class="s-card"><h2>Year by year</h2><table class="s-table" id="years"></table></div>
@@ -18,12 +19,21 @@ const tile=(box,k,v)=>{const t=el('div','s-tile',undefined,box);el('div','k',k,t
 function bars(box,rows,color,unit,dig,name){HWS.chart(box,{bars:true,cats:rows.map(r=>r[0]),series:[{name,color,pts:rows.map((r,i)=>[i,r[1]])}],unit,dig})}
 
 const G=D.graphs||{},rows=(G.daily||[]).filter(r=>has(r.rain_mm)).map(r=>({d:r.date,v:Number(r.rain_mm)}));
-const T=$('tiles'),now=new Date(),yr=String(now.getFullYear()),ym=yr+'-'+String(now.getMonth()+1).padStart(2,'0');
+const T=$('tiles'),today=HWS.stationDate(),yr=today.slice(0,4),ym=today.slice(0,7);
 const sum=a=>a.reduce((s,r)=>s+r.v,0),last=n=>rows.filter(r=>Date.parse(r.d)>Date.now()-n*864e5);
-tile(T,'This month',F(sum(rows.filter(r=>r.d.startsWith(ym))),1,' mm'));tile(T,'This year',F(sum(rows.filter(r=>r.d.startsWith(yr))),1,' mm'));tile(T,'Last 7 days',F(sum(last(7)),1,' mm'));tile(T,'Last 30 days',F(sum(last(30)),1,' mm'));
-const g24=G['24h']||{},rr=g24.rain_rate_mm_h||[],rate=(g24.t||[]).map((t,i)=>[new Date(t).getHours()+':00',rr[i]]).filter(p=>has(p[1]));
-const hr={};for(const[l,v]of rate)hr[l]=Math.max(hr[l]||0,v);bars($('rate'),Object.entries(hr),'#4ea9ff',' mm/h',1,'Peak rain rate per hour');
-bars($('d90'),last(90).map(r=>[r.d.slice(5),r.v]),'#4ea9ff',' mm',1,'Daily rainfall');
+tile(T,'This month',F(sum(rows.filter(r=>r.d.startsWith(ym))),1,' mm'));tile(T,'This year',F(sum(rows.filter(r=>r.d.startsWith(yr))),1,' mm'));tile(T,'Last 7 days',F(sum(last(7)),1,' mm'));
+const ranges=[['24h','24h'],['7d','7d'],['month','Month'],['year','Years']];
+for(const y of [...new Set(rows.map(r=>r.d.slice(0,4)))].sort().reverse()){const o=el('option','',y,$('year'));o.value=y}
+function show(k){for(const b of $('tabs').children)b.classList.toggle('on',b.dataset.range===k);$('year').hidden=k!=='year';$('ratecard').hidden=k==='year';
+ const label=ranges.find(r=>r[0]===k)[1];$('ratetitle').textContent='Rain Rate - '+label;$('dtitle').textContent=k==='24h'?'Rain Today - Last 24 Hours':'Daily Rainfall - '+(k==='year'?$('year').value:label);
+ $('rate').textContent='';const g=G[k]||{},pts=(g.t||[]).map((t,i)=>[Date.parse(t),(g.rain_rate_mm_h||[])[i]]).filter(p=>has(p[1]));
+ if(k!=='year')HWS.chart($('rate'),{series:[{name:'Peak rain rate',color:'#4ea9ff',pts}],unit:' mm/h',dig:1,zero:true,xfmt:t=>new Date(t).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})});
+ const selected=k==='month'?rows.filter(r=>r.d.startsWith(ym)):k==='year'?rows.filter(r=>r.d.startsWith($('year').value)):last(k==='7d'?7:1);
+ $('d90').textContent='';
+ if(k==='24h')HWS.chart($('d90'),{series:[{name:'Rain today (resets at midnight)',color:'#4ea9ff',pts:(g.t||[]).map((t,i)=>[Date.parse(t),(g.rain_today_mm||[])[i]]).filter(p=>has(p[1]))}],unit:' mm',dig:1,zero:true,xfmt:t=>new Date(t).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})});
+ else bars($('d90'),selected.map(r=>[r.d,r.v]),'#4ea9ff',' mm',1,'Daily rainfall')}
+for(const[k,l]of ranges){const b=el('button','',l,$('tabs'));b.dataset.range=k;b.onclick=()=>show(k)}
+$('year').onchange=()=>show('year');show('24h');
 const mon={};rows.forEach(r=>{const m=r.d.slice(0,7);mon[m]=(mon[m]||0)+r.v});bars($('months'),Object.entries(mon).slice(-36).map(([m,v])=>[m.slice(2),v]),'#4bd66a',' mm',1,'Monthly total');
 const by={};rows.forEach(r=>{const y=r.d.slice(0,4);(by[y]=by[y]||[]).push(r)});
 const cols=['#4ea9ff','#ffd166','#4bd66a','#ff6075','#c792ea','#a9bdce'],ys=Object.keys(by).sort().slice(-5);

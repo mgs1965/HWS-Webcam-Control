@@ -4,8 +4,7 @@
 <header class="s-head"><h1>Compare periods</h1><div class="s-nav muted">__NAV__</div></header>
 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><select id="a" class="s-btn" aria-label="Period A"></select><span class="muted" style="align-self:center">against</span><select id="b" class="s-btn" aria-label="Period B"></select></div>
 <div class="s-card"><h2>Summary</h2><table class="s-table" id="sum"></table></div>
-<div class="s-card"><h2>Daily high temperature (°C)</h2><div id="ct"></div></div>
-<div class="s-card"><h2>Cumulative rainfall (mm)</h2><div id="cr"></div></div>
+<div class="s-grid" id="charts"></div>
 <script type="application/json" id="data">__DATA__</script>
 <script>
 const raw=document.getElementById('data').textContent.trim(),D=raw.startsWith('{')?JSON.parse(raw):{},$=id=>document.getElementById(id),has=v=>v!==null&&v!==undefined&&v!==''&&isFinite(Number(v));
@@ -13,13 +12,15 @@ const el=(tag,cls,text,parent)=>{const e=document.createElement(tag);if(cls)e.cl
 const F=(v,d,u,delta)=>HWS.fmt(v,d,u,delta),rows=(D.daily||[]).filter(r=>r.date),COL=['#ffd166','#4ea9ff'];
 const periods=[...new Set(rows.flatMap(r=>[r.date.slice(0,4),r.date.slice(0,7)]))].sort().reverse();
 for(const id of['a','b'])for(const p of periods){const o=el('option','',p.length===4?p+' (whole year)':p,$(id));o.value=p}
-const cur=new Date().toISOString().slice(0,7),prev=(+cur.slice(0,4)-1)+cur.slice(4);$('a').value=periods.includes(cur)?cur:periods[0];$('b').value=periods.includes(prev)?prev:(periods[1]||periods[0]);
+const cur=HWS.stationDate().slice(0,7),prev=(+cur.slice(0,4)-1)+cur.slice(4);$('a').value=periods.includes(cur)?cur:periods[0];$('b').value=periods.includes(prev)?prev:(periods[1]||periods[0]);
 const pick=p=>rows.filter(r=>r.date.startsWith(p)).sort((x,y)=>x.date<y.date?-1:1),idx=(r,p)=>p.length===4?Math.floor((Date.parse(r.date)-Date.parse(p+'-01-01'))/864e5):+r.date.slice(8,10)-1;
 function lines(box,sets,fn,unit,dig){box.textContent='';const yr=sets.some(s=>s.len===366);HWS.chart(box,{series:sets.map((st,i)=>({name:st.name,color:COL[i],pts:st.pts})),unit,dig,zero:fn==='sum',xfmt:x=>yr?new Date(2001,0,1+Math.round(x)).toLocaleDateString([],{month:'short'}):'Day '+(Math.round(x)+1)})}
 const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
 function draw(){const P=[$('a').value,$('b').value],S=P.map(pick);
- lines($('ct'),S.map((d,i)=>({name:P[i],len:P[i].length===4?366:31,pts:d.filter(r=>has(r.temp_max_c)).map(r=>[idx(r,P[i]),+r.temp_max_c])})),'avg','°C',1);
- lines($('cr'),S.map((d,i)=>{let c=0;return{name:P[i],len:P[i].length===4?366:31,pts:d.filter(r=>has(r.rain_mm)).map(r=>{c+=+r.rain_mm;return[idx(r,P[i]),c]})}}),'sum',' mm',0);
+ $('charts').textContent='';
+ const specs=[['Daily High Temperature','temp_max_c','°C',1],['Daily Low Temperature','temp_min_c','°C',1],['Daily Average Temperature','temp_avg_c','°C',1],['Daily Rainfall','rain_mm',' mm',1],['Cumulative Rainfall','rain_mm',' mm',1,'sum'],['Peak Rain Rate','rain_max_mm_h',' mm/h',1],['Average Humidity','humidity_avg','%',0],['High Humidity','humidity_max','%',0],['Low Humidity','humidity_min','%',0],['Average Pressure','pressure_avg_hpa',' hPa',1],['High Pressure','pressure_max_hpa',' hPa',1],['Low Pressure','pressure_min_hpa',' hPa',1],['Maximum Gust','wind_gust_mph',' mph',0],['Average Wind','wind_avg_mph',' mph',0],['High Dew Point','dew_max_c','°C',1],['Low Dew Point','dew_min_c','°C',1],['Low Wind Chill','wind_chill_min_c','°C',1],['High Heat Index','heat_index_max_c','°C',1],['Sunshine','sunshine_hours',' h',1],['Peak Solar Radiation','solar_max_wm2',' W/m²',0],['Peak UV Index','uv_max','',1]];
+ for(const[label,key,unit,dig,mode]of specs){const card=el('section','s-card',undefined,$('charts'));el('h2','',label+(unit?' ('+HWS.label(unit).trim()+')':''),card);const box=el('div','',undefined,card);
+  lines(box,S.map((d,i)=>{let total=0;return{name:P[i],len:P[i].length===4?366:31,pts:d.filter(r=>has(r[key])).map(r=>{total+=Number(r[key]);return[idx(r,P[i]),mode==='sum'?total:Number(r[key])]})}}),mode,unit,dig)}
  const t=$('sum');t.textContent='';const h=t.insertRow();el('th','','',h);P.forEach(p=>el('th','',p,h));
  const add=(l,f)=>{const r=t.insertRow();r.insertCell().textContent=l;S.forEach(d=>r.insertCell().textContent=f(d))};
  add('Days with data',d=>d.length);add('Average high',d=>F(avg(d.filter(r=>has(r.temp_max_c)).map(r=>+r.temp_max_c)),1,'°C'));add('Average low',d=>F(avg(d.filter(r=>has(r.temp_min_c)).map(r=>+r.temp_min_c)),1,'°C'));

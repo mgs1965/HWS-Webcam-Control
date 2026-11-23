@@ -14,14 +14,14 @@ const tile=(box,k,v)=>{const t=el('div','s-tile',undefined,box);el('div','k',k,t
 
 const W=D.weather||{},R=D.rose||{},T=$('tiles'),COL=['#4ea9ff','#4bd66a','#ffd166','#ff6075'],LAB=['0.5–5','5–10','10–20','20+'];
 tile(T,'Wind',F(W.wind_speed_mph,0,' mph')+' '+HWS.compass(W.wind_direction_deg));tile(T,'Gust',F(W.wind_gust_mph,0,' mph'));
-function draw(k){const r=R[k],b=$('rose');b.textContent='';$('rt').textContent='Wind rose, '+({'24h':'last 24 hours','7d':'last 7 days','30d':'last 30 days'}[k]);
- if(!r){b.textContent='Not enough wind samples yet. The 7 and 30 day roses build up as the camera records wind direction.';$('rn').textContent='';return}
+function draw(k){const r=R[k],b=$('rose');b.textContent='';for(const t of $('tabs').children)t.classList.toggle('on',t.dataset.range===k);$('rt').textContent='Wind rose, '+({'24h':'last 24 hours','7d':'last 7 days','month':'this calendar month'}[k]);
+ if(!r){b.textContent='Not enough wind samples yet. The week and month roses build up as the camera records wind direction.';$('rn').textContent='';$('key').textContent='';return}
  const c=150,max=Math.max(...r.percent.map(x=>x.reduce((a,v)=>a+v,0)),1),sc=120/max;let s='<svg viewBox="0 0 300 300" style="width:100%">';
  for(const f of[.5,1]){s+='<circle cx="150" cy="150" r="'+(120*f)+'" fill="none" stroke="#2a4960"/>'}
  ['N','E','S','W'].forEach((l,i)=>{const a=i*Math.PI/2;s+='<text x="'+(150+138*Math.sin(a))+'" y="'+(154-138*Math.cos(a))+'" fill="#a9bdce" font-size="12" text-anchor="middle">'+l+'</text>'});
  r.percent.forEach((row,i)=>{let inner=0;const a0=(i*22.5-9)*Math.PI/180,a1=(i*22.5+9)*Math.PI/180;row.forEach((v,j)=>{const o=inner+v*sc;if(v>0){const p=(rr,a)=>(c+rr*Math.sin(a)).toFixed(1)+','+(c-rr*Math.cos(a)).toFixed(1);s+='<path fill="'+COL[j]+'" d="M'+p(inner,a0)+' L'+p(o,a0)+' A'+o+','+o+' 0 0 1 '+p(o,a1)+' L'+p(inner,a1)+' A'+inner+','+inner+' 0 0 0 '+p(inner,a0)+'Z"/>'}inner=o})});
  b.innerHTML=s+'</svg><p class="muted" style="margin:4px 0 0;font-size:12px">'+COL.map((c,j)=>'<span style="color:'+c+'">&#9632;</span> '+LAB[j]+' '+HWS.label('mph').trim()).join(' &nbsp; ')+' &nbsp; (rings: '+F(max/2,0,'%')+', '+F(max,0,'%')+' of time)</p>';$('rn').textContent=r.samples+' samples, calm '+r.calm_percent+'% of the time. Petals show where the wind blows from; rings are '+F(max/2,0,'%')+' and '+F(max,0,'%')+'.';
  $('key').innerHTML=LAB.map((l,i)=>'<span style="color:'+COL[i]+'">&#9632;</span> '+l+' mph').join(' &nbsp; ')}
-for(const[k,l]of[['24h','24 hours'],['7d','7 days'],['30d','30 days']]){const a=el('button','s-btn',l,$('tabs'));a.onclick=()=>draw(k)}
-draw(R['24h']?'24h':R['7d']?'7d':'30d');
+for(const[k,l]of[['24h','24h'],['7d','7d'],['month','Month']]){const a=el('button','s-btn',l,$('tabs'));a.dataset.range=k;a.onclick=()=>draw(k)}
+draw(R['24h']?'24h':R['7d']?'7d':'month');
 </script></div></body></html>

@@ -9,14 +9,14 @@ h1{margin:0 0 2px;font-size:20px}.muted{color:var(--muted)}a{color:var(--blue)}.
 .fc{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px}.fc>div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px;text-align:center}.fc .i{font-size:28px}
 .dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--green);margin-right:6px}.dot.off{background:var(--red)}img{width:100%;border-radius:12px;margin-top:10px;display:block}
 </style></head><body><div class="page">
-<h1>Harpenden Weather</h1><div class="muted"><span id="dot" class="dot off"></span><span id="status">Waiting for data</span></div>
-<div class="nav">__NAV__</div>
+<header class="s-head"><h1>Harpenden Weather</h1><div class="muted"><span id="dot" class="dot off"></span><span id="status">Waiting for data</span></div>
+<div class="s-nav">__NAV__</div></header>
 <div class="hero"><div class="t" id="temp">–</div><div class="f muted" id="feels"></div></div>
 <div class="tiles" id="tiles"></div><div class="fc" id="fc"></div>
 <img src="latest.jpg" alt="Latest weather camera image" id="cam" onerror="this.hidden=true">
 <script type="application/json" id="data">__DATA__</script>
 <script>
-const raw=document.getElementById('data').textContent.trim(),D=raw.startsWith('{')?JSON.parse(raw):{},W=D.weather||{},POLL=30000;
+const raw=document.getElementById('data').textContent.trim(),D=raw.startsWith('{')?JSON.parse(raw):{},POLL=30000;let W=D.weather||{};
 const has=v=>v!==null&&v!==undefined&&isFinite(Number(v)),NAMES=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'],compass=d=>has(d)?NAMES[Math.round((((Number(d)%360)+360)%360)/22.5)%16]:'–';
 const fmt=(v,d=0,u='')=>HWS.fmt(v,d,u);
 function icon(s){s=String(s||'').replace(/_(day|night|polartwilight)$/,'');if(/thunder/.test(s))return'⛈️';if(/snow/.test(s))return'❄️';if(/sleet/.test(s))return'🌨️';if(/rain/.test(s))return'🌧️';if(/fog/.test(s))return'🌫️';if(s==='clearsky')return'☀️';if(s==='fair')return'🌤️';if(s==='partlycloudy')return'⛅';if(s==='cloudy')return'☁️';return'·'}
@@ -26,7 +26,7 @@ el('tiles').textContent='';for(const[k,v]of tiles){const t=document.createElemen
 const ts=Date.parse(W.updated||''),age=(Date.now()-ts)/60000;el('dot').className='dot'+(isFinite(age)&&age<=10?'':' off');el('status').textContent=isFinite(ts)?'Updated '+new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'No data'}
 render();
 const F=D.forecast;if(F&&F.daily){const box=document.getElementById('fc');for(const d of F.daily.slice(0,3)){const e=document.createElement('div');e.innerHTML='<div class="muted"></div><div class="i"></div><div></div>';e.children[0].textContent=new Date(d.date+'T12:00:00').toLocaleDateString([],{weekday:'short'});e.children[1].textContent=icon(d.symbol);e.children[2].textContent=fmt(d.temp_max_c,0,'°')+' / '+fmt(d.temp_min_c,0,'°');box.append(e)}}
-function poll(){if(location.protocol==='file:'||document.hidden)return;fetch('weather-live.json?ts='+Date.now(),{cache:'no-store'}).then(r=>r.ok?r.json():null).then(w=>{if(w&&typeof w==='object'&&w.updated){Object.assign(W,w);render()}}).catch(()=>{})}
-poll();setInterval(poll,POLL);document.addEventListener('visibilitychange',poll);
+async function poll(){if(location.protocol==='file:'||document.hidden)return;try{W=await HWS.refreshWeather(W);render()}catch(e){console.warn(e);document.getElementById('status').textContent=e.message}}
+poll();setInterval(poll,POLL);setInterval(render,POLL);document.addEventListener('visibilitychange',poll);
 setInterval(()=>{const i=document.getElementById('cam');if(i&&!i.hidden)i.src='latest.jpg?ts='+Date.now()},300000);
 </script></div></body></html>

@@ -1,10 +1,10 @@
 {
   "edition": "camera-and-image-intelligence",
-  "release": "V54.7",
+  "release": "V54.8",
   "baseline": "V51.0.2",
-  "package": "HWS-Webcam-Control-54.7.zip",
-  "package_directory": "HWS-Webcam-Control-54.7",
-  "built": "2026-11-20",
+  "package": "HWS-Webcam-Control-54.8.zip",
+  "package_directory": "HWS-Webcam-Control-54.8",
+  "built": "2026-11-23",
   "telemetry_schema": 4,
   "telemetry_fields": 58,
   "features": [
@@ -14,7 +14,10 @@
     "Automatic weekly and monthly summary timelapses",
     "Live camera and component health with recommended diagnostic checks",
     "Daily capture-completeness and timelapse reporting",
-    "24-hour, 7-day and 30-day image and Raspberry Pi health trends",
+    "24-hour, 7-day and calendar-month image and Raspberry Pi health trends",
+    "Shared logo, ordered button navigation, page titles and station disclaimer",
+    "Combined HWS Health, About with station details, and satellite imagery",
+    "Selectable rainfall and graph years, expanded comparison charts and persistent news CLI",
     "Chart sample coverage and warning/error event markers",
     "Recent-frame Archive view",
     "Client-side CSV export for trends and daily reports",
@@ -24,9 +27,9 @@
   "files": [
     "ARCHITECTURE.md", "CHANGELOG.md", "DEPLOYMENT.md", "MAPPING.md", "README.md",
     "camera.py", "controller_analytics.py", "core.py", "dashboard.env.example",
-    "exposure.py", "image_quality.py", "install_v54_7.sh", "keogram.py", "loader.py", "manifest.json",
-    "modes.py", "monitoring.py", "publishing.py", "rollback_v54_7.sh", "runtime.py",
-    "scene_analysis.py", "state.py", "systemd", "test_v54_7.py", "build_release.py", "timelapse.py", "v47_control.py",
-    "verify_v54_7.py", "version.py", "weather_camera.py", "weather_station.py", "test_weather_station.py", "weathercam_dashboard"
+    "exposure.py", "image_quality.py", "install_v54_8.sh", "keogram.py", "loader.py", "manifest.json",
+    "modes.py", "monitoring.py", "publishing.py", "rollback_v54_8.sh", "runtime.py",
+    "scene_analysis.py", "state.py", "systemd", "test_v54_8.py", "build_release.py", "timelapse.py", "v47_control.py",
+    "verify_v54_8.py", "version.py", "weather_camera.py", "weather_station.py", "test_weather_station.py", "weathercam_dashboard"
   ]
 }

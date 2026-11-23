@@ -1,11 +1,28 @@
 # News, "today in Harpenden", wind rose and Meteobridge health helpers (included into dashboard.py).
 WIND_CLASSES=((0.5,5),(5,10),(10,20),(20,None))
+def local_news():
+ path=Path(os.getenv('DASHBOARD_NEWS_PATH',str(LD/'dashboard_news.json')))
+ if not path.exists():return []
+ entries=json.loads(path.read_text(encoding='utf-8'))
+ if not isinstance(entries,list) or any(not isinstance(n,dict) or not isinstance(n.get('text'),str) for n in entries):raise ValueError(f'Invalid news entries in {path}')
+ return entries
+def add_news(title,text,date=None):
+ title=title.strip();text=text.strip()
+ if not title or len(title)>120 or not text or len(text)>4000:raise ValueError('News needs a title of 1-120 characters and text of 1-4000 characters')
+ now=datetime.now(ZoneInfo('Europe/London'))
+ date=datetime.strptime(date,'%Y-%m-%d').date().isoformat() if date else now.date().isoformat()
+ entries=local_news()
+ if any(n.get('date')==date and n.get('title')==title for n in entries):raise ValueError('A news entry with this date and title already exists')
+ entries.append({'date':date,'time':now.strftime('%H:%M'),'title':title,'text':text})
+ path=Path(os.getenv('DASHBOARD_NEWS_PATH',str(LD/'dashboard_news.json')))
+ atomic(path,json.dumps(entries,indent=2))
+ print(f'News saved to {path}')
 def news_items(site):
- """News entries: DASHBOARD_SITE_CONTENT entries first, then the bundled archive copied from the old site, newest first."""
+ """Local news, site-content entries and the bundled archive, deduplicated and newest first."""
  try:bundled=json.loads((Path(__file__).resolve().parent/'news_archive.json').read_text(encoding='utf-8'))
  except (OSError,ValueError):bundled=[]
  out=[];seen=set()
- for source in ((site or {}).get('news') or [],bundled if isinstance(bundled,list) else []):
+ for source in (local_news(),(site or {}).get('news') or [],bundled if isinstance(bundled,list) else []):
   for n in source:
    if not isinstance(n,dict) or not isinstance(n.get('text'),str):continue
    item={'date':str(n.get('date',''))[:10],'time':str(n.get('time',''))[:5],'title':str(n.get('title',''))[:120],'text':n['text'][:4000]}
@@ -41,10 +58,10 @@ def _rose(points):
  if n<6:return {}
  return {'samples':n,'calm_percent':round(100*calm/n,1),'percent':[[round(100*c/n,2) for c in row] for row in bins],'classes':[[lo,hi] for lo,hi in WIND_CLASSES]}
 def wind_rose_periods(now,wseries,scene):
- """Wind rose for 24 h (weather station), 7 d and 30 d (camera scene log, which records wind direction from V54.7)."""
+ """Wind rose for 24 h, 7 d and the current calendar month."""
  out={'24h':_rose([(num(p.get('wind_direction_deg')),num(p.get('wind_speed_mph'))) for p in wseries or []])}
- for name,days in (('7d',7),('30d',30)):
-  cut=now-timedelta(days=days);out[name]=_rose([(num(r.get('wind_direction_deg')),num(r.get('wind_speed_mph'))) for r in scene or [] if r.get('t') and r['t']>=cut])
+ for name,days in (('7d',7),('30d',30),('month',None)):
+  cut=month_start(now) if days is None else now-timedelta(days=days);out[name]=_rose([(num(r.get('wind_direction_deg')),num(r.get('wind_speed_mph'))) for r in scene or [] if r.get('t') and cut<=r['t']<=now])
  return {k:v for k,v in out.items() if v}
 def meteobridge_health(now,weather,station,daily,archive):
  """Checks on the Meteobridge link and on how complete the stored daily history is."""

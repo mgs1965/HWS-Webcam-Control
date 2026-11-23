@@ -5,7 +5,7 @@ from datetime import datetime,timedelta,timezone
 from html import escape
 from pathlib import Path
 from zoneinfo import ZoneInfo
-V='55.8'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
+V='55.9'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
 IMG=Path(os.getenv('WEATHERCAM_LATEST_IMAGE',str(ROOT/'frames/latest.jpg'))); HD=Path(os.getenv('WEATHERCAM_HEALTH_DIR',str(ROOT/'telemetry/health'))); TD=Path(os.getenv('WEATHERCAM_TELEMETRY_DIR',str(ROOT/'logs'))); LD=Path(os.getenv('WEATHERCAM_LOG_DIR',str(ROOT/'logs')))
 def envnum(name,default):
  try:
@@ -329,7 +329,7 @@ for _part in ('astronomy.py','analytics.py','station.py','insights.py','recommen
   exec(compile((_PARTS/_part).read_text(encoding='utf-8'),str(_PARTS/_part),'exec'),globals())
 SITE_PAGES=(('indexnew.html','Home'),('console.html','Live'),('weather34.html','Console'),('graphs.html','Graphs'),('rainfall.html','Rainfall'),('wind.html','Wind'),('forecast.html','Forecast'),('webcam.html','Webcam'),('radar.html','Radar'),('records.html','Records'),('compare.html','Compare'),('almanac.html','Almanac'),('reports.html','Reports'),('news.html','News'),('donate.html','Donate'),('about.html','About'),('mobile.html','Mobile'),('health.html','HWS Health'))
 SITE_DETAILS={'index.html':('Site Chooser','indexnew.html'),'station.html':('About','about.html'),'dashboard.html':('HWS Health','health.html'),'webcamhealth.html':('Webcam Health','health.html'),'mbhealth.html':('Meteobridge','health.html'),'pihealth.html':('Pi Health','health.html'),'satellite.html':('Satellite','radar.html')}
-SITE_NAV='<nav class="hws-nav" aria-label="Main menu">'+''.join(f'<a class="s-btn" href="{h}">{t}</a>' for h,t in SITE_PAGES)+'</nav>'
+SITE_NAV='<nav class="hws-nav" aria-label="Main menu">'+''.join(f'<a class="s-btn" href="{h}">{t}</a>' for h,t in SITE_PAGES if h!='health.html')+'</nav>'
 HEALTH_VIEWS=(('live','Current'),('trends','Trends'),('events','Events'),('advanced','Advanced'),('reports','Reports'),('archive','Archive'),('weather','Weather'),('insights','Insights'))
 HEALTH_PAGES=(('webcamhealth.html','Webcam Health'),('mbhealth.html','Meteobridge'),('pihealth.html','Pi Health'))
 def health_navigation(name):
@@ -347,7 +347,7 @@ def site_document(name,text):
  nav=SITE_NAV.replace(f'href="{current}"',f'href="{current}" aria-current="page"')
  text=text.replace('__NAV__',nav).replace('</head>',SITE_HEAD,1)
  text=re.sub(r'<title>.*?</title>','<title>'+escape(title)+'</title>',text,count=1,flags=re.S)
- text=re.sub(r'(<h1\b[^>]*>).*?(</h1>)',lambda m:m[1]+'<img class="hws-logo" src="logo.svg" alt="">'+escape(title)+m[2],text,count=1,flags=re.S)
+ text=re.sub(r'(<h1\b[^>]*>).*?(</h1>)',lambda m:m[1]+'<a href="health.html" title="HWS Health" aria-label="HWS Health"><img class="hws-logo" src="logo.svg" alt=""></a>'+escape(title)+m[2],text,count=1,flags=re.S)
  if name=='index.html':text=text.replace('</header>',nav+'</header>',1)
  if name in ('dashboard.html','health.html','webcamhealth.html','mbhealth.html','pihealth.html'):
   sub=health_navigation(name)
@@ -554,7 +554,7 @@ def generate(upload=False):
  winsight=weather_insight(weather,scene)+frost_notes(weather)+record_notes(weather,whistory)+([sc['note']] if sc and sc.get('note') and sc.get('verdict')!='AGREE' else [])
  schedule=mode_schedule(now)
  safe_config={
-  'release':'V55.8','telemetry_schema':4,'dashboard_refresh_minutes':5,'console_poll_seconds':30,
+  'release':'V55.9','telemetry_schema':4,'dashboard_refresh_minutes':5,'console_poll_seconds':30,
   'capture_interval_seconds':10,'ftp_configured':bool(os.getenv('DASHBOARD_FTP_HOST')),
   'ftp_tls':os.getenv('DASHBOARD_FTP_TLS','0')!='0',
   'thresholds':TH,'stale_after_minutes':TH['dashboard_stale_minutes'],'month_start':month_start(now).isoformat(),

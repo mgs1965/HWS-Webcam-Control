@@ -1,3 +1,6 @@
+#### V55.9
+- Webcam page shows full image; HWS Health removed from menu and linked from the logo; Live webcam tile matches Records tile height; Rainfall graphs laid out like Graphs; click any graph to enlarge.
+
 #### V55.8
 - Pages 1500px wide; Meteobridge health graphs match Pi Health; slightly shorter webcam image; pages open scrolled to top.
 

@@ -1,6 +1,6 @@
-# Harpenden Weather Camera V55.2
+# Harpenden Weather Camera V55.3
 
-V55.2 improves Weather34 frame sizing, button fonts, radar navigation and the shared health menu. Telemetry-v4 remains unchanged.
+V55.3 adds selectable-year Meteobridge health trends, with daily and monthly views of available history. Telemetry-v4 remains unchanged.
 
 ## Camera and image features
 
@@ -16,6 +16,7 @@ V55.2 improves Weather34 frame sizing, button fonts, radar navigation and the sh
 - **Reports:** daily capture completeness, health and timelapse summaries, with CSV export.
 - **Archive:** browse the latest 48 available camera frames.
 - **Events and Advanced:** recent incidents, camera diagnostics, publishing status and system details.
+- **Meteobridge health:** daily and monthly trends for each year with stored or imported health readings.
 - Export the selected trend period as CSV. The dashboard refreshes automatically on the existing five-minute publication cycle.
 
 Trend history is kept bounded for Raspberry Pi memory: the most recent 24 hours of capture telemetry remains full-resolution, while older 30-day history is sampled. Health snapshots remain at their recorded hourly cadence. Dashboard recommendations are observational and do not change camera settings.
@@ -25,10 +26,10 @@ Trend history is kept bounded for Raspberry Pi memory: the most recent 24 hours 
 Create `/etc/weathercam/dashboard.env` from `dashboard.env.example` and set `HWS_FTP_PASSWORD` before installing on a new host.
 
 ```bash
-unzip HWS-Webcam-Control-55.2.zip
-cd HWS-Webcam-Control-55.2
-python3 verify_v55_2.py
-sudo bash ./install_v55_2.sh
+unzip HWS-Webcam-Control-55.3.zip
+cd HWS-Webcam-Control-55.3
+python3 verify_v55_3.py
+sudo bash ./install_v55_3.sh
 ```
 
 The installer preserves an existing `weathercam.service`; on a clean installation it installs the included unit after credential preflight.
@@ -42,5 +43,5 @@ sudo bash -c 'set -a; . /etc/weathercam/dashboard.env; set +a; exec sudo -u mgs 
 ## Rollback
 
 ```bash
-sudo bash /mnt/weathercam/app/current/rollback_v55_2.sh
+sudo bash /mnt/weathercam/app/current/rollback_v55_3.sh
 ```

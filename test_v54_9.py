@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parent
 def test_release_identity():
     namespace = {}
     exec((ROOT / 'version.py').read_text(encoding='utf-8'), namespace)
-    assert namespace['VERSION'] == 'V55.2'
+    assert namespace['VERSION'] == 'V55.3'
     assert namespace['TELEMETRY_SCHEMA_VERSION'] == 4
 
 def test_telemetry_schema():
@@ -32,11 +32,11 @@ def test_credentials_are_not_embedded():
     assert "FTP_PASSWORD = os.getenv('HWS_FTP_PASSWORD', '')" in core
     assert 'cGnRUCGhc' not in core
 
-def test_dashboard_v55_2_payload():
+def test_dashboard_v55_3_payload():
     dashboard = (ROOT / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
     template = (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
-    assert "V='55.2'" in dashboard
-    assert "'release':'V55.2'" in dashboard
+    assert "V='55.3'" in dashboard
+    assert "'release':'V55.3'" in dashboard
     assert "('month',None)" in dashboard
     assert 'incidents' in dashboard
     assert "'process_memory':('health','memory.process_rss_bytes',1/1048576)" in dashboard
@@ -232,7 +232,7 @@ def test_controller_configuration_fingerprint_tracks_real_limits():
 
 def test_camera_service_unit_and_install_preserve_existing_unit():
     service = (ROOT / 'systemd/weathercam.service').read_text(encoding='utf-8')
-    installer = (ROOT / 'install_v55_2.sh').read_text(encoding='utf-8')
+    installer = (ROOT / 'install_v55_3.sh').read_text(encoding='utf-8')
     assert 'EnvironmentFile=/etc/weathercam/dashboard.env' in service
     assert 'Restart=on-failure' in service
     assert 'TimeoutStopSec=240' in service
@@ -571,9 +571,11 @@ def test_release_zip_extracts_to_matching_directory(tmp_path):
     manifest = json.loads((ROOT / 'manifest.json').read_text(encoding='utf-8'))
     with zipfile.ZipFile(tmp_path / manifest['package']) as archive:
         names = archive.namelist()
-    assert manifest['package'] == 'HWS-Webcam-Control-55.2.zip'
-    assert all(name.startswith('HWS-Webcam-Control-55.2/') for name in names)
-    assert 'HWS-Webcam-Control-55.2/manifest.json' in names
+    assert manifest['package'] == 'HWS-Webcam-Control-55.3.zip'
+    assert all(name.startswith('HWS-Webcam-Control-55.3/') for name in names)
+    assert 'HWS-Webcam-Control-55.3/manifest.json' in names
+    for name in ('install_v55_3.sh', 'rollback_v55_3.sh', 'verify_v55_3.py'):
+        assert 'HWS-Webcam-Control-55.3/' + name in names
 
 def _load_dashboard(tmp_path, monkeypatch):
     monkeypatch.setenv('WEATHERCAM_ROOT', str(tmp_path))
@@ -603,7 +605,7 @@ def test_dashboard_moon_and_disk_forecast(tmp_path, monkeypatch):
     assert forecast['percent_per_day'] > 0 and forecast['days_to_full'] > 0
     assert dash.disk_forecast(rows[:5], now) is None
 
-def test_dashboard_v55_2_template_and_event_tag():
+def test_dashboard_v55_3_template_and_event_tag():
     dashboard = (ROOT / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
     template = (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
     assert '[MODE TRANSITION]' in dashboard and '[MODE CHANGE]' not in dashboard
@@ -884,6 +886,46 @@ def test_meteobridge_daily_history_reaches_year_graph(tmp_path):
     assert graphs['daily'][1]['rain_mm'] == 0.0
 
 
+def test_meteobridge_health_history_year_selection_and_monthly_aggregation():
+    template = (ROOT / 'weathercam_dashboard/templates/mbhealth.html').read_text(encoding='utf-8')
+    script = template[template.index('const historyMap='):template.index('</script></div>')]
+    harness = r"""
+const assert=require('assert');
+const D={graphs:{daily:[
+ {date:'2024-01-02',cpu_load_avg:0,uptime_last:10,signal_min:5,signal_max:20},
+ {date:'2024-01-31',cpu_load_avg:20,uptime_last:30,signal_min:3,signal_max:25},
+ {date:'2024-03-01',cpu_load_avg:30,uptime_last:40},
+ {date:'2025-08-01',rain_mm:4},
+ {date:'2026-11-23',cpu_load_avg:50,uptime_last:100}
+]}};
+const has=v=>v!==null&&v!==undefined&&v!==''&&isFinite(Number(v));
+const specs=[['CPU load','cpu_load_percent','%','#f00'],['Uptime','bridge_uptime_hours','h','#00f']];
+const year={children:[],value:'',hidden:true},note={textContent:''},chart={children:[],set textContent(v){this.children=[]}};
+const tabs={children:[],querySelectorAll(){return this.children}};
+let drawn=[];
+const HWS={chart(box,o){drawn.push(o)}};
+function el(tag,cls,text,parent){
+ const e={tag,textContent:text,children:[],classList:{add(){},remove(){}}};
+ if(parent){parent.children.push(e);if(parent===year&&!year.value)year.value=text;}
+ return e;
+}
+""" + script + r"""
+assert.deepStrictEqual(year.children.map(o=>o.value),['2026','2024']);
+year.value='2024';drawn=[];renderPeriod('daily');
+assert.equal(drawn[0].series[0].pts.length,3);
+assert.deepStrictEqual(drawn[0].series[0].pts.map(p=>p[1]),[0,20,30]);
+assert(note.textContent.includes('3 recorded days'));
+drawn=[];renderPeriod('monthly');
+assert.deepStrictEqual(drawn[0].series[0].pts.map(p=>p[1]),[10,30]);
+assert.deepStrictEqual(drawn[1].series[0].pts.map(p=>p[1]),[30,40]);
+assert.deepStrictEqual(drawn[2].series.map(s=>s.pts.map(p=>p[1])),[[3],[25]]);
+year.value='2026';drawn=[];year.onchange();
+assert.deepStrictEqual(drawn[0].series[0].pts.map(p=>p[1]),[50]);
+renderPeriod('24h');assert(year.hidden);
+"""
+    subprocess.run(['node', '-e', harness], check=True, capture_output=True, text=True)
+
+
 def test_board_temperatures_reach_all_graph_periods(tmp_path):
     dash = _dash(tmp_path)
     now = datetime(2026, 11, 23, 12, 4, tzinfo=timezone.utc)
@@ -1107,7 +1149,7 @@ def test_sun_highlight_frame_selection():
     assert len(namespace['select_highlight_frames'](frames, datetime(2026, 11, 22, 8, 0), 120, limit=50)) == 50
 
 
-def test_v55_2_alerts_and_share_card(tmp_path, monkeypatch):
+def test_v55_3_alerts_and_share_card(tmp_path, monkeypatch):
     dash = _dash(tmp_path)
     now = datetime(2026, 11, 22, 12, 0, tzinfo=timezone.utc)
     alerts = dash.weather_alerts({'temperature_c': -1.0, 'wind_gust_mph': 45, 'rain_rate_mm_h': 2})

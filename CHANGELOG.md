@@ -1,3 +1,7 @@
+#### V55.3
+- Added selectable-year daily and monthly Meteobridge health trends using available recorded and imported history.
+- Monthly health trends average available daily values, use the last uptime reading, and preserve signal extrema.
+
 #### V55.2
 - Reduced the Weather34 frame fallback height and allowed automatic resizing to shrink or grow with same-origin content.
 - Unified health view and detail navigation, made button fonts consistent and added Wind to the Satellite page.

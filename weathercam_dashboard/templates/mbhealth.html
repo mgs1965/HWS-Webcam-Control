@@ -36,25 +36,44 @@ tile(tiles,'Base board temperature',F(W.base_board_temperature_c,1,' °C'));
 tile(tiles,'RF board temperature',F(W.rf_board_temperature_c,1,' °C'));
 
 c=el('section','s-card s-card-wide',undefined,$('grid'));el('h2','',"Health trends",c);
-const tabs=el('div','s-tabs',undefined,c),chart=el('div','',undefined,c);
+const tabs=el('div','s-tabs',undefined,c),year=el('select','s-btn',undefined,c),note=el('p','muted','',c),chart=el('div','',undefined,c);
+year.setAttribute('aria-label','History year');year.hidden=true;
 const specs=[['CPU load','cpu_load_percent','%', '#ff6075'],['Uptime','bridge_uptime_hours','h','#4ea9ff'],['Storage usage','storage_usage_percent','%','#ffd166'],['RAM usage','ram_usage_percent','%','#43aa8b'],['Power consumption','power_consumption_w','W','#ff9f43'],['Processes','process_count','','#c77dff'],['Data age','bridge_data_age_s','s','#a9bdc9'],['Voltage','voltage_v','V','#4ea9ff'],['Current','current_a','A','#ff6075'],['Base board temperature','base_board_temperature_c','°C','#f8961e'],['RF board temperature','rf_board_temperature_c','°C','#ff9b85']];
+const historyMap={
+ cpu_load_percent:'cpu_load_avg',bridge_uptime_hours:'uptime_last',
+ storage_usage_percent:'storage_usage_avg',ram_usage_percent:'ram_usage_avg',
+ power_consumption_w:'power_consumption_avg',process_count:'process_count_avg',
+ bridge_data_age_s:'data_age_avg',voltage_v:'voltage_avg',current_a:'current_avg',
+ base_board_temperature_c:'base_board_temp_avg_c',rf_board_temperature_c:'rf_board_temp_avg_c',
+ signal_min:'signal_min',signal_max:'signal_max'};
+const history=(D.graphs?.daily||[]).filter(r=>/^\d{4}-\d{2}-\d{2}$/.test(r.date||'')&&Object.values(historyMap).some(k=>has(r[k]))).sort((a,b)=>a.date.localeCompare(b.date));
+for(const y of [...new Set(history.map(r=>r.date.slice(0,4)))].sort().reverse()){const o=el('option','',y,year);o.value=y}
+let activePeriod='24h';
 function renderPeriod(period){
+ activePeriod=period;
  chart.textContent='';
  const G=D.graphs||{};
  let series=G[period]||G['24h']||{t:[]};
- if(period==='daily'){
-  const end=Date.parse(D.generated||'');const daily=(G.daily||[]).filter(r=>{const t=Date.parse(r.date+'T00:00:00Z');return Number.isFinite(end)&&t>=end-366*864e5&&t<=end});
-  series={t:daily.map(r=>r.date?r.date+'T12:00:00Z':null)};
-  const map={
-   cpu_load_percent:'cpu_load_avg',bridge_uptime_hours:'uptime_last',
-   storage_usage_percent:'storage_usage_avg',ram_usage_percent:'ram_usage_avg',
-   power_consumption_w:'power_consumption_avg',process_count:'process_count_avg',
-   bridge_data_age_s:'data_age_avg',voltage_v:'voltage_avg',current_a:'current_avg',
-   base_board_temperature_c:'base_board_temp_avg_c',rf_board_temperature_c:'rf_board_temp_avg_c'};
-  for(const[name,key]of specs){
-   series[key]=daily.map(r=>r[map[key]]);
+ year.hidden=period!=='daily'&&period!=='monthly';
+ note.textContent='';
+ if(!year.hidden){
+  const daily=history.filter(r=>r.date.slice(0,4)===year.value);
+  note.textContent=daily.length+' recorded days with health readings in '+(year.value||'the selected year')+'. '+(period==='monthly'?'Monthly averages use available daily values; uptime is the last reading and signal shows extrema.':'Only available daily readings are shown.');
+  if(period==='daily'){
+   series={t:daily.map(r=>r.date+'T12:00:00Z')};
+   for(const[key,field]of Object.entries(historyMap))series[key]=daily.map(r=>r[field]);
+  }else{
+   const months=Array.from({length:12},(_,i)=>daily.filter(r=>Number(r.date.slice(5,7))===i+1));
+   series={t:months.map((_,i)=>year.value+'-'+String(i+1).padStart(2,'0')+'-15T12:00:00Z')};
+   for(const[key,field]of Object.entries(historyMap))series[key]=months.map(rows=>{
+    const values=rows.map(r=>r[field]).filter(has).map(Number);
+    if(!values.length)return null;
+    if(key==='signal_min')return Math.min(...values);
+    if(key==='signal_max')return Math.max(...values);
+    if(key==='bridge_uptime_hours')return values[values.length-1];
+    return values.reduce((a,b)=>a+b,0)/values.length;
+   });
   }
-  for(const key of ['signal_min','signal_max'])series[key]=daily.map(r=>r[key]);
  }
  for(const[name,key,unit,color]of specs){
   const pts=(series.t||[]).map((t,i)=>[Date.parse(t),series[key]?.[i]]).filter(p=>Number.isFinite(p[0])&&has(p[1]));
@@ -66,9 +85,10 @@ function renderPeriod(period){
   if(signal.length){const box=el('div','',undefined,chart);el('h3','','Signal strength',box);el('p','muted','Minimum and maximum reported for each interval.',box);HWS.chart(box,{series:signal,unit:'dB',dig:0,xfmt:t=>period==='24h'?new Date(t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):new Date(t).toLocaleDateString([],{day:'numeric',month:'short'})});}
  if(!chart.children.length)el('p','muted','No data available for this period yet.',chart);
 }
-for(const[period,label]of[['24h','24 hours'],['7d','7 days'],['month','Month'],['daily','Year']]){
+for(const[period,label]of[['24h','24 hours'],['7d','7 days'],['month','Month'],['daily','Daily by year'],['monthly','Monthly by year']]){
  const b=el('button','',label,tabs);b.type='button';b.onclick=()=>{tabs.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');renderPeriod(period)};
  if(period==='24h')b.classList.add('on');
 }
+year.onchange=()=>renderPeriod(activePeriod);
 renderPeriod('24h');
 </script></div></body></html>

@@ -1,11 +1,11 @@
-# V55.2 Deployment
+# V55.3 Deployment
 
-V55.2 improves console frame sizing, button fonts, radar navigation and the shared health menu, while retaining the telemetry-v4 (58-field) contract.
+V55.3 adds selectable-year daily and monthly Meteobridge health trends, while retaining the telemetry-v4 (58-field) contract.
 
 ## Pre-install
 
 ```bash
-python3 verify_v55_2.py
+python3 verify_v55_3.py
 ```
 
 For a clean install, create `/etc/weathercam/dashboard.env` from `dashboard.env.example` and set `HWS_FTP_PASSWORD`. The installer supplies `weathercam.service` only when no existing unit is registered and will not overwrite an on-disk unit file.
@@ -13,7 +13,7 @@ For a clean install, create `/etc/weathercam/dashboard.env` from `dashboard.env.
 ## Install
 
 ```bash
-sudo bash ./install_v55_2.sh
+sudo bash ./install_v55_3.sh
 ```
 
 ## Confirm active release
@@ -24,7 +24,7 @@ systemctl is-active weathercam.service
 systemctl is-active weathercam-dashboard.timer
 ```
 
-Expected release: `/mnt/weathercam/app/releases/HarpendenWeatherCamera-V55.2` (an updated V55.2 installation uses a timestamped suffix). The dashboard publisher is a oneshot service and may be inactive between timer runs.
+Expected release: `/mnt/weathercam/app/releases/HarpendenWeatherCamera-V55.3` (an updated V55.3 installation uses a timestamped suffix). The dashboard publisher is a oneshot service and may be inactive between timer runs.
 
 ## Force one publication
 
@@ -35,7 +35,7 @@ sudo bash -c 'set -a; . /etc/weathercam/dashboard.env; set +a; exec sudo -u mgs 
 ## Verify the generated dashboard
 
 ```bash
-grep -E 'V55.2|Recommended checks|Timelapse|Daily reliability reports|Recent captures|CPU temperature|30 days' /mnt/weathercam/dashboard/dashboard.html | head
+grep -E 'V55.3|Recommended checks|Timelapse|Daily reliability reports|Recent captures|CPU temperature|30 days' /mnt/weathercam/dashboard/dashboard.html | head
 ! grep -q '__DATA__' /mnt/weathercam/dashboard/dashboard.html
 ```
 
@@ -44,10 +44,10 @@ The dashboard displays recommended checks and historical readings but does not m
 ## Rollback
 
 ```bash
-sudo bash /mnt/weathercam/app/current/rollback_v55_2.sh
+sudo bash /mnt/weathercam/app/current/rollback_v55_3.sh
 ```
 
-## Replacing the old website (V55.2)
+## Replacing the old website
 
 The dashboard publishes `index.html` (the original/new site chooser) and `indexnew.html` (Home), followed by Live, Graphs, Rainfall, Wind, Forecast, Webcam, Radar, Records, Compare, Almanac, Reports, News, Donate, About, Mobile and HWS Health. Every page has the same logo, title, button menu, current-page highlight and station disclaimer. About includes the station details; the Data page is retired. `health.html` uses the camera dashboard design with camera, weather/Meteobridge and Pi status, plus buttons for detailed health pages. `satellite.html` is available from Radar and uses Windy's satellite embed, with a direct provider link if embedding is unavailable. Visitors can switch units and theme using the bottom toolbar.
 
@@ -58,6 +58,8 @@ The default coordinates are 51.829105, -0.380987. Existing `/etc/weathercam/dash
 The console frame sizes itself to same-origin Weather34 content; if access is blocked by the browser or a redirect, it uses a fixed fallback height. The health navigation offers the same dashboard views and detailed health pages on each health page.
 
 Meteobridge uptime (`data11num`) is in hours; voltage and power are in volts and watts. Soil wetness is measured in centibars (0–200), not percent. Signal charts show the station's reported values in dB, with five-minute minimum and maximum readings and daily extrema for the year view. Base-board and RF-board temperatures use `thb9temp` and `thb0temp`. Older readings are available only if recorded or imported from the Meteobridge. Run `--diagnose` against the station to confirm the readings and selectors.
+
+Meteobridge health trends offer daily and monthly views by year for all available stored health readings. Monthly values are averages of recorded daily values, except for uptime (last available reading) and signal strength (daily extrema). Years or individual readings not retained locally or imported from the Meteobridge cannot be shown.
 
 If live weather is unavailable, check `systemctl status weathercam-weather-station.service` and `journalctl -u weathercam-weather-station.service -n 50 --no-pager`. Check the Meteobridge connection and credentials in `/etc/weathercam/dashboard.env`, and confirm `DASHBOARD_FTP_DIR` is the same directory used by the dashboard publisher. Avoid sharing the environment file or its passwords. Restart the fetcher after correcting its configuration: `sudo systemctl restart weathercam-weather-station.service`.
 

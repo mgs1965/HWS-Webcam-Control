@@ -1,13 +1,14 @@
 {
   "edition": "camera-and-image-intelligence",
-  "release": "V55.2",
+  "release": "V55.3",
   "baseline": "V51.0.2",
-  "package": "HWS-Webcam-Control-55.2.zip",
-  "package_directory": "HWS-Webcam-Control-55.2",
+  "package": "HWS-Webcam-Control-55.3.zip",
+  "package_directory": "HWS-Webcam-Control-55.3",
   "built": "2026-11-23",
   "telemetry_schema": 4,
   "telemetry_fields": 58,
   "features": [
+    "Selectable-year daily and monthly Meteobridge health trends from available history",
     "Consistent health navigation and button fonts, with Wind on Satellite",
     "Automatically sized Weather34 console frame",
     "Meteobridge board temperatures and expanded historical sensor backfill",
@@ -36,9 +37,9 @@
   "files": [
     "ARCHITECTURE.md", "CHANGELOG.md", "DEPLOYMENT.md", "MAPPING.md", "README.md",
     "camera.py", "controller_analytics.py", "core.py", "dashboard.env.example",
-    "exposure.py", "image_quality.py", "install_v55_2.sh", "keogram.py", "loader.py", "manifest.json",
-    "modes.py", "monitoring.py", "publishing.py", "rollback_v55_2.sh", "runtime.py",
+    "exposure.py", "image_quality.py", "install_v55_3.sh", "keogram.py", "loader.py", "manifest.json",
+    "modes.py", "monitoring.py", "publishing.py", "rollback_v55_3.sh", "runtime.py",
     "scene_analysis.py", "state.py", "systemd", "test_v54_9.py", "build_release.py", "timelapse.py", "v47_control.py",
-    "verify_v55_2.py", "version.py", "weather_camera.py", "weather_station.py", "test_weather_station.py", "weathercam_dashboard"
+    "verify_v55_3.py", "version.py", "weather_camera.py", "weather_station.py", "test_weather_station.py", "weathercam_dashboard"
   ]
 }

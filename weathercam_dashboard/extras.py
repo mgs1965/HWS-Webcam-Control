@@ -71,7 +71,7 @@ def meteobridge_health(now,weather,station,daily,archive):
  bridge=num(w.get('bridge_data_age_s'))
  checks.append({'name':'Console link','status':'unknown' if bridge is None else 'ok' if bridge<300 else 'warn' if bridge<600 else 'bad','detail':'Not reported' if bridge is None else f'Meteobridge data {bridge:.0f} s old'})
  if w.get('source')=='meteobridge':
-  need=(('temperature_c','temperature'),('humidity_percent','humidity'),('pressure_hpa','pressure'),('wind_speed_mph','wind speed'),('wind_gust_mph','gust'),('wind_direction_deg','wind direction'),('rain_rate_mm_h','rain rate'),('rain_today_mm','rain today'),('solar_radiation_wm2','solar'),('uv_index','UV'),('sunshine_hours_today','sunshine'))
+  need=(('temperature_c','temperature'),('humidity_percent','humidity'),('pressure_hpa','pressure'),('wind_speed_mph','wind speed'),('wind_gust_mph','gust'),('wind_direction_deg','wind direction'),('rain_rate_mm_h','rain rate'),('rain_today_mm','rain today'),('solar_radiation_wm2','solar'),('uv_index','UV'),('sunshine_hours_today','sunshine'),('cpu_load_percent','CPU load'),('bridge_uptime_hours','uptime'),('storage_usage_percent','storage usage'),('ram_usage_percent','RAM usage'),('power_consumption_w','power consumption'),('process_count','processes'),('bridge_data_age_s','data age'),('voltage_v','voltage'),('current_a','current'))
   blank=[n for k,n in need if num(w.get(k)) is None]
   wind_blank=all(num(w.get(k)) is None for k in ('wind_speed_mph','wind_gust_mph','wind_direction_deg'))
   checks.append({'name':'Wind sensor','status':'warn' if wind_blank else 'ok','detail':'Not reporting; the wind sensor battery is probably flat (it only works in daylight on solar)' if wind_blank else 'Reporting'})

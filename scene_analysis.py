@@ -65,6 +65,21 @@ SCENE_WEATHER_LIMITS = {
     'temp_change_1h_c': (-40.0, 40.0),
     'humidity_change_1h': (-100.0, 100.0),
     'pressure_change_1h_hpa': (-50.0, 50.0),
+    'bridge_data_age_s': (0.0, 1e7),
+    'ground_temperature_c': (-60.0, 60.0),
+    'soil_wetness_cbar': (0.0, 200.0),
+    'soil_temperature_c': (-60.0, 60.0),
+    'greenhouse_temperature_c': (-60.0, 60.0),
+    'cpu_load_percent': (0.0, 100.0),
+    'bridge_uptime_hours': (0.0, 1e10),
+    'storage_usage_percent': (0.0, 100.0),
+    'ram_usage_percent': (0.0, 100.0),
+    'power_consumption_w': (0.0, 1000.0),
+    'process_count': (0.0, 10000.0),
+    'voltage_v': (0.0, 100.0),
+    'current_a': (0.0, 100.0),
+    'signal_min': (-200.0, 1000.0),
+    'signal_max': (-200.0, 1000.0),
 }
 SCENE_FOG_RISK_HIGH_SPREAD_C = 1.0
 SCENE_FOG_RISK_HIGH_HUMIDITY = 95.0
@@ -220,7 +235,7 @@ def _bounded_weather_value(raw, key):
     except (TypeError, ValueError):
         return None
     low, high = SCENE_WEATHER_LIMITS[key]
-    return round(value, 2) if math.isfinite(value) and low <= value <= high else None
+    return round(value, 3 if key == 'current_a' else 2) if math.isfinite(value) and low <= value <= high else None
 
 def parse_weather_data(data, now):
     """Validate a weather-station JSON object; return None if unusable or stale."""
@@ -295,6 +310,14 @@ def format_weather_overlay(weather):
             parts.append(f"Solar {weather['solar_radiation_wm2']:.0f}W/m2")
         if weather.get('uv_index', 0) > 0:
             parts.append(f"UV {weather['uv_index']:.1f}")
+        if 'ground_temperature_c' in weather:
+            parts.append(f"Ground {weather['ground_temperature_c']:.1f}C")
+        if 'soil_wetness_cbar' in weather:
+            parts.append(f"Soil {weather['soil_wetness_cbar']:.0f}cbar")
+        if 'soil_temperature_c' in weather:
+            parts.append(f"SoilTemp {weather['soil_temperature_c']:.1f}C")
+        if 'greenhouse_temperature_c' in weather:
+            parts.append(f"Greenhouse {weather['greenhouse_temperature_c']:.1f}C")
         if weather.get('lightning_strikes_last_min', 0) > 0:
             parts.append(f"Lightning {weather['lightning_strikes_last_min']:.0f}")
     return ' | '.join(parts) or None
@@ -396,7 +419,7 @@ def record_scene_history(capture_time, measurement):
     weather = measurement.get('weather') or {}
     record = {'timestamp': capture_time.isoformat(), 'mode': current_camera_mode}
     record.update({key: scene.get(key) for key in ('cloud_cover_pct', 'sky_clarity_pct', 'fog_index', 'visibility', 'droplet_score', 'lens_condition', 'focus', 'alerts', 'fog_risk')})
-    record.update({key: weather.get(key) for key in ('temperature_c', 'humidity_percent', 'pressure_hpa', 'wind_speed_mph', 'wind_direction_deg', 'wind_gust_mph', 'rain_rate_mm_h', 'rain_today_mm', 'dew_point_c', 'uv_index', 'solar_radiation_wm2', 'temp_change_1h_c', 'humidity_change_1h', 'pressure_change_1h_hpa')})
+    record.update({key: weather.get(key) for key in ('temperature_c', 'humidity_percent', 'pressure_hpa', 'wind_speed_mph', 'wind_direction_deg', 'wind_gust_mph', 'rain_rate_mm_h', 'rain_today_mm', 'dew_point_c', 'uv_index', 'solar_radiation_wm2', 'temp_change_1h_c', 'humidity_change_1h', 'pressure_change_1h_hpa', 'ground_temperature_c', 'soil_wetness_cbar', 'soil_temperature_c', 'greenhouse_temperature_c', 'cpu_load_percent', 'bridge_uptime_hours', 'storage_usage_percent', 'ram_usage_percent', 'power_consumption_w', 'process_count', 'bridge_data_age_s', 'voltage_v', 'current_a', 'signal_min', 'signal_max')})
     filename = os.path.join(SCENE_HISTORY_PATH, f'scene_{capture_time:%Y%m%d}.jsonl')
     try:
         with open(filename, 'a', encoding='utf-8') as output:

@@ -10,6 +10,22 @@ def weather_archive():
  except (OSError,ValueError):return {}
  days=data.get('days') if isinstance(data,dict) else None
  return {str(d)[:10]:v for d,v in days.items() if isinstance(v,dict)} if isinstance(days,dict) else {}
+def weather_local_daily():
+ path=Path(os.getenv('HWS_WEATHER_DAILY_LOG_PATH',str(LD/'weather_station_daily_log.json')))
+ data=jsonfile(path)
+ days=data.get('days') if isinstance(data,dict) else None
+ return {str(d)[:10]:v for d,v in days.items() if isinstance(v,dict)} if isinstance(days,dict) else {}
+def weather_sample_value(row,key):
+ # Earlier releases stored the same raw station readings under incorrect unit names.
+ legacy={'soil_wetness_cbar':'soil_moisture_percent','bridge_uptime_hours':'uptime_seconds'}
+ value=row.get(key)
+ return row.get(legacy[key]) if value is None and key in legacy else value
+def normalise_station_units(data):
+ out=dict(data)
+ for key in ('soil_wetness_cbar','bridge_uptime_hours'):
+  value=weather_sample_value(data,key)
+  if value is not None:out[key]=value
+ return out
 def weather_series(now,hours=24):
  try:data=json.loads((LD/'weather_station_series.json').read_text(errors='ignore'))
  except (OSError,ValueError):return []
@@ -18,7 +34,7 @@ def weather_series(now,hours=24):
   try:t=datetime.fromisoformat(str(r.get('t')))
   except (ValueError,TypeError,AttributeError):continue
   if t.tzinfo is None:t=t.replace(tzinfo=now.tzinfo)
-  if cutoff<=t<=now:out.append({'t':t.isoformat(),**{k:num(r.get(k)) for k in ('temperature_c','humidity_percent','pressure_hpa','wind_speed_mph','wind_gust_mph','wind_direction_deg','dew_point_c','rain_rate_mm_h','rain_today_mm','lightning_strikes_today','lightning_distance','solar_radiation_wm2','uv_index')}})
+  if cutoff<=t<=now:out.append({'t':t.isoformat(),**{k:num(weather_sample_value(r,k)) for k in ('temperature_c','humidity_percent','pressure_hpa','wind_speed_mph','wind_gust_mph','wind_direction_deg','dew_point_c','rain_rate_mm_h','rain_today_mm','lightning_strikes_today','lightning_distance','solar_radiation_wm2','uv_index','ground_temperature_c','soil_wetness_cbar','soil_temperature_c','greenhouse_temperature_c','cpu_load_percent','bridge_uptime_hours','storage_usage_percent','ram_usage_percent','power_consumption_w','process_count','bridge_data_age_s','voltage_v','current_a','signal_min','signal_max')}})
  return out
 def solar_check(weather,scene,now):
  w=weather or {};s=scene or {};solar=num(w.get('solar_radiation_wm2'))
@@ -140,13 +156,13 @@ def weather_full(now,fallback=None):
  data=jsonfile(Path(os.getenv('HWS_WEATHER_DATA_PATH',str(LD/'weather_station.json'))))
  updated=dt(data.get('updated')) if isinstance(data,dict) else None
  if updated and abs((now-updated).total_seconds())<=900:
-  out=dict(data);out['age_seconds']=max(0,int((now-updated).total_seconds()))
+  out=normalise_station_units(data);out['age_seconds']=max(0,int((now-updated).total_seconds()))
   return out
  fallback_updated=dt(fallback.get('updated')) if isinstance(fallback,dict) else None
  if updated and (not fallback_updated or updated>fallback_updated):
-  out=dict(data);out['age_seconds']=max(0,int((now-updated).total_seconds()))
+  out=normalise_station_units(data);out['age_seconds']=max(0,int((now-updated).total_seconds()))
   return out
- return fallback
+ return normalise_station_units(fallback) if isinstance(fallback,dict) else fallback
 def station_status(now):
  """Flag weather data that has stopped updating (service stopped, or the Meteobridge has lost the console)."""
  data=jsonfile(Path(os.getenv('HWS_WEATHER_DATA_PATH',str(LD/'weather_station.json'))))

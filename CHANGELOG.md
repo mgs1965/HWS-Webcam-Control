@@ -1,3 +1,9 @@
+#### V55.0
+- Corrected Meteobridge uptime to hours and soil wetness to centibars; added signal minimum/maximum health trends.
+- Corrected station coordinates for dashboard astronomy, forecast and camera solar calculations.
+- Added selected-year daily and monthly graph views, selected-year rainfall totals, additional live sensor readings and a Weather34 console page.
+- Added Meteobridge health sensors and trends, and unified health navigation and footer donation text.
+
 #### V54.9
 
 - Retry transient Meteobridge failures with configurable timeouts; backfill pauses between requests and saves progress on interruption.

@@ -45,8 +45,32 @@ def test_run_loop_exits_after_consecutive_failures():
 
 def test_meteobridge_parse_url_and_auth():
     import weather_station as ws
+    now = datetime.now().astimezone()
     assert ws.meteobridge_url('192.168.0.65').startswith('http://192.168.0.65/cgi-bin/template.cgi?template=')
     assert 'wind0wind-act%3Dmph' in ws.meteobridge_url('http://192.168.0.65/')
+    extra = ws.parse_meteobridge(
+        'temperature_c=5.6;t0!3temp=8.1;th0!10hum=42;th0!10temp=7.2;th0!11temp=14.5',
+        now,
+    )
+    assert extra['ground_temperature_c'] == 8.1
+    assert extra['soil_wetness_cbar'] == 42
+    assert extra['soil_temperature_c'] == 7.2
+    assert extra['greenhouse_temperature_c'] == 14.5
+    health = ws.parse_meteobridge(
+        'temperature_c=5.6;data0!10num=12.5;data0!11num=864000;data0!12num=34;'
+        'data0!13num=55;data0!14num=6.2;data0!15num=43;data0!16num=2;'
+        'data0!17num=12.1;data0!18num=0.4',
+        now,
+    )
+    assert health['cpu_load_percent'] == 12.5
+    assert health['bridge_uptime_hours'] == 864000
+    assert health['storage_usage_percent'] == 34
+    assert health['ram_usage_percent'] == 55
+    assert health['power_consumption_w'] == 6.2
+    assert health['process_count'] == 43
+    assert health['bridge_data_age_s'] == 2
+    assert health['voltage_v'] == 12.1
+    assert health['current_a'] == 0.4
     now = datetime.now().astimezone()
     data = ws.parse_meteobridge('temperature_c=5.6;humidity_percent=85.0;pressure_hpa=1000.7;wind_speed_mph=--;uv_index=0.0;rain_today_mm=1.2;bogus=1', now)
     assert data['temperature_c'] == 5.6 and data['rain_today_mm'] == 1.2 and data['source'] == 'meteobridge'
@@ -64,6 +88,65 @@ def test_meteobridge_parse_url_and_auth():
             assert seen[0]['Authorization'] == 'Basic bWV0ZW9icmlkZ2U6cHc='
     finally:
         ws.fetch_text, ws.METEOBRIDGE_URL, ws.METEOBRIDGE_PASSWORD = old
+
+
+def test_extra_sensor_template_and_persistence(tmp_path, monkeypatch):
+    from urllib.parse import parse_qs, urlsplit
+    template = parse_qs(urlsplit(ws.meteobridge_url('bridge')).query)['template'][0]
+    fields = {
+        'ground_temperature_c': 't3temp', 'soil_wetness_cbar': 'soil0hum',
+        'soil_temperature_c': 'soil0temp', 'greenhouse_temperature_c': 'soil1temp',
+        'cpu_load_percent': 'data10num', 'bridge_uptime_hours': 'data11num',
+        'storage_usage_percent': 'data12num', 'ram_usage_percent': 'data13num',
+        'power_consumption_w': 'data14num', 'process_count': 'data15num',
+        'bridge_data_age_s': 'data16num', 'voltage_v': 'data17num', 'current_a': 'data18num',
+    }
+    for key, sensor in fields.items():
+        assert f'{key}=[{sensor}-act]' in template
+    assert template.count('bridge_data_age_s=') == 1
+    data = ws.parse_meteobridge('temperature_c=5;ground_temperature_c=0;soil_wetness_cbar=--;'
+                                'cpu_load_percent=25;bridge_uptime_hours=86400;bridge_data_age_s=0;current_a=0.123', NOW)
+    assert data['ground_temperature_c'] == 0 and 'soil_wetness_cbar' not in data
+    assert data['current_a'] == 0.123 and data['bridge_data_age_s'] == 0
+    monkeypatch.setattr(ws, 'LIVE_PATH', str(tmp_path / 'live.json'))
+    monkeypatch.setattr(ws, 'LIVE_UPLOAD_SECONDS', 0)
+    assert ws.publish_live(data)
+    assert json.loads((tmp_path / 'live.json').read_text())['current_a'] == 0.123
+    ws.append_series(str(tmp_path / 'series.json'), data)
+    assert json.loads((tmp_path / 'series.json').read_text())['samples'][0]['cpu_load_percent'] == 25
+    daily_path = str(tmp_path / 'daily.json')
+    for load in [1.01, 1.02, 1.02]:
+        ws.record_daily({**data, 'cpu_load_percent': load}, daily_path)
+    day = json.loads((tmp_path / 'daily.json').read_text())['days']['2026-11-20']
+    assert abs(day['cpu_load_avg'] - (1.01 + 1.02 + 1.02) / 3) < 1e-10
+    assert day['uptime_last'] == 86400
+
+
+def test_centibars_hours_and_signal_extremes(tmp_path):
+    template = dict(ws.METEOBRIDGE_FIELDS)
+    assert template['signal_min'] == 'th0signal-min5'
+    assert template['signal_max'] == 'th0signal-max5'
+    assert template['signal_day_min'] == 'th0signal-dmin'
+    assert template['signal_day_max'] == 'th0signal-dmax'
+    data = ws.parse_meteobridge(
+        'temperature_c=5;soil_wetness_cbar=175;bridge_uptime_hours=48;'
+        'signal_min=20;signal_max=75;signal_day_min=5;signal_day_max=90', NOW)
+    assert data['soil_wetness_cbar'] == 175
+    assert data['bridge_uptime_hours'] == 48
+    assert (data['signal_min'], data['signal_max']) == (20, 75)
+    assert 'soil_wetness_cbar' not in ws.parse_meteobridge('temperature_c=5;soil_wetness_cbar=201', NOW)
+    series = str(tmp_path / 'series.json')
+    ws.append_series(series, data)
+    sample = json.loads((tmp_path / 'series.json').read_text())['samples'][0]
+    assert (sample['signal_min'], sample['signal_max']) == (20, 75)
+    path = str(tmp_path / 'daily.json')
+    ws.record_daily(data, path)
+    ws.record_daily({**data, 'signal_day_min': 3, 'signal_day_max': 92}, path)
+    day = json.loads((tmp_path / 'daily.json').read_text())['days']['2026-11-20']
+    assert (day['signal_min'], day['signal_max'], day['uptime_last']) == (3, 92, 48)
+    assert dict(ws.backfill_expressions(7))['signal_min'] == 'th0signal-min@D7'
+    assert dict(ws.backfill_expressions(7))['signal_max'] == 'th0signal-max@D7'
+    assert ws.parse_backfill_day('signal_min=4;signal_max=91') == {'signal_min': 4, 'signal_max': 91}
 
 
 def test_local_history_from_meteobridge(tmp_path):

@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parent
 def test_release_identity():
     namespace = {}
     exec((ROOT / 'version.py').read_text(encoding='utf-8'), namespace)
-    assert namespace['VERSION'] == 'V54.9'
+    assert namespace['VERSION'] == 'V55.0'
     assert namespace['TELEMETRY_SCHEMA_VERSION'] == 4
 
 def test_telemetry_schema():
@@ -32,11 +32,11 @@ def test_credentials_are_not_embedded():
     assert "FTP_PASSWORD = os.getenv('HWS_FTP_PASSWORD', '')" in core
     assert 'cGnRUCGhc' not in core
 
-def test_dashboard_v54_9_payload():
+def test_dashboard_v55_0_payload():
     dashboard = (ROOT / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
     template = (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
-    assert "V='54.9'" in dashboard
-    assert "'release':'V54.9'" in dashboard
+    assert "V='55.0'" in dashboard
+    assert "'release':'V55.0'" in dashboard
     assert "('month',None)" in dashboard
     assert 'incidents' in dashboard
     assert "'process_memory':('health','memory.process_rss_bytes',1/1048576)" in dashboard
@@ -232,7 +232,7 @@ def test_controller_configuration_fingerprint_tracks_real_limits():
 
 def test_camera_service_unit_and_install_preserve_existing_unit():
     service = (ROOT / 'systemd/weathercam.service').read_text(encoding='utf-8')
-    installer = (ROOT / 'install_v54_9.sh').read_text(encoding='utf-8')
+    installer = (ROOT / 'install_v55_0.sh').read_text(encoding='utf-8')
     assert 'EnvironmentFile=/etc/weathercam/dashboard.env' in service
     assert 'Restart=on-failure' in service
     assert 'TimeoutStopSec=240' in service
@@ -571,9 +571,9 @@ def test_release_zip_extracts_to_matching_directory(tmp_path):
     manifest = json.loads((ROOT / 'manifest.json').read_text(encoding='utf-8'))
     with zipfile.ZipFile(tmp_path / manifest['package']) as archive:
         names = archive.namelist()
-    assert manifest['package'] == 'HWS-Webcam-Control-54.9.zip'
-    assert all(name.startswith('HWS-Webcam-Control-54.9/') for name in names)
-    assert 'HWS-Webcam-Control-54.9/manifest.json' in names
+    assert manifest['package'] == 'HWS-Webcam-Control-55.0.zip'
+    assert all(name.startswith('HWS-Webcam-Control-55.0/') for name in names)
+    assert 'HWS-Webcam-Control-55.0/manifest.json' in names
 
 def _load_dashboard(tmp_path, monkeypatch):
     monkeypatch.setenv('WEATHERCAM_ROOT', str(tmp_path))
@@ -603,7 +603,7 @@ def test_dashboard_moon_and_disk_forecast(tmp_path, monkeypatch):
     assert forecast['percent_per_day'] > 0 and forecast['days_to_full'] > 0
     assert dash.disk_forecast(rows[:5], now) is None
 
-def test_dashboard_v54_9_template_and_event_tag():
+def test_dashboard_v55_0_template_and_event_tag():
     dashboard = (ROOT / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
     template = (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
     assert '[MODE TRANSITION]' in dashboard and '[MODE CHANGE]' not in dashboard
@@ -840,6 +840,7 @@ def test_shared_site_layout_keogram_and_live_snapshot(tmp_path, monkeypatch):
         assert 'class="hws-logo"' in page and page.count('id="hws-foot"') == 1
         assert page.index('private automatic weather station') < page.index('&copy; 2026')
         assert '<a href="donate.html">donation page</a>' in page
+        assert '</p><p class="hws-disclaimer">If you have found this site useful' in page
     assert not (dash.OUT / 'data.html').exists()
     assert '<h2>More</h2>' not in (dash.OUT / 'indexnew.html').read_text()
     assert 'function station()' in (dash.OUT / 'about.html').read_text()
@@ -852,6 +853,47 @@ def test_shared_site_layout_keogram_and_live_snapshot(tmp_path, monkeypatch):
     assert 'Camera Dashboard' not in nav
     assert json.loads((dash.OUT / 'weather-live.json').read_text()) == {'updated': 'existing'}
     assert json.loads((dash.OUT / 'dashboard-data.json').read_text())['weather']['temperature_c'] == 8.5
+    for name in ('webcamhealth.html', 'mbhealth.html', 'pihealth.html'):
+        page = (dash.OUT / name).read_text()
+        assert 'aria-label="Health pages"' in page
+        assert f'href="{name}" aria-current="page"' in page
+    assert 'src="/Weather34/index.php"' in (dash.OUT / 'weather34.html').read_text()
+
+
+def test_meteobridge_daily_history_reaches_year_graph(tmp_path):
+    dash = _dash(tmp_path)
+    now = datetime(2026, 11, 23, 12, tzinfo=timezone.utc)
+    graphs = dash.graph_data(now, [], [], {}, local_daily={
+        '2025-12-01': {'rain_mm': 4.0, 'cpu_load_avg': 21.3, 'current_avg': 0.42},
+        '2026-11-23': {'rain_mm': 0.0, 'cpu_load_avg': 15.0},
+    })
+    assert graphs['daily'][0]['cpu_load_avg'] == 21.3
+    assert graphs['daily'][0]['current_avg'] == 0.42
+    assert graphs['daily'][1]['rain_mm'] == 0.0
+
+
+def test_signal_graph_extrema_and_legacy_units(tmp_path):
+    dash = _dash(tmp_path)
+    now = datetime(2026, 11, 23, 12, 4, tzinfo=timezone.utc)
+    rows = [
+        {'t': now - timedelta(minutes=3), 'signal_min': 22, 'signal_max': 55},
+        {'t': now - timedelta(minutes=2), 'signal_min': 11, 'signal_max': 80},
+    ]
+    graphs = dash.graph_data(now, rows, rows, {}, local_daily={
+        '2026-11-22': {'signal_min': 3, 'signal_max': 94, 'uptime_last': 72},
+    })
+    for period in ('24h', '7d', 'month'):
+        assert graphs[period]['signal_min'] == [11]
+        assert graphs[period]['signal_max'] == [80]
+    assert graphs['daily'][0]['signal_min'] == 3
+    assert graphs['daily'][0]['signal_max'] == 94
+    assert graphs['daily'][0]['uptime_last'] == 72
+    (tmp_path / 'weather_station_series.json').write_text(json.dumps({'samples': [
+        {'t': now.isoformat(), 'soil_moisture_percent': 85, 'uptime_seconds': 48},
+    ]}))
+    old = dash.weather_series(now)[0]
+    assert old['soil_wetness_cbar'] == 85 and old['bridge_uptime_hours'] == 48
+    assert dash.normalise_station_units({'soil_moisture_percent': 0, 'uptime_seconds': 48})['soil_wetness_cbar'] == 0
 
 def test_publication_removes_only_retired_data_page(tmp_path):
     dash = _dash(tmp_path)
@@ -929,6 +971,8 @@ const H=context.window.HWS;
 assert.equal(H.date('20261122'),'22 Nov 2026');
 assert.equal(H.date('2026-11-22'),'22 Nov 2026');
 assert.equal(H.date('broken'),'Date unavailable');
+const months=H.rainfallMonths([{d:'2024-01-01',v:1},{d:'2024-01-31',v:2},{d:'2024-02-01',v:0},{d:'2025-01-01',v:100}], '2024');
+assert.equal(months.length,12);assert.equal(months[0][1],3);assert.equal(months[1][1],0);assert.equal(months[2][1],null);
 const stale=H.weatherStatus({updated:new Date(Date.now()-11*60000).toISOString()},false);
 assert.match(stale.warning,/stale/);assert.match(stale.last,/11 min ago/);
 assert.match(H.weatherStatus({},false).warning,/No weather data/);
@@ -1028,7 +1072,7 @@ def test_sun_highlight_frame_selection():
     assert len(namespace['select_highlight_frames'](frames, datetime(2026, 11, 22, 8, 0), 120, limit=50)) == 50
 
 
-def test_v54_9_alerts_and_share_card(tmp_path, monkeypatch):
+def test_v55_0_alerts_and_share_card(tmp_path, monkeypatch):
     dash = _dash(tmp_path)
     now = datetime(2026, 11, 22, 12, 0, tzinfo=timezone.utc)
     alerts = dash.weather_alerts({'temperature_c': -1.0, 'wind_gust_mph': 45, 'rain_rate_mm_h': 2})

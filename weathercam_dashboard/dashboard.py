@@ -5,7 +5,7 @@ from datetime import datetime,timedelta,timezone
 from html import escape
 from pathlib import Path
 from zoneinfo import ZoneInfo
-V='54.9'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
+V='55.0'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
 IMG=Path(os.getenv('WEATHERCAM_LATEST_IMAGE',str(ROOT/'frames/latest.jpg'))); HD=Path(os.getenv('WEATHERCAM_HEALTH_DIR',str(ROOT/'telemetry/health'))); TD=Path(os.getenv('WEATHERCAM_TELEMETRY_DIR',str(ROOT/'logs'))); LD=Path(os.getenv('WEATHERCAM_LOG_DIR',str(ROOT/'logs')))
 def envnum(name,default):
  try:
@@ -26,7 +26,7 @@ TH={
  'health_stale_seconds':envnum('DASHBOARD_HEALTH_STALE_SECONDS',7200),
  'dashboard_stale_minutes':envnum('DASHBOARD_STALE_MINUTES',15),
 }
-LATITUDE=envnum('DASHBOARD_LATITUDE',51.8175);LONGITUDE=envnum('DASHBOARD_LONGITUDE',-0.352)
+LATITUDE=envnum('DASHBOARD_LATITUDE',51.829105);LONGITUDE=envnum('DASHBOARD_LONGITUDE',-0.380987)
 TIMELAPSE_PREVIEW_MAX_MB=envnum('DASHBOARD_TIMELAPSE_MAX_MB',150)
 PREVIEW_NAME='latest_timelapse.mp4'
 KEOGRAM_NAME='latest_keogram.png'
@@ -327,13 +327,13 @@ def sync_keogram_archive(limit=7):
 _PARTS=Path(__file__).resolve().parent
 for _part in ('astronomy.py','analytics.py','station.py','insights.py','recommendations.py','forecast.py','extras.py'):
   exec(compile((_PARTS/_part).read_text(encoding='utf-8'),str(_PARTS/_part),'exec'),globals())
-SITE_PAGES=(('indexnew.html','Home'),('console.html','Live'),('graphs.html','Graphs'),('rainfall.html','Rainfall'),('wind.html','Wind'),('forecast.html','Forecast'),('webcam.html','Webcam'),('radar.html','Radar'),('records.html','Records'),('compare.html','Compare'),('almanac.html','Almanac'),('reports.html','Reports'),('news.html','News'),('donate.html','Donate'),('about.html','About'),('mobile.html','Mobile'),('health.html','HWS Health'))
+SITE_PAGES=(('indexnew.html','Home'),('console.html','Live'),('weather34.html','Console'),('graphs.html','Graphs'),('rainfall.html','Rainfall'),('wind.html','Wind'),('forecast.html','Forecast'),('webcam.html','Webcam'),('radar.html','Radar'),('records.html','Records'),('compare.html','Compare'),('almanac.html','Almanac'),('reports.html','Reports'),('news.html','News'),('donate.html','Donate'),('about.html','About'),('mobile.html','Mobile'),('health.html','HWS Health'))
 SITE_DETAILS={'index.html':('Site Chooser','indexnew.html'),'station.html':('About','about.html'),'dashboard.html':('HWS Health','health.html'),'webcamhealth.html':('Webcam Health','health.html'),'mbhealth.html':('Meteobridge','health.html'),'pihealth.html':('Pi Health','health.html'),'satellite.html':('Satellite','radar.html')}
 SITE_NAV='<nav class="hws-nav" aria-label="Main menu">'+''.join(f'<a class="s-btn" href="{h}">{t}</a>' for h,t in SITE_PAGES)+'</nav>'
 SITE_EXTRAS=('share.png',)
 SITE_ASSETS=('site.css','site.js','favicon.svg','favicon.png','logo.svg','logo.png')
 SITE_HEAD='<link rel="icon" href="favicon.png" type="image/png"><link rel="apple-touch-icon" href="logo.png"><link rel="stylesheet" href="site.css"><script src="site.js"></script></head>'
-SITE_FOOT='<footer id="hws-foot"><p class="hws-disclaimer">This information is provided by a private automatic weather station.<br>Though we strive to achieve accurate reporting for our own use, it is important that you DO NOT depend on the data provided here for any purpose. If you have found this site useful please visit the <a href="donate.html">donation page</a>.</p><p>&copy; 2026 Mark Sanders &nbsp; <a href="mailto:info@harpendenweatherstation.co.uk">Contact Me</a></p></footer>'
+SITE_FOOT='<footer id="hws-foot"><p class="hws-disclaimer">This information is provided by a private automatic weather station.<br>Though we strive to achieve accurate reporting for our own use, it is important that you DO NOT depend on the data provided here for any purpose.</p><p class="hws-disclaimer">If you have found this site useful please visit the <a href="donate.html">donation page</a>.</p><p>&copy; 2026 Mark Sanders &nbsp; <a href="mailto:info@harpendenweatherstation.co.uk">Contact Me</a></p></footer>'
 def site_document(name,text):
  title,current=SITE_DETAILS.get(name,(dict(SITE_PAGES).get(name,'Home'),name))
  title='Harpenden Weather Station - '+title
@@ -342,6 +342,9 @@ def site_document(name,text):
  text=re.sub(r'<title>.*?</title>','<title>'+escape(title)+'</title>',text,count=1,flags=re.S)
  text=re.sub(r'(<h1\b[^>]*>).*?(</h1>)',lambda m:m[1]+'<img class="hws-logo" src="logo.svg" alt="">'+escape(title)+m[2],text,count=1,flags=re.S)
  if name=='index.html':text=text.replace('</header>',nav+'</header>',1)
+ if name in ('webcamhealth.html','mbhealth.html','pihealth.html'):
+  sub='<nav class="s-tabs" aria-label="Health pages">'+''.join(f'<a class="s-btn" href="{href}"'+(' aria-current="page"' if href==name else '')+f'>{label}</a>' for href,label in (('health.html','HWS Health'),('webcamhealth.html','Webcam Health'),('mbhealth.html','Meteobridge'),('pihealth.html','Pi Health')))+'</nav>'
+  text=text.replace('</header>','</header>'+sub,1)
  return text.replace('</body>',SITE_FOOT+'</body>',1)
 def month_start(now):
  return now.astimezone(ZoneInfo('Europe/London')).replace(day=1,hour=0,minute=0,second=0,microsecond=0).astimezone(timezone.utc)
@@ -538,12 +541,12 @@ def generate(upload=False):
  station=station_status(now)
  actions=recommended_checks(metrics,timelapse,scene,station)
  wseries=weather_series(now);whour=weather_hour();whistory=weather_history();sc=solar_check(weather,scene,now)
- graphs=graph_data(now,wseries_all,scene_rows,daily_stats,whistory,weather_archive())
+ graphs=graph_data(now,wseries_all,scene_rows,daily_stats,whistory,weather_archive(),weather_local_daily())
  forecast=forecast_data(now);site=site_content()
  winsight=weather_insight(weather,scene)+frost_notes(weather)+record_notes(weather,whistory)+([sc['note']] if sc and sc.get('note') and sc.get('verdict')!='AGREE' else [])
  schedule=mode_schedule(now)
  safe_config={
-  'release':'V54.9','telemetry_schema':4,'dashboard_refresh_minutes':5,'console_poll_seconds':30,
+  'release':'V55.0','telemetry_schema':4,'dashboard_refresh_minutes':5,'console_poll_seconds':30,
   'capture_interval_seconds':10,'ftp_configured':bool(os.getenv('DASHBOARD_FTP_HOST')),
   'ftp_tls':os.getenv('DASHBOARD_FTP_TLS','0')!='0',
   'thresholds':TH,'stale_after_minutes':TH['dashboard_stale_minutes'],'month_start':month_start(now).isoformat(),
@@ -577,6 +580,7 @@ def generate(upload=False):
  daily=graphs.get('daily') or []
  media=os.getenv('DASHBOARD_MEDIA_BASE','').strip();media=media+('/' if media and not media.endswith('/') else '')
  page('console.html',{k:payload.get(k) for k in ('weather','weather_series','weather_history','wind_rose','sun_moon','config')})
+ page('weather34.html',{})
  page('graphs.html',{'graphs':graphs,'generated':now.isoformat()})
  page('forecast.html',{'forecast':forecast})
  page('mobile.html',{'weather':weather,'forecast':forecast})
@@ -597,7 +601,7 @@ def generate(upload=False):
  page('wind.html',{'rose':rose,'weather':weather,'generated':now.isoformat()})
  page('news.html',{'news':news})
  page('donate.html',{'paypal_button':os.environ.get('DASHBOARD_PAYPAL_BUTTON_ID','EX92D2ZBL7V3Y')})
- page('mbhealth.html',{'health':meteobridge_health(now,weather,station,daily,weather_archive()),'weather':weather,'station_status':station,'generated':now.isoformat()})
+ page('mbhealth.html',{'health':meteobridge_health(now,weather,station,daily,weather_archive()),'weather':weather,'weather_series':wseries,'graphs':graphs,'station_status':station,'generated':now.isoformat()})
  page('pihealth.html',{k:payload.get(k) for k in ('metrics','series','disk_forecast','hostname','version','generated','state')})
  page('records.html',{'legacy':LEGACY_RECORDS,'records':records_data(daily,now),'year_records':(whistory or {}).get('year_records')})
  page('reports.html',{'daily':daily})

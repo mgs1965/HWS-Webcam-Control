@@ -34,7 +34,11 @@ HISTORY_INTERVAL_SECONDS = 1800
 SERIES_INTERVAL_SECONDS = 300
 SERIES_HOURS = 24
 SERIES_KEYS = ('temperature_c', 'humidity_percent', 'pressure_hpa', 'wind_speed_mph', 'wind_gust_mph', 'wind_direction_deg', 'dew_point_c', 'rain_today_mm',
-               'lightning_strikes_today', 'lightning_distance', 'solar_radiation_wm2', 'uv_index')
+               'lightning_strikes_today', 'lightning_distance', 'solar_radiation_wm2', 'uv_index',
+               'ground_temperature_c', 'soil_wetness_cbar', 'soil_temperature_c', 'greenhouse_temperature_c',
+               'cpu_load_percent', 'bridge_uptime_hours', 'storage_usage_percent', 'ram_usage_percent',
+               'power_consumption_w', 'process_count', 'bridge_data_age_s', 'voltage_v', 'current_a',
+               'signal_min', 'signal_max')
 DAILY_DAYS = 30
 
 LIMITS = {
@@ -63,6 +67,22 @@ LIMITS = {
     'sunshine_hours_today': (0.0, 24.0),
     'lightning_energy': (0.0, 1e12),
     'bridge_data_age_s': (0.0, 1e7),
+    'ground_temperature_c': (-60.0, 60.0),
+    'soil_wetness_cbar': (0.0, 200.0),
+    'soil_temperature_c': (-60.0, 60.0),
+    'greenhouse_temperature_c': (-60.0, 60.0),
+    'cpu_load_percent': (0.0, 100.0),
+    'bridge_uptime_hours': (0.0, 1e10),
+    'storage_usage_percent': (0.0, 100.0),
+    'ram_usage_percent': (0.0, 100.0),
+    'power_consumption_w': (0.0, 1000.0),
+    'process_count': (0.0, 10000.0),
+    'voltage_v': (0.0, 100.0),
+    'current_a': (0.0, 100.0),
+    'signal_min': (-200.0, 1000.0),
+    'signal_max': (-200.0, 1000.0),
+    'signal_day_min': (-200.0, 1000.0),
+    'signal_day_max': (-200.0, 1000.0),
 }
 
 
@@ -78,10 +98,10 @@ def _bounded(key, value):
     if value is None:
         return None
     low, high = LIMITS[key]
-    return round(value, 2) if low <= value <= high else None
+    return round(value, 3 if key == 'current_a' else 2) if low <= value <= high else None
 
 
-# Meteobridge live-data template: (output key, template expression, scale).
+# Meteobridge live-data template: (output key, template expression).
 METEOBRIDGE_FIELDS = (
     ('temperature_c', 'th0temp-act'), ('humidity_percent', 'th0hum-act'), ('dew_point_c', 'th0dew-act'),
     ('pressure_hpa', 'thb0seapress-act'), ('wind_speed_mph', 'wind0avgwind-act=mph'), ('wind_gust_mph', 'wind0wind-act=mph'),
@@ -90,8 +110,43 @@ METEOBRIDGE_FIELDS = (
     ('solar_radiation_wm2', 'sol0rad-act'), ('uv_index', 'uv0index-act'), ('sunshine_hours_today', 'sol0total-daysum'),
     ('lightning_strikes_today', 'lgt0total-daysum'), ('lightning_distance', 'lgt0distance-act'), ('lightning_energy', 'lgt0energy-act'),
     ('heat_index_c', 'th0heatindex-act'), ('wet_bulb_c', 'th0wetbulb-act'), ('wind_chill_c', 'wind0chill-act'),
-    ('bridge_data_age_s', 'data16num-act'),
+    ('ground_temperature_c', 't3temp-act'), ('soil_wetness_cbar', 'soil0hum-act'),
+    ('soil_temperature_c', 'soil0temp-act'), ('greenhouse_temperature_c', 'soil1temp-act'),
+    ('cpu_load_percent', 'data10num-act'), ('bridge_uptime_hours', 'data11num-act'),
+    ('storage_usage_percent', 'data12num-act'), ('ram_usage_percent', 'data13num-act'),
+    ('power_consumption_w', 'data14num-act'), ('process_count', 'data15num-act'),
+    ('bridge_data_age_s', 'data16num-act'), ('voltage_v', 'data17num-act'), ('current_a', 'data18num-act'),
+    ('signal_min', 'th0signal-min5'), ('signal_max', 'th0signal-max5'),
+    ('signal_day_min', 'th0signal-dmin'), ('signal_day_max', 'th0signal-dmax'),
 )
+METEOBRIDGE_ALIASES = {
+    't3temp': 'ground_temperature_c',
+    't0!3temp': 'ground_temperature_c',
+    'soil0hum': 'soil_wetness_cbar',
+    'th0!10hum': 'soil_wetness_cbar',
+    'soil0temp': 'soil_temperature_c',
+    'th0!10temp': 'soil_temperature_c',
+    'soil1temp': 'greenhouse_temperature_c',
+    'th0!11temp': 'greenhouse_temperature_c',
+    'data10num': 'cpu_load_percent',
+    'data0!10num': 'cpu_load_percent',
+    'data11num': 'bridge_uptime_hours',
+    'data0!11num': 'bridge_uptime_hours',
+    'data12num': 'storage_usage_percent',
+    'data0!12num': 'storage_usage_percent',
+    'data13num': 'ram_usage_percent',
+    'data0!13num': 'ram_usage_percent',
+    'data14num': 'power_consumption_w',
+    'data0!14num': 'power_consumption_w',
+    'data15num': 'process_count',
+    'data0!15num': 'process_count',
+    'data16num': 'bridge_data_age_s',
+    'data0!16num': 'bridge_data_age_s',
+    'data17num': 'voltage_v',
+    'data0!17num': 'voltage_v',
+    'data18num': 'current_a',
+    'data0!18num': 'current_a',
+}
 METEOBRIDGE_URL = None
 METEOBRIDGE_USER = 'meteobridge'
 METEOBRIDGE_PASSWORD = ''
@@ -116,13 +171,16 @@ def meteobridge_url(base, fields=None):
 
 def parse_meteobridge(text, now):
     """Parse the 'key=value;key=value' Meteobridge reply; missing sensors ('--', blank) are dropped."""
-    allowed = {key for key, _ in METEOBRIDGE_FIELDS}
+    allowed = {key for key, _ in METEOBRIDGE_FIELDS} | set(METEOBRIDGE_ALIASES)
     raw = {}
     for part in (text or '').replace('\n', ';').split(';'):
         key, _, value = part.partition('=')
         key = key.strip()
         if key in allowed:
             raw[key] = _number(value.strip())
+    for alias, canonical in METEOBRIDGE_ALIASES.items():
+        if canonical not in raw and alias in raw:
+            raw[canonical] = raw[alias]
     if raw.get('sunshine_hours_today') is not None and raw['sunshine_hours_today'] > 24:
         raw['sunshine_hours_today'] /= 60.0  # Meteobridge reports sunshine in minutes
     values = {key: _bounded(key, value) for key, value in raw.items() if key in LIMITS}
@@ -186,7 +244,11 @@ MINUTE_PATH = None
 DAILY_LOG_PATH = None
 MINUTE_INTERVAL_SECONDS = 55
 MINUTE_KEEP_MINUTES = 90
-MINUTE_KEYS = ('temperature_c', 'humidity_percent', 'pressure_hpa', 'wind_speed_mph', 'wind_gust_mph', 'wind_direction_deg', 'solar_radiation_wm2')
+MINUTE_KEYS = ('temperature_c', 'humidity_percent', 'pressure_hpa', 'wind_speed_mph', 'wind_gust_mph', 'wind_direction_deg', 'solar_radiation_wm2',
+               'ground_temperature_c', 'soil_wetness_cbar', 'soil_temperature_c', 'greenhouse_temperature_c',
+               'cpu_load_percent', 'bridge_uptime_hours', 'storage_usage_percent', 'ram_usage_percent',
+               'power_consumption_w', 'process_count', 'bridge_data_age_s', 'voltage_v', 'current_a',
+               'signal_min', 'signal_max')
 DAILY_LOG_DAYS = 400
 
 
@@ -271,10 +333,23 @@ def record_daily(data, path=None):
     for key, field, pick in (('rain_max_mm_h', 'rain_rate_mm_h', max), ('wind_gust_mph', 'wind_gust_max_today_mph', max), ('humidity_max', 'humidity_percent', max),
                              ('humidity_min', 'humidity_percent', min), ('dew_max_c', 'dew_point_c', max), ('dew_min_c', 'dew_point_c', min),
                              ('solar_max_wm2', 'solar_radiation_wm2', max), ('uv_max', 'uv_index', max), ('heat_index_max_c', 'heat_index_c', max),
-                             ('wind_chill_min_c', 'wind_chill_c', min)):
+                             ('wind_chill_min_c', 'wind_chill_c', min), ('signal_min', 'signal_day_min', min), ('signal_max', 'signal_day_max', max)):
         value = data.get(field)
         if value is not None:
             today[key] = pick(today.get(key, value), value)
+    for key, field in (('cpu_load_avg', 'cpu_load_percent'), ('storage_usage_avg', 'storage_usage_percent'),
+                       ('ram_usage_avg', 'ram_usage_percent'), ('power_consumption_avg', 'power_consumption_w'),
+                       ('process_count_avg', 'process_count'), ('data_age_avg', 'bridge_data_age_s'),
+                       ('voltage_avg', 'voltage_v'), ('current_avg', 'current_a')):
+        value = data.get(field)
+        if value is not None:
+            previous = today.get(key)
+            count_key = key + '_count'
+            count = today.get(count_key, 0)
+            today[key] = ((previous if previous is not None else 0) * count + value) / (count + 1)
+            today[count_key] = count + 1
+    if data.get('bridge_uptime_hours') is not None:
+        today['uptime_last'] = data['bridge_uptime_hours']
     if data.get('sunshine_hours_today') is not None:
         today['sunshine_hours'] = max(today.get('sunshine_hours', 0), data['sunshine_hours_today'])
     if today != before or len(days) > DAILY_LOG_DAYS:
@@ -321,7 +396,10 @@ LIVE_UPLOAD_SECONDS = 30
 LIVE_RETRY_SECONDS = 300
 LIVE_KEYS = ('updated', 'source', 'temperature_c', 'humidity_percent', 'pressure_hpa', 'wind_speed_mph', 'wind_gust_mph', 'wind_direction_deg', 'dew_point_c',
              'rain_rate_mm_h', 'rain_today_mm', 'solar_radiation_wm2', 'uv_index', 'heat_index_c', 'wet_bulb_c', 'wind_chill_c', 'lightning_strikes_today',
-             'lightning_distance', 'bridge_data_age_s', 'temp_change_1h_c', 'humidity_change_1h', 'pressure_change_1h_hpa', 'wind_gust_max_1h_mph', 'wind_gust_max_today_mph', 'sunshine_hours_today', 'lightning_energy')
+             'lightning_distance', 'bridge_data_age_s', 'temp_change_1h_c', 'humidity_change_1h', 'pressure_change_1h_hpa', 'wind_gust_max_1h_mph', 'wind_gust_max_today_mph', 'sunshine_hours_today', 'lightning_energy',
+             'ground_temperature_c', 'soil_wetness_cbar', 'soil_temperature_c', 'greenhouse_temperature_c',
+             'cpu_load_percent', 'bridge_uptime_hours', 'storage_usage_percent', 'ram_usage_percent',
+             'power_consumption_w', 'process_count', 'voltage_v', 'current_a', 'signal_min', 'signal_max')
 _live_state = {'next': 0.0}
 
 
@@ -402,8 +480,14 @@ BACKFILL_FIELDS = (('temp_max_c', 'th0temp-max', -60.0, 60.0), ('temp_min_c', 't
                    ('dew_max_c', 'th0dew-max', -60.0, 60.0), ('dew_min_c', 'th0dew-min', -60.0, 60.0), ('pressure_avg_hpa', 'thb0seapress-avg', 850.0, 1100.0),
                    ('wind_avg_mph', 'wind0avgwind-avg=mph', 0.0, 200.0), ('wind_chill_min_c', 'wind0chill-min', -80.0, 60.0),
                    ('heat_index_max_c', 'th0heatindex-max', -60.0, 80.0), ('solar_max_wm2', 'sol0rad-max', 0.0, 1800.0), ('uv_max', 'uv0index-max', 0.0, 20.0),
-                   ('sunshine_min', 'sol0total-sum', 0.0, 1440.0))
-BACKFILL_VERSION = 2
+                   ('sunshine_min', 'sol0total-sum', 0.0, 1440.0),
+                   ('cpu_load_avg', 'data10num-avg', 0.0, 100.0), ('uptime_last', 'data11num-val', 0.0, 1e10),
+                   ('storage_usage_avg', 'data12num-avg', 0.0, 100.0), ('ram_usage_avg', 'data13num-avg', 0.0, 100.0),
+                   ('power_consumption_avg', 'data14num-avg', 0.0, 1000.0), ('process_count_avg', 'data15num-avg', 0.0, 10000.0),
+                   ('data_age_avg', 'data16num-avg', 0.0, 1e7), ('voltage_avg', 'data17num-avg', 0.0, 100.0),
+                   ('current_avg', 'data18num-avg', 0.0, 100.0),
+                   ('signal_min', 'th0signal-min', -200.0, 1000.0), ('signal_max', 'th0signal-max', -200.0, 1000.0))
+BACKFILL_VERSION = 3
 BACKFILL_ARCHIVE_NAME = 'weather_station_archive.json'
 
 

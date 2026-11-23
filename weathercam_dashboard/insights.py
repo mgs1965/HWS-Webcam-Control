@@ -405,7 +405,7 @@ def bucket_series(rows,now,hours,step_minutes):
    out[field].append(None if not vals else round(max(vals) if how=='max' else vals[-1] if how=='last' else sum(vals)/len(vals),2))
  return out
 DAILY_KEEP=4200
-DAILY_EXTRA=('pressure_max_hpa','pressure_min_hpa','wind_gust_mph')
+DAILY_EXTRA=('pressure_max_hpa','pressure_min_hpa','wind_gust_mph','temp_avg_c','humidity_max','humidity_min','dew_max_c','dew_min_c','pressure_avg_hpa','wind_avg_mph','wind_chill_min_c','heat_index_max_c','solar_max_wm2','uv_max','sunshine_hours')
 def graph_data(now,wseries,scene,days,history=None,archive=None):
  """Chart data for the graphs page: 24 h (5 min), 7 days (hourly), 30 days (3-hourly) and daily highs/lows for the year."""
  live=[(dt(p.get('t')),{k:num(p.get(k)) for k,_ in GRAPH_FIELDS}) for p in wseries or []]

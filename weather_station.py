@@ -264,10 +264,15 @@ def record_daily(data, path=None):
     if pressure is not None:
         today['pressure_min_hpa'] = min(today.get('pressure_min_hpa', pressure), pressure)
         today['pressure_max_hpa'] = max(today.get('pressure_max_hpa', pressure), pressure)
-    for key, field in (('rain_max_mm_h', 'rain_rate_mm_h'), ('wind_gust_mph', 'wind_gust_max_today_mph')):
+    for key, field, pick in (('rain_max_mm_h', 'rain_rate_mm_h', max), ('wind_gust_mph', 'wind_gust_max_today_mph', max), ('humidity_max', 'humidity_percent', max),
+                             ('humidity_min', 'humidity_percent', min), ('dew_max_c', 'dew_point_c', max), ('dew_min_c', 'dew_point_c', min),
+                             ('solar_max_wm2', 'solar_radiation_wm2', max), ('uv_max', 'uv_index', max), ('heat_index_max_c', 'heat_index_c', max),
+                             ('wind_chill_min_c', 'wind_chill_c', min)):
         value = data.get(field)
         if value is not None:
-            today[key] = max(today.get(key, value), value)
+            today[key] = pick(today.get(key, value), value)
+    if data.get('sunshine_hours_today') is not None:
+        today['sunshine_hours'] = max(today.get('sunshine_hours', 0), data['sunshine_hours_today'])
     if today != before or len(days) > DAILY_LOG_DAYS:
         days = {day: days[day] for day in sorted(days)[-DAILY_LOG_DAYS:]}
         try:
@@ -388,7 +393,13 @@ def diagnose(base):
 
 BACKFILL_FIELDS = (('temp_max_c', 'th0temp-max', -60.0, 60.0), ('temp_min_c', 'th0temp-min', -60.0, 60.0), ('humidity_avg', 'th0hum-avg', 0.0, 100.0),
                    ('rain_mm', 'rain0total-sum', 0.0, 1000.0), ('pressure_max_hpa', 'thb0seapress-max', 850.0, 1100.0), ('pressure_min_hpa', 'thb0seapress-min', 850.0, 1100.0),
-                   ('wind_gust_mph', 'wind0wind-max=mph', 0.0, 200.0), ('rain_max_mm_h', 'rain0rate-max', 0.0, 1000.0))
+                   ('wind_gust_mph', 'wind0wind-max=mph', 0.0, 200.0), ('rain_max_mm_h', 'rain0rate-max', 0.0, 1000.0),
+                   ('temp_avg_c', 'th0temp-avg', -60.0, 60.0), ('humidity_max', 'th0hum-max', 0.0, 100.0), ('humidity_min', 'th0hum-min', 0.0, 100.0),
+                   ('dew_max_c', 'th0dew-max', -60.0, 60.0), ('dew_min_c', 'th0dew-min', -60.0, 60.0), ('pressure_avg_hpa', 'thb0seapress-avg', 850.0, 1100.0),
+                   ('wind_avg_mph', 'wind0avgwind-avg=mph', 0.0, 200.0), ('wind_chill_min_c', 'wind0chill-min', -80.0, 60.0),
+                   ('heat_index_max_c', 'th0heatindex-max', -60.0, 80.0), ('solar_max_wm2', 'sol0rad-max', 0.0, 1800.0), ('uv_max', 'uv0index-max', 0.0, 20.0),
+                   ('sunshine_min', 'sol0total-sum', 0.0, 1440.0))
+BACKFILL_VERSION = 2
 BACKFILL_ARCHIVE_NAME = 'weather_station_archive.json'
 
 
@@ -410,6 +421,8 @@ def parse_backfill_day(text):
         number = _number(value.strip()) if key in limits else None
         if number is not None and limits[key][0] <= number <= limits[key][1]:
             out[key] = round(number, 2)
+    if 'sunshine_min' in out:
+        out['sunshine_hours'] = round(out.pop('sunshine_min') / 60, 2)
     return out
 
 
@@ -422,7 +435,7 @@ def backfill_archive(base, path, days=4000, today=None, fetch=None, sleep=time.s
     added = empty = 0
     for offset in range(1, days + 1):
         day = (today - timedelta(days=offset)).isoformat()
-        if day in archive and archive[day] and 'rain_mm' in archive[day] and 'rain_max_mm_h' in archive[day]:
+        if archive.get(day, {}).get('bf', 0) >= BACKFILL_VERSION:
             empty = 0
             continue
         url = meteobridge_url(base, backfill_expressions(offset))
@@ -437,7 +450,7 @@ def backfill_archive(base, path, days=4000, today=None, fetch=None, sleep=time.s
                 break
             continue
         empty = 0
-        archive[day] = {**archive.get(day, {}), **values}
+        archive[day] = {**archive.get(day, {}), **values, 'bf': BACKFILL_VERSION}
         added += 1
         if added % 50 == 0:
             write_json_atomic(path, {'days': dict(sorted(archive.items()))})

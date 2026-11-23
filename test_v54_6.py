@@ -978,3 +978,10 @@ def test_wind_sensor_health_check(tmp_path):
     assert {c['name']: c['status'] for c in dash.meteobridge_health(now, live, {}, [], {})['checks']}['Wind sensor'] == 'warn'
     live.update(wind_speed_mph=2.0)
     assert {c['name']: c['status'] for c in dash.meteobridge_health(now, live, {}, [], {})['checks']}['Wind sensor'] == 'ok'
+
+
+def test_backfill_parses_extra_daily_fields():
+    import weather_station as ws
+    out = ws.parse_backfill_day('wind_avg_mph=4.2;dew_min_c=-2.5;solar_max_wm2=310;uv_max=1.2;sunshine_min=354;humidity_max=99;heat_index_max_c=[bad]')
+    assert out == {'wind_avg_mph': 4.2, 'dew_min_c': -2.5, 'solar_max_wm2': 310.0, 'uv_max': 1.2, 'sunshine_hours': 5.9, 'humidity_max': 99.0}
+    assert ws.parse_backfill_day('sunshine_min=50000') == {}

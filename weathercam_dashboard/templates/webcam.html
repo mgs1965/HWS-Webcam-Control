@@ -4,7 +4,7 @@
 <header class="s-head"><h1>Weather webcam</h1><div class="s-nav muted">__NAV__</div></header>
 <div class="s-card s-media"><h2>Latest image</h2><img src="latest.jpg" alt="Latest webcam image" id="cam" onerror="this.hidden=true"><div class="muted" id="note" style="margin-top:6px"></div></div>
 <div class="s-grid" id="videos"></div>
-<div class="s-card s-media" id="kg" hidden><h2>Keogram</h2><img id="kgimg" alt="Keogram, a day of sky in one picture" loading="lazy"><div class="s-thumbs" id="kgs" style="margin-top:8px"></div></div>
+<div class="s-card s-media" id="kg" hidden><h2>Keogram</h2><img id="kgimg" alt="Keogram, a day of sky in one picture" loading="lazy" style="width:100%"><p class="muted" id="kgcap" style="margin:4px 0 0"></p><div class="s-thumbs" id="kgs" style="margin-top:8px"></div></div>
 <div class="s-card" id="libc" hidden><h2>Timelapse library</h2><div class="s-scroll"><table class="s-table" id="lib"></table></div></div>
 <div class="s-card" id="galc" hidden><h2>Recent images</h2><div class="s-thumbs" id="gal"></div></div>
 <script type="application/json" id="data">__DATA__</script>
@@ -16,8 +16,9 @@ const tile=(box,k,v)=>{const t=el('div','s-tile',undefined,box);el('div','k',k,t
 const B=D.media_base||'';
 $('note').textContent=(D.capture_time?'Captured '+D.capture_time+'. ':'')+(D.mode?'Camera mode: '+D.mode+'.':'');
 const videos=$('videos');for(const[t,f]of[['Today so far','today_timelapse.mp4'],['Yesterday','latest_timelapse.mp4'],['Last week','latest_weekly_timelapse.mp4'],['Last month','latest_monthly_timelapse.mp4']]){const c=el('section','s-card s-media',undefined,videos);el('h2','',t,c);const v=el('video','',undefined,c);v.controls=true;v.preload='none';v.src=B+f;v.setAttribute('playsinline','');const a=el('a','muted','Download',c);a.href=B+f}
-const K=D.keogram;if(K&&K.filename){$('kg').hidden=false;$('kgimg').src=K.filename}
-if((D.keogram_archive||[]).length){$('kg').hidden=false;for(const k of D.keogram_archive.slice().reverse()){const a=el('a','',undefined,$('kgs'));a.href=k.src;a.title=k.date;const i=el('img','',undefined,a);i.src=k.src;i.alt='Keogram '+k.date;i.loading='lazy'}}
+const K=D.keogram;const kgDate=d=>d?new Date(d+'T12:00:00').toLocaleDateString([],{day:'numeric',month:'short',year:'numeric'}):'';
+if(K&&K.filename){$('kg').hidden=false;$('kgimg').src=K.filename;$('kgcap').textContent=K.date?'Keogram, '+kgDate(K.date):'Latest keogram'}
+if((D.keogram_archive||[]).length){$('kg').hidden=false;for(const k of D.keogram_archive.slice().reverse()){const a=el('a','',undefined,$('kgs'));a.href=k.src;a.title=k.date;a.style.cssText='text-align:center;text-decoration:none;color:inherit';const i=el('img','',undefined,a);i.src=k.src;i.alt='Keogram '+k.date;i.loading='lazy';const c=el('div','muted',kgDate(k.date),a);c.style.fontSize='.8em';a.addEventListener('click',e=>{e.preventDefault();$('kgimg').src=k.src;$('kgcap').textContent='Keogram, '+kgDate(k.date);for(const x of $('kgs').children)x.querySelector('img').style.outline='';i.style.outline='2px solid #4fc3f7';i.style.borderRadius='8px';$('kg').scrollIntoView({behavior:'smooth',block:'start'})})}}
 if((D.timelapse_library||[]).length){$('libc').hidden=false;const t=$('lib');t.innerHTML='<tr><th>Timelapse</th><th>Date</th><th>Size</th></tr>';for(const x of D.timelapse_library){const r=t.insertRow(),a=document.createElement('a');a.href=B+x.name;a.textContent=x.name;r.insertCell().append(a);r.insertCell().textContent=String(x.modified||'').slice(0,10);r.insertCell().textContent=has(x.size_mb)?Number(x.size_mb).toFixed(1)+' MB':'–'}}
 if((D.gallery||[]).length){$('galc').hidden=false;for(const g of D.gallery.slice(-24).reverse()){const a=el('a','',undefined,$('gal'));a.href=g.src;a.title=g.captured||'';const i=el('img','',undefined,a);i.src=g.src;i.alt='Webcam image '+(g.captured||'');i.loading='lazy'}}
 setInterval(()=>{const i=$('cam');if(i&&!i.hidden)i.src='latest.jpg?ts='+Date.now()},300000);

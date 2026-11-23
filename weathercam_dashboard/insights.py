@@ -405,7 +405,7 @@ def bucket_series(rows,now,hours,step_minutes):
    out[field].append(None if not vals else round(max(vals) if how=='max' else vals[-1] if how=='last' else sum(vals)/len(vals),2))
  return out
 DAILY_KEEP=4200
-DAILY_EXTRA=('pressure_max_hpa','pressure_min_hpa','wind_gust_mph')
+DAILY_EXTRA=('pressure_max_hpa','pressure_min_hpa','wind_gust_mph','temp_avg_c','humidity_max','humidity_min','dew_max_c','dew_min_c','pressure_avg_hpa','wind_avg_mph','wind_chill_min_c','heat_index_max_c','solar_max_wm2','uv_max','sunshine_hours')
 def graph_data(now,wseries,scene,days,history=None,archive=None):
  """Chart data for the graphs page: 24 h (5 min), 7 days (hourly), 30 days (3-hourly) and daily highs/lows for the year."""
  live=[(dt(p.get('t')),{k:num(p.get(k)) for k,_ in GRAPH_FIELDS}) for p in wseries or []]
@@ -415,7 +415,7 @@ def graph_data(now,wseries,scene,days,history=None,archive=None):
  sources=[(str(r['date'])[:10],r) for r in (history or {}).get('daily') or [] if isinstance(r,dict) and r.get('date')]+list((archive or {}).items())
  for day,row in sources:
   entry=merged.setdefault(day,{})
-  for key in ('temp_max_c','temp_min_c','rain_mm','humidity_avg')+DAILY_EXTRA:
+  for key in ('temp_max_c','temp_min_c','rain_mm','humidity_avg','rain_max_mm_h')+DAILY_EXTRA:
    if entry.get(key) is None and num(row.get(key)) is not None:entry[key]=num(row.get(key))
  daily=[{'date':d,**{k:s.get(k) for k in ('temp_max_c','temp_min_c','humidity_avg','rain_max_mm_h','rain_mm')+DAILY_EXTRA}} for d,s in sorted(merged.items())[-DAILY_KEEP:]]
  return {'24h':bucket_series(live,now,24,5),'7d':bucket_series(hist,now,168,60),'30d':bucket_series(hist,now,720,180),'daily':daily}

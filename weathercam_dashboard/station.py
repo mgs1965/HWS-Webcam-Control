@@ -135,6 +135,14 @@ def weather_insight(weather,scene):
  r=num(w.get('rain_rate_mm_h'))
  if r is not None and r>0:reasons.append(f'Rain reported ({r:.1f} mm/h); droplets on the lens are likely.')
  return reasons
+def weather_full(now,fallback=None):
+ """The complete current reading from the weather service; the camera's trimmed copy is used only when that file is missing or stale."""
+ data=jsonfile(LD/'weather_station.json')
+ updated=dt(data.get('updated')) if isinstance(data,dict) else None
+ if updated and abs((now-updated).total_seconds())<=900:
+  out=dict(data);out['age_seconds']=max(0,int((now-updated).total_seconds()))
+  return out
+ return fallback
 def station_status(now):
  """Flag weather data that has stopped updating (service stopped, or the Meteobridge has lost the console)."""
  data=jsonfile(LD/'weather_station.json')

@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parent
 def test_release_identity():
     namespace = {}
     exec((ROOT / 'version.py').read_text(encoding='utf-8'), namespace)
-    assert namespace['VERSION'] == 'V54.6'
+    assert namespace['VERSION'] == 'V54.7'
     assert namespace['TELEMETRY_SCHEMA_VERSION'] == 4
 
 def test_telemetry_schema():
@@ -32,11 +32,11 @@ def test_credentials_are_not_embedded():
     assert "FTP_PASSWORD = os.getenv('HWS_FTP_PASSWORD', '')" in core
     assert 'cGnRUCGhc' not in core
 
-def test_dashboard_v54_6_payload():
+def test_dashboard_v54_7_payload():
     dashboard = (ROOT / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
     template = (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
-    assert "V='54.6'" in dashboard
-    assert "'release':'V54.6'" in dashboard
+    assert "V='54.7'" in dashboard
+    assert "'release':'V54.7'" in dashboard
     assert "for period,hours in (('24h',24),('7d',168),('30d',720))" in dashboard
     assert 'incidents' in dashboard
     assert "'process_memory':('health','memory.process_rss_bytes',1/1048576)" in dashboard
@@ -232,7 +232,7 @@ def test_controller_configuration_fingerprint_tracks_real_limits():
 
 def test_camera_service_unit_and_install_preserve_existing_unit():
     service = (ROOT / 'systemd/weathercam.service').read_text(encoding='utf-8')
-    installer = (ROOT / 'install_v54_6.sh').read_text(encoding='utf-8')
+    installer = (ROOT / 'install_v54_7.sh').read_text(encoding='utf-8')
     assert 'EnvironmentFile=/etc/weathercam/dashboard.env' in service
     assert 'Restart=on-failure' in service
     assert 'TimeoutStopSec=240' in service
@@ -571,14 +571,14 @@ def test_release_zip_extracts_to_matching_directory(tmp_path):
     manifest = json.loads((ROOT / 'manifest.json').read_text(encoding='utf-8'))
     with zipfile.ZipFile(tmp_path / manifest['package']) as archive:
         names = archive.namelist()
-    assert manifest['package'] == 'HWS-Webcam-Control-54.6.zip'
-    assert all(name.startswith('HWS-Webcam-Control-54.6/') for name in names)
-    assert 'HWS-Webcam-Control-54.6/manifest.json' in names
+    assert manifest['package'] == 'HWS-Webcam-Control-54.7.zip'
+    assert all(name.startswith('HWS-Webcam-Control-54.7/') for name in names)
+    assert 'HWS-Webcam-Control-54.7/manifest.json' in names
 
 def _load_dashboard(tmp_path, monkeypatch):
     monkeypatch.setenv('WEATHERCAM_ROOT', str(tmp_path))
     monkeypatch.setenv('DASHBOARD_OUT', str(tmp_path / 'out'))
-    spec = importlib.util.spec_from_file_location('dash54_6', ROOT / 'weathercam_dashboard/dashboard.py')
+    spec = importlib.util.spec_from_file_location('dash54_7', ROOT / 'weathercam_dashboard/dashboard.py')
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -603,7 +603,7 @@ def test_dashboard_moon_and_disk_forecast(tmp_path, monkeypatch):
     assert forecast['percent_per_day'] > 0 and forecast['days_to_full'] > 0
     assert dash.disk_forecast(rows[:5], now) is None
 
-def test_dashboard_v54_6_template_and_event_tag():
+def test_dashboard_v54_7_template_and_event_tag():
     dashboard = (ROOT / 'weathercam_dashboard/dashboard.py').read_text(encoding='utf-8')
     template = (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8')
     assert '[MODE TRANSITION]' in dashboard and '[MODE CHANGE]' not in dashboard
@@ -854,7 +854,7 @@ def test_backfill_from_meteobridge_and_archive_merge(tmp_path):
     def fetch(url):
         from urllib.parse import unquote
         offset = int(unquote(url).split('th0temp-max@D')[1].split(']')[0])
-        return f'temp_max_c={10 + offset};temp_min_c=1;rain_mm=0.5' if offset <= 3 else 'temp_max_c=--;temp_min_c=--'
+        return f'temp_max_c={10 + offset};temp_min_c=1;rain_mm=0.5;rain_max_mm_h=2.4' if offset <= 3 else 'temp_max_c=--;temp_min_c=--'
     path = tmp_path / 'archive.json'
     result = ws.backfill_archive('192.168.0.65', str(path), days=100, today=today, fetch=fetch, sleep=lambda s: None, max_empty=5)
     assert result == {'added': 3, 'total': 3, 'first': '2026-11-19'}
@@ -895,7 +895,7 @@ def test_sun_highlight_frame_selection():
     assert len(namespace['select_highlight_frames'](frames, datetime(2026, 11, 22, 8, 0), 120, limit=50)) == 50
 
 
-def test_v54_6_alerts_and_share_card(tmp_path, monkeypatch):
+def test_v54_7_alerts_and_share_card(tmp_path, monkeypatch):
     dash = _dash(tmp_path)
     now = datetime(2026, 11, 22, 12, 0, tzinfo=timezone.utc)
     alerts = dash.weather_alerts({'temperature_c': -1.0, 'wind_gust_mph': 45, 'rain_rate_mm_h': 2})
@@ -943,3 +943,45 @@ def test_meteobridge_health_flags_blank_live_fields():
 def test_clientraw_support_is_gone():
     assert 'clientraw' not in (ROOT / 'weather_station.py').read_text(encoding='utf-8').lower()
     assert 'clientraw' not in (ROOT / 'weathercam_dashboard/templates/dashboard.html').read_text(encoding='utf-8').lower()
+
+
+def test_dashboard_uses_full_weather_reading(tmp_path):
+    dashboard = load_source_module('dashboard_full_weather_source', ROOT / 'weathercam_dashboard/dashboard.py')
+    dashboard.LD = tmp_path
+    now = datetime(2026, 11, 23, 7, 0, tzinfo=timezone.utc)
+    trimmed = {'temperature_c': 1.0, 'age_seconds': 5}
+    assert dashboard.weather_full(now, trimmed) == trimmed
+    fresh = {'updated': (now - timedelta(seconds=30)).isoformat(), 'source': 'meteobridge', 'rain_today_mm': 2.0, 'bridge_data_age_s': 3}
+    (tmp_path / 'weather_station.json').write_text(json.dumps(fresh))
+    full = dashboard.weather_full(now, trimmed)
+    assert full['rain_today_mm'] == 2.0 and full['source'] == 'meteobridge' and full['age_seconds'] == 30
+    fresh['updated'] = (now - timedelta(hours=2)).isoformat()
+    (tmp_path / 'weather_station.json').write_text(json.dumps(fresh))
+    assert dashboard.weather_full(now, trimmed) == trimmed
+
+
+def test_record_daily_tracks_rain_rate_pressure_and_gust(tmp_path):
+    import weather_station as ws
+    path = str(tmp_path / 'd.json')
+    for rate, pressure, gust in ((0.0, 1000.0, 5.0), (4.2, 1004.0, 12.0), (1.0, 998.0, 12.0)):
+        ws.record_daily({'updated': '2026-11-23T07:00:00+00:00', 'temperature_c': 1.0, 'pressure_hpa': pressure,
+                         'rain_rate_mm_h': rate, 'wind_gust_max_today_mph': gust}, path)
+    day = json.loads(open(path).read())['days']['2026-11-23']
+    assert day['rain_max_mm_h'] == 4.2 and day['pressure_max_hpa'] == 1004.0 and day['pressure_min_hpa'] == 998.0 and day['wind_gust_mph'] == 12.0
+
+
+
+def test_wind_sensor_health_check(tmp_path):
+    dash = _dash(tmp_path)
+    now = datetime(2026, 11, 23, 7, 0, tzinfo=timezone.utc)
+    live = {'updated': now.isoformat(), 'source': 'meteobridge', 'bridge_data_age_s': 3, 'temperature_c': 1.0}
+    assert {c['name']: c['status'] for c in dash.meteobridge_health(now, live, {}, [], {})['checks']}['Wind sensor'] == 'warn'
+    live.update(wind_speed_mph=2.0)
+    assert {c['name']: c['status'] for c in dash.meteobridge_health(now, live, {}, [], {})['checks']}['Wind sensor'] == 'ok'
+
+
+def test_backfill_parses_extra_daily_fields():
+    import weather_station as ws
+    out = ws.parse_backfill_day('wind_avg_mph=4.2;dew_min_c=-2.5;solar_max_wm2=310;uv_max=1.2;sunshine_min=354;humidity_max=99;heat_index_max_c=[bad]')
+    assert out == {'wind_avg_mph': 4.2, 'dew_min_c': -2.5, 'solar_max_wm2': 310.0, 'uv_max': 1.2, 'sunshine_hours': 5.9, 'humidity_max': 99.0}
+    assert ws.parse_backfill_day('sunshine_min=50000') == {}

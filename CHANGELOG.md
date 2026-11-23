@@ -1,3 +1,10 @@
+#### V54.7
+
+- Meteobridge data: backfill and daily recording now include average temperature, humidity high/low, dew point high/low, average pressure, average wind, wind chill low, heat index high, peak solar and UV, sunshine hours, peak rain rate, max pressure and gust. Re-run `--backfill` after installing.
+- Six new daily charts on Graphs (year) and extra CSV columns on Reports.
+- Fixed Meteobridge health page showing unknown readings; new Wind sensor check (flat battery).
+- Webcam keogram: clicking a thumbnail swaps it into the large slot, with dates shown.
+
 #### V54.6
 
 - Faster live data: weather fetch every 30 s and live-file upload every 30 s by default (was 60 s / 120 s), so the live tiles are about 30-60 s old.

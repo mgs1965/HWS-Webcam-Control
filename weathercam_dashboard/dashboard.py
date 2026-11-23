@@ -5,7 +5,7 @@ from datetime import datetime,timedelta,timezone
 from html import escape
 from pathlib import Path
 from zoneinfo import ZoneInfo
-V='55.10'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
+V='55.11'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
 IMG=Path(os.getenv('WEATHERCAM_LATEST_IMAGE',str(ROOT/'frames/latest.jpg'))); HD=Path(os.getenv('WEATHERCAM_HEALTH_DIR',str(ROOT/'telemetry/health'))); TD=Path(os.getenv('WEATHERCAM_TELEMETRY_DIR',str(ROOT/'logs'))); LD=Path(os.getenv('WEATHERCAM_LOG_DIR',str(ROOT/'logs')))
 def envnum(name,default):
  try:
@@ -345,7 +345,7 @@ def site_document(name,text):
  title,current=SITE_DETAILS.get(name,(dict(SITE_PAGES).get(name,'Home'),name))
  title='Harpenden Weather Station - '+title
  nav=SITE_NAV.replace(f'href="{current}"',f'href="{current}" aria-current="page"')
- text=text.replace('__NAV__',nav).replace('</head>',SITE_HEAD,1)
+ text=text.replace('__VERSION__',V).replace('__NAV__',nav).replace('</head>',SITE_HEAD,1)
  text=re.sub(r'<title>.*?</title>','<title>'+escape(title)+'</title>',text,count=1,flags=re.S)
  text=re.sub(r'(<h1\b[^>]*>).*?(</h1>)',lambda m:m[1]+'<a href="health.html" title="HWS Health" aria-label="HWS Health"><img class="hws-logo" src="logo.svg" alt=""></a>'+escape(title)+m[2],text,count=1,flags=re.S)
  if name=='index.html':text=text.replace('</header>',nav+'</header>',1)
@@ -554,7 +554,7 @@ def generate(upload=False):
  winsight=weather_insight(weather,scene)+frost_notes(weather)+record_notes(weather,whistory)+([sc['note']] if sc and sc.get('note') and sc.get('verdict')!='AGREE' else [])
  schedule=mode_schedule(now)
  safe_config={
-  'release':'V55.10','telemetry_schema':4,'dashboard_refresh_minutes':5,'console_poll_seconds':30,
+  'release':'V55.11','telemetry_schema':4,'dashboard_refresh_minutes':5,'console_poll_seconds':30,
   'capture_interval_seconds':10,'ftp_configured':bool(os.getenv('DASHBOARD_FTP_HOST')),
   'ftp_tls':os.getenv('DASHBOARD_FTP_TLS','0')!='0',
   'thresholds':TH,'stale_after_minutes':TH['dashboard_stale_minutes'],'month_start':month_start(now).isoformat(),

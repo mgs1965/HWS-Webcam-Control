@@ -1,3 +1,6 @@
+#### V55.11
+- Greenhouse soil labels everywhere; About page shows project version.
+
 #### V55.10
 - Live webcam tile double width; header picture shows moon and tree top; webcam direction note; Greenhouse soil labels.
 

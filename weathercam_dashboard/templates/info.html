@@ -13,6 +13,7 @@ header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:cen
 const raw=document.getElementById('data').textContent.trim(),D=raw.startsWith('{')?JSON.parse(raw):{},S=D.site||{},main=document.getElementById('main');
 function station(){const heading=document.createElement('h2');heading.textContent='The Station';main.append(heading);const t=document.createElement('table');for(const[k,v]of Object.entries(S.station||{})){const r=t.insertRow(),h=document.createElement('th');h.textContent=k;r.append(h);r.insertCell().textContent=v}
 const lat=Number(S.latitude),lon=Number(S.longitude);if(isFinite(lat)&&isFinite(lon)){const r=t.insertRow(),h=document.createElement('th');h.textContent='Coordinates';r.append(h);const c=r.insertCell(),a=document.createElement('a');a.href='https://www.openstreetmap.org/?mlat='+lat+'&mlon='+lon+'#map=13/'+lat+'/'+lon;a.textContent=lat.toFixed(4)+', '+lon.toFixed(4);a.rel='noopener';c.append(a)}
+const vr=t.insertRow(),vh=document.createElement('th');vh.textContent='Project version';vr.append(vh);vr.insertCell().textContent='V__VERSION__';
 main.append(t)}
 for(const p of S.about||[]){const e=document.createElement('p');e.textContent=p;main.append(e)}
 const tag=document.createElement('p');tag.className='muted';tag.textContent=S.tagline||'';main.append(tag);station();

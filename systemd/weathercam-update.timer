@@ -1,0 +1,9 @@
+[Unit]
+Description=Check for a new Harpenden Weather Camera release every night
+[Timer]
+OnCalendar=*-*-* 03:30:00
+RandomizedDelaySec=10min
+Persistent=true
+Unit=weathercam-update.service
+[Install]
+WantedBy=timers.target

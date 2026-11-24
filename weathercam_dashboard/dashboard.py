@@ -5,7 +5,7 @@ from datetime import datetime,timedelta,timezone
 from html import escape
 from pathlib import Path
 from zoneinfo import ZoneInfo
-V='2026.11.25.03'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
+V='2026.11.25.04'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
 IMG=Path(os.getenv('WEATHERCAM_LATEST_IMAGE',str(ROOT/'frames/latest.jpg'))); HD=Path(os.getenv('WEATHERCAM_HEALTH_DIR',str(ROOT/'telemetry/health'))); TD=Path(os.getenv('WEATHERCAM_TELEMETRY_DIR',str(ROOT/'logs'))); LD=Path(os.getenv('WEATHERCAM_LOG_DIR',str(ROOT/'logs')))
 def envnum(name,default):
  try:
@@ -347,7 +347,7 @@ def site_document(name,text):
  nav=SITE_NAV.replace(f'href="{current}"',f'href="{current}" aria-current="page"')
  text=text.replace('__VERSION__',V).replace('__NAV__',nav).replace('</head>',SITE_HEAD,1)
  text=re.sub(r'<title>.*?</title>','<title>'+escape(title)+'</title>',text,count=1,flags=re.S)
- text=re.sub(r'(<h1\b[^>]*>).*?(</h1>)',lambda m:m[1]+'<a href="health.html" title="HWS Health" aria-label="HWS Health"><img class="hws-logo" src="logo.png" alt=""></a><span class="hws-title">'+escape(title)+'<small class="hws-tag">Keeping an eye on the weather!</small></span>'+m[2],text,count=1,flags=re.S)
+ text=re.sub(r'(<h1\b[^>]*>).*?(</h1>)',lambda m:m[1]+'<span class="hws-brand"><a href="health.html" title="HWS Health" aria-label="HWS Health"><img class="hws-logo" src="logo.png" alt=""></a><small class="hws-tag">Keeping an eye on the weather!</small></span><span class="hws-title">'+escape(title)+'</span>'+m[2],text,count=1,flags=re.S)
  if name=='index.html':text=text.replace('</header>',nav+'</header>',1)
  if name in ('dashboard.html','health.html','webcamhealth.html','mbhealth.html','pihealth.html'):
   sub=health_navigation(name)
@@ -554,7 +554,7 @@ def generate(upload=False):
  winsight=weather_insight(weather,scene)+frost_notes(weather)+record_notes(weather,whistory)+([sc['note']] if sc and sc.get('note') and sc.get('verdict')!='AGREE' else [])
  schedule=mode_schedule(now)
  safe_config={
-  'release':'V2026.11.25.03','telemetry_schema':4,'dashboard_refresh_minutes':5,'console_poll_seconds':30,
+  'release':'V2026.11.25.04','telemetry_schema':4,'dashboard_refresh_minutes':5,'console_poll_seconds':30,
   'capture_interval_seconds':10,'ftp_configured':bool(os.getenv('DASHBOARD_FTP_HOST')),
   'ftp_tls':os.getenv('DASHBOARD_FTP_TLS','0')!='0',
   'thresholds':TH,'stale_after_minutes':TH['dashboard_stale_minutes'],'month_start':month_start(now).isoformat(),
@@ -623,6 +623,7 @@ def generate(upload=False):
 def main():
  p=argparse.ArgumentParser()
  p.add_argument('--upload',action='store_true')
+ p.add_argument('--import-news-archive',action='store_true',help='copy the bundled articles into the editable news file (once) and exit')
  p.add_argument('--version',action='version',version=V)
  p.add_argument('--add-news',metavar='TITLE',help='save a news entry locally before generating the site')
  body=p.add_mutually_exclusive_group()
@@ -630,6 +631,7 @@ def main():
  body.add_argument('--news-file',type=Path,help='UTF-8 text file containing the news entry')
  p.add_argument('--news-date',help='entry date in YYYY-MM-DD format (default today)')
  a=p.parse_args()
+ if a.import_news_archive:import_news_archive();return
  if a.add_news:
   if not (a.news_text or a.news_file):p.error('--add-news requires --news-text or --news-file')
   if a.upload and not all(os.getenv(k) for k in ('DASHBOARD_FTP_HOST','DASHBOARD_FTP_USER','DASHBOARD_FTP_PASSWORD')):p.error('set DASHBOARD_FTP_HOST, DASHBOARD_FTP_USER and DASHBOARD_FTP_PASSWORD before uploading news')

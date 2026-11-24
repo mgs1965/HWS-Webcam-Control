@@ -1,3 +1,6 @@
+#### V2026.11.25.04
+- Strapline under logo, news driven by editable file, automatic updates, off-Pi backups, storage/power health alerts, selftest.sh and CI
+
 #### V2026.11.25.03
 - New HWS logo on every page, icon and share card; 'Keeping an eye on the weather!' strapline in each page header
 

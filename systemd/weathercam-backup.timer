@@ -1,0 +1,8 @@
+[Unit]
+Description=Back up Harpenden Weather Camera data every night
+[Timer]
+OnCalendar=*-*-* 02:30:00
+Persistent=true
+Unit=weathercam-backup.service
+[Install]
+WantedBy=timers.target

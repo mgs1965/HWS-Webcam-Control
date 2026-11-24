@@ -1,0 +1,6 @@
+[Unit]
+Description=Back up Harpenden Weather Camera data
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/weathercam/dashboard.env
+ExecStart=/bin/bash /mnt/weathercam/app/current/backup.sh

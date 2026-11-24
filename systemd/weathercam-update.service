@@ -1,0 +1,8 @@
+[Unit]
+Description=Update Harpenden Weather Camera to the latest release
+After=network-online.target
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/weathercam/dashboard.env
+WorkingDirectory=/mnt/weathercam/app/current
+ExecStart=/bin/bash /mnt/weathercam/app/current/update.sh

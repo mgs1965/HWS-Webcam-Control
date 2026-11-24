@@ -53,6 +53,10 @@ fi
 sudo install -m 0644 "$DEST/systemd/weathercam-weather-station.service" /etc/systemd/system/weathercam-weather-station.service
 sudo install -m 0644 "$DEST/systemd/weathercam-alerts.service" /etc/systemd/system/weathercam-alerts.service
 sudo install -m 0644 "$DEST/systemd/weathercam-alerts.timer" /etc/systemd/system/weathercam-alerts.timer
+sudo install -m 0644 "$DEST/systemd/weathercam-update.service" /etc/systemd/system/weathercam-update.service
+sudo install -m 0644 "$DEST/systemd/weathercam-update.timer" /etc/systemd/system/weathercam-update.timer
+sudo install -m 0644 "$DEST/systemd/weathercam-backup.service" /etc/systemd/system/weathercam-backup.service
+sudo install -m 0644 "$DEST/systemd/weathercam-backup.timer" /etc/systemd/system/weathercam-backup.timer
 sudo rm -f "$BASE/current"
 sudo ln -s "$DEST" "$BASE/current"
 sudo systemctl daemon-reload
@@ -76,6 +80,17 @@ if sudo grep -Eq '^HWS_ALERT_(NTFY_URL|WEBHOOK_URL|SMTP_HOST)=.+$' /etc/weatherc
 else
   echo "Health alerts not enabled: set HWS_ALERT_NTFY_URL (or webhook/SMTP) in /etc/weathercam/dashboard.env, then run: sudo systemctl enable --now weathercam-alerts.timer"
 fi
+if sudo grep -Eq '^HWS_AUTO_UPDATE=1$' /etc/weathercam/dashboard.env; then
+  sudo systemctl enable --now weathercam-update.timer
+else
+  echo "Automatic updates not enabled: add HWS_AUTO_UPDATE=1 (and GITHUB_TOKEN=...) to /etc/weathercam/dashboard.env, then run: sudo systemctl enable --now weathercam-update.timer"
+fi
+if sudo grep -Eq '^HWS_BACKUP_DEST=.+$' /etc/weathercam/dashboard.env; then
+  sudo systemctl enable --now weathercam-backup.timer
+else
+  echo "Backups not enabled: set HWS_BACKUP_DEST (user@host:/path or a mounted folder) in /etc/weathercam/dashboard.env, then run: sudo systemctl enable --now weathercam-backup.timer"
+fi
+sudo -u mgs /usr/bin/python3 "$BASE/current/weathercam_dashboard/dashboard.py" --import-news-archive
 sudo -u mgs /usr/bin/python3 "$BASE/current/weathercam_dashboard/dashboard.py"
 sudo systemctl enable --now weathercam-dashboard.timer
 echo "Installed $VERSION -> $(readlink -f "$BASE/current")"

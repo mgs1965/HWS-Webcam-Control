@@ -1,7 +1,23 @@
 # News, "today in Harpenden", wind rose and Meteobridge health helpers (included into dashboard.py).
 WIND_CLASSES=((0.5,5),(5,10),(10,20),(20,None))
+def news_path():return Path(os.getenv('DASHBOARD_NEWS_PATH',str(LD/'dashboard_news.json')))
+def bundled_news():
+ try:data=json.loads((Path(__file__).resolve().parent/'news_archive.json').read_text(encoding='utf-8'))
+ except (OSError,ValueError):return []
+ return data if isinstance(data,list) else []
+def import_news_archive():
+ """Copy the bundled articles into the editable news file once; after that the file alone drives the News page."""
+ path=news_path();marker=path.with_name(path.name+'.archive-imported')
+ if marker.exists():print('News archive already imported; edit '+str(path));return
+ entries=local_news();seen={(n.get('date'),n.get('title')) for n in entries};added=0
+ for n in bundled_news():
+  if isinstance(n,dict) and isinstance(n.get('text'),str) and (n.get('date'),n.get('title')) not in seen:
+   entries.append({k:n.get(k,'') for k in ('date','time','title','text')});added+=1
+ entries.sort(key=lambda n:(str(n.get('date','')),str(n.get('time',''))),reverse=True)
+ atomic(path,json.dumps(entries,indent=2,ensure_ascii=False));atomic(marker,'imported\n')
+ print(f'News file {path} now holds {len(entries)} articles ({added} imported from the archive)')
 def local_news():
- path=Path(os.getenv('DASHBOARD_NEWS_PATH',str(LD/'dashboard_news.json')))
+ path=news_path()
  if not path.exists():return []
  entries=json.loads(path.read_text(encoding='utf-8'))
  if not isinstance(entries,list) or any(not isinstance(n,dict) or not isinstance(n.get('text'),str) for n in entries):raise ValueError(f'Invalid news entries in {path}')
@@ -14,15 +30,14 @@ def add_news(title,text,date=None):
  entries=local_news()
  if any(n.get('date')==date and n.get('title')==title for n in entries):raise ValueError('A news entry with this date and title already exists')
  entries.append({'date':date,'time':now.strftime('%H:%M'),'title':title,'text':text})
- path=Path(os.getenv('DASHBOARD_NEWS_PATH',str(LD/'dashboard_news.json')))
- atomic(path,json.dumps(entries,indent=2))
+ path=news_path()
+ atomic(path,json.dumps(entries,indent=2,ensure_ascii=False))
  print(f'News saved to {path}')
 def news_items(site):
  """Local news, site-content entries and the bundled archive, deduplicated and newest first."""
- try:bundled=json.loads((Path(__file__).resolve().parent/'news_archive.json').read_text(encoding='utf-8'))
- except (OSError,ValueError):bundled=[]
+ path=news_path();imported=path.with_name(path.name+'.archive-imported').exists()
  out=[];seen=set()
- for source in (local_news(),(site or {}).get('news') or [],bundled if isinstance(bundled,list) else []):
+ for source in (local_news(),(site or {}).get('news') or [],[] if imported else bundled_news()):
   for n in source:
    if not isinstance(n,dict) or not isinstance(n.get('text'),str):continue
    item={'date':str(n.get('date',''))[:10],'time':str(n.get('time',''))[:5],'title':str(n.get('title',''))[:120],'text':n['text'][:4000]}

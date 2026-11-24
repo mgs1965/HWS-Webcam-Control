@@ -6,7 +6,10 @@ Run every few minutes from weathercam-alerts.timer. Configure in /etc/weathercam
   HWS_ALERT_WEBHOOK_URL  any URL that accepts a JSON POST {"text": ...}
   HWS_ALERT_SMTP_HOST / _PORT / _USER / _PASSWORD / HWS_ALERT_EMAIL_FROM / HWS_ALERT_EMAIL_TO  (email)
 Thresholds: HWS_ALERT_CAPTURE_MINUTES (10), HWS_ALERT_WEATHER_MINUTES (30), HWS_ALERT_DISK_PERCENT (90),
-HWS_ALERT_REPEAT_HOURS (6). State is kept in HWS_ALERT_STATE so each problem is reported once, repeated
+HWS_ALERT_REPEAT_HOURS (6), HWS_ALERT_INODE_PERCENT (90), HWS_ALERT_TEMP_C (80).
+Storage and board health: read-only filesystem, inode exhaustion, SD-card/kernel I/O errors, Pi under-voltage
+or throttling and CPU temperature. update.sh and backup.sh leave logs/update_failed and logs/backup_failed
+markers that are reported here until the next success. State is kept in HWS_ALERT_STATE so each problem is reported once, repeated
 after the repeat interval, and followed by a recovery message. Use --test to send a test message.
 """
 import json
@@ -25,6 +28,7 @@ ROOT = Path(os.getenv('WEATHERCAM_ROOT', '/mnt/weathercam'))
 IMAGE = Path(os.getenv('WEATHERCAM_LATEST_IMAGE', str(ROOT / 'frames/latest.jpg')))
 WEATHER = Path(os.getenv('HWS_WEATHER_DATA_PATH', str(ROOT / 'logs/weather_station.json')))
 STATE = Path(os.getenv('HWS_ALERT_STATE', str(ROOT / 'logs/alerts_state.json')))
+LOGS = Path(os.getenv('HWS_LOG_DIR', str(ROOT / 'logs')))
 SERVICES = [s for s in os.getenv('HWS_ALERT_SERVICES', 'weathercam.service').split(',') if s]
 
 
@@ -59,6 +63,76 @@ def service_active(name):
         return True  # cannot tell (not systemd): do not raise a false alarm
 
 
+def read_only_mount(path, mounts='/proc/mounts'):
+    """True when the filesystem holding path is mounted read-only (typical after SD-card errors)."""
+    try:
+        best = ''
+        flags = ''
+        target = os.path.realpath(path)
+        for line in Path(mounts).read_text(encoding='utf-8').splitlines():
+            parts = line.split()
+            if len(parts) >= 4 and (target == parts[1] or target.startswith(parts[1].rstrip('/') + '/')) and len(parts[1]) >= len(best):
+                best, flags = parts[1], parts[3]
+        return 'ro' in flags.split(',')
+    except OSError:
+        return False
+
+
+def inode_percent(path):
+    try:
+        st = os.statvfs(path)
+        return (st.f_files - st.f_ffree) * 100 / st.f_files if st.f_files else 0
+    except OSError:
+        return 0
+
+
+def storage_errors(text):
+    """Lines from the kernel log that point at a failing SD card or filesystem."""
+    keys = ('mmc', 'i/o error', 'ext4-fs error', 'buffer i/o', 'blk_update_request')
+    return [l for l in text.splitlines() if any(k in l.lower() for k in keys) and any(w in l.lower() for w in ('error', 'fail', 'timeout', 'crc'))]
+
+
+def kernel_log():
+    try:
+        out = subprocess.run(['journalctl', '-k', '-p', 'err', '--since', '1 hour ago', '--no-pager', '-q'],
+                             capture_output=True, text=True, timeout=20)
+        return out.stdout if out.returncode == 0 else ''
+    except (OSError, subprocess.SubprocessError):
+        return ''
+
+
+def throttled_flags(raw):
+    """Decode `vcgencmd get_throttled` output; returns (under_voltage_now, throttled_now)."""
+    try:
+        value = int(raw.strip().split('=')[-1], 16)
+    except ValueError:
+        return False, False
+    return bool(value & 0x1), bool(value & 0x4)
+
+
+def board_health():
+    try:
+        out = subprocess.run(['vcgencmd', 'get_throttled'], capture_output=True, text=True, timeout=10).stdout
+    except (OSError, subprocess.SubprocessError):
+        return False, False
+    return throttled_flags(out)
+
+
+def cpu_temp_c(path='/sys/class/thermal/thermal_zone0/temp'):
+    try:
+        return int(Path(path).read_text().strip()) / 1000
+    except (OSError, ValueError):
+        return None
+
+
+def marker_problem(path, label):
+    try:
+        text = path.read_text(encoding='utf-8').strip()
+    except OSError:
+        return None
+    return '%s failed: %s' % (label, text or 'see the log')
+
+
 def find_problems(now=None):
     """Return {key: message} for everything currently wrong."""
     now = now if now is not None else time.time()
@@ -81,6 +155,26 @@ def find_problems(now=None):
             problems['disk'] = 'Disk is %.0f%% full' % used
     except OSError:
         pass
+    if read_only_mount(ROOT):
+        problems['readonly'] = 'Storage is mounted read-only (SD card or filesystem errors)'
+    inodes = inode_percent(ROOT)
+    if inodes > env_number('HWS_ALERT_INODE_PERCENT', 90):
+        problems['inodes'] = 'Filesystem is %.0f%% out of inodes' % inodes
+    errors = storage_errors(kernel_log())
+    if errors:
+        problems['storage'] = 'Storage errors in the kernel log: ' + errors[-1][-160:]
+    under, throttled = board_health()
+    if under:
+        problems['power'] = 'Pi reports under-voltage: check the power supply and cable'
+    elif throttled:
+        problems['throttled'] = 'Pi is throttling (too hot or low power)'
+    temp = cpu_temp_c()
+    if temp is not None and temp > env_number('HWS_ALERT_TEMP_C', 80):
+        problems['temperature'] = 'CPU temperature is %.0f C' % temp
+    for key, label in (('update', 'Automatic update'), ('backup', 'Backup')):
+        found = marker_problem(LOGS / (key + '_failed'), label)
+        if found:
+            problems[key] = found
     for name in SERVICES:
         if not service_active(name):
             problems['service:' + name] = 'Service %s is not running' % name

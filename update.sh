@@ -19,8 +19,18 @@ if [ "$CURRENT" = "$LATEST" ]; then echo "Already up to date."; exit 0; fi
 if [ "${1:-}" = "--check" ]; then echo "Update available."; exit 0; fi
 ASSET_URL=$(printf '%s' "$JSON" | python3 -c 'import json,sys;a=[x for x in json.load(sys.stdin)["assets"] if x["name"].endswith(".zip")];print(a[0]["url"] if a else "")')
 [ -n "$ASSET_URL" ] || { echo "Latest release has no zip asset."; exit 1; }
+FAILED=${HWS_LOG_DIR:-/mnt/weathercam/logs}/update_failed
+INSTALLING=1
 STAGE=$(mktemp -d /tmp/hws-update.XXXXXX)
-trap 'rm -rf "$STAGE"' EXIT
+finish() {
+  rc=$?
+  rm -rf "$STAGE"
+  if [ "$INSTALLING" = 1 ]; then
+    if [ $rc -eq 0 ]; then rm -f "$FAILED" 2>/dev/null || true
+    else echo "update to $LATEST failed (exit $rc) at $(date -Is); see /var/log/hws-update.log or journalctl -u weathercam-update" > "$FAILED" 2>/dev/null || true; fi
+  fi
+}
+trap finish EXIT
 curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/octet-stream" -o "$STAGE/release.zip" "$ASSET_URL"
 unzip -q "$STAGE/release.zip" -d "$STAGE"
 DIR=$(find "$STAGE" -maxdepth 2 -name install.sh -exec dirname {} \; | head -1)

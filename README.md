@@ -1,6 +1,6 @@
-# Harpenden Weather Camera V2026.11.25.03
+# Harpenden Weather Camera V2026.11.25.04
 
-V2026.11.25.03 adds selectable-year Meteobridge health trends, with daily and monthly views of available history. Telemetry-v4 remains unchanged.
+V2026.11.25.04 adds selectable-year Meteobridge health trends, with daily and monthly views of available history. Telemetry-v4 remains unchanged.
 
 ## Camera and image features
 
@@ -27,8 +27,8 @@ Trend history is kept bounded for Raspberry Pi memory: the most recent 24 hours 
 Create `/etc/weathercam/dashboard.env` from `dashboard.env.example` and set `HWS_FTP_PASSWORD` before installing on a new host.
 
 ```bash
-unzip HWS-Webcam-Control-2026.11.25.03.zip
-cd HWS-Webcam-Control-2026.11.25.03
+unzip HWS-Webcam-Control-2026.11.25.04.zip
+cd HWS-Webcam-Control-2026.11.25.04
 python3 verify.py
 sudo bash ./install.sh
 ```

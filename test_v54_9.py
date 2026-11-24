@@ -9,6 +9,8 @@ import os
 import pytest
 import re
 import subprocess
+import sys
+import time
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
@@ -1355,3 +1357,46 @@ def test_alerts_report_once_repeat_and_recover():
     assert alerts.decide({'capture': 'old image'}, state, 5000, 3600)[0] == ['STILL: old image']
     messages, state = alerts.decide({}, state, 5100, 3600)
     assert messages == ['RECOVERED: old image'] and state == {}
+
+
+def test_news_archive_import_makes_file_authoritative(tmp_path, monkeypatch):
+    monkeypatch.setenv('DASHBOARD_NEWS_PATH', str(tmp_path / 'dashboard_news.json'))
+    mod = _load_dashboard(tmp_path, monkeypatch)
+    mod.import_news_archive(); mod.import_news_archive()
+    path = tmp_path / 'dashboard_news.json'
+    entries = json.loads(path.read_text(encoding='utf-8'))
+    assert len(entries) >= 40 and len(mod.news_items({})) == len(entries)
+    path.write_text(json.dumps(entries[:2]), encoding='utf-8')
+    assert len(mod.news_items({})) == 2
+
+
+def test_health_alert_helpers(tmp_path):
+    sys.path.insert(0, str(ROOT))
+    import alerts
+    mounts = tmp_path / 'mounts'
+    mounts.write_text('/dev/root / ext4 rw 0 0\n/dev/sda1 /mnt/data ext4 ro,relatime 0 0\n', encoding='utf-8')
+    assert alerts.read_only_mount('/mnt/data/logs', str(mounts)) and not alerts.read_only_mount('/home', str(mounts))
+    assert alerts.throttled_flags('throttled=0x50005') == (True, True) and alerts.throttled_flags('throttled=0x0') == (False, False)
+    assert alerts.throttled_flags('garbage') == (False, False)
+    log = 'mmc0: error -110 whilst initialising SD card\nusb 1-1: new device\nEXT4-fs error (device mmcblk0p2): bad block'
+    assert len(alerts.storage_errors(log)) == 2 and alerts.storage_errors('usb 1-1: new device') == []
+    (tmp_path / 'update_failed').write_text('update to V9 failed (exit 1)', encoding='utf-8')
+    assert 'V9' in alerts.marker_problem(tmp_path / 'update_failed', 'Automatic update')
+    assert alerts.marker_problem(tmp_path / 'missing', 'Backup') is None
+
+
+def test_backup_script_archives_logs_and_prunes(tmp_path):
+    import tarfile
+    logs = tmp_path / 'logs'; logs.mkdir()
+    (logs / 'dashboard_news.json').write_text('[]', encoding='utf-8')
+    (logs / 'big.log').write_text('x', encoding='utf-8')
+    dest = tmp_path / 'offsite'
+    env = {**os.environ, 'WEATHERCAM_ROOT': str(tmp_path), 'HWS_BACKUP_DEST': str(dest), 'HWS_BACKUP_KEEP': '2'}
+    for _ in range(3):
+        subprocess.run(['bash', str(ROOT / 'backup.sh')], env=env, check=True, capture_output=True)
+        time.sleep(1.1)
+    archives = sorted((tmp_path / 'backups').glob('hws-backup-*.tar.gz'))
+    assert len(archives) == 2 and len(list(dest.glob('*.tar.gz'))) == 3
+    names = tarfile.open(archives[-1]).getnames()
+    assert any(n.endswith('dashboard_news.json') for n in names) and not any(n.endswith('.log') for n in names)
+    assert not (logs / 'backup_failed').exists()

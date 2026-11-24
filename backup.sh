@@ -2,7 +2,10 @@
 # Back up the data that cannot be rebuilt: the logs folder (news, weather and health history), the
 # rollback record and, if HWS_BACKUP_INCLUDE_ENV=1, /etc/weathercam/dashboard.env (it holds secrets).
 # Archives are kept in /mnt/weathercam/backups (last HWS_BACKUP_KEEP, default 14) and copied to
-# HWS_BACKUP_DEST when set, e.g. user@nas:/volume1/hws-backups (rsync over ssh) or a mounted folder.
+# HWS_BACKUP_DEST when set, e.g. user@nas:/volume1/hws-backups (rsync over ssh), a mounted folder, or
+# ftp://host/dir/ (plain FTP via curl, with HWS_BACKUP_FTP_USER / HWS_BACKUP_FTP_PASSWORD).
+# A second destination can be set in HWS_BACKUP_DEST2 (FTP login: HWS_BACKUP_FTP2_USER / _PASSWORD).
+# Both are attempted even if one fails; any failure raises the backup alert.
 # Frames and *.log files are skipped. A failure leaves logs/backup_failed, which alerts.py reports.
 set -euo pipefail
 ROOT=${WEATHERCAM_ROOT:-/mnt/weathercam}
@@ -18,12 +21,26 @@ ITEMS=("$LOGS")
 [ "${HWS_BACKUP_INCLUDE_ENV:-0}" = 1 ] && [ -f /etc/weathercam/dashboard.env ] && ITEMS+=(/etc/weathercam/dashboard.env)
 tar -czf "$OUT/$NAME" --exclude='*.log' --exclude='*.log.*' --exclude='*.jpg' --exclude='*.mp4' "${ITEMS[@]}"
 tar -tzf "$OUT/$NAME" >/dev/null
-if [ -n "${HWS_BACKUP_DEST:-}" ]; then
-  case "$HWS_BACKUP_DEST" in
-    *:*) rsync -a -e "ssh -o BatchMode=yes -o ConnectTimeout=20" "$OUT/$NAME" "$HWS_BACKUP_DEST/" ;;
-    *) mkdir -p "$HWS_BACKUP_DEST" && cp "$OUT/$NAME" "$HWS_BACKUP_DEST/" ;;
+esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
+send() {  # $1 destination, $2 FTP user, $3 FTP password
+  case "$1" in
+    ftp://*)
+      # Plain FTP. Credentials go to curl on stdin so they never show in the process list.
+      TLS=(--no-sessionid); [ "${HWS_BACKUP_FTP_TLS:-0}" = 1 ] && TLS=(--ssl-reqd)
+      printf 'user = "%s:%s"\n' "$(esc "$2")" "$(esc "$3")" |
+        curl -sS --fail --ftp-create-dirs --connect-timeout 30 --max-time 1800 "${TLS[@]}" -K - -T "$OUT/$NAME" "${1%/}/$NAME" ;;
+    *:*) rsync -a -e "ssh -o BatchMode=yes -o ConnectTimeout=20" "$OUT/$NAME" "$1/" ;;
+    *) mkdir -p "$1" && cp "$OUT/$NAME" "$1/" ;;
   esac
+}
+SENT=""; BAD=0
+if [ -n "${HWS_BACKUP_DEST:-}" ]; then
+  if send "$HWS_BACKUP_DEST" "${HWS_BACKUP_FTP_USER:-}" "${HWS_BACKUP_FTP_PASSWORD:-}"; then SENT=$HWS_BACKUP_DEST; else BAD=1; fi
 fi
+if [ -n "${HWS_BACKUP_DEST2:-}" ]; then
+  if send "$HWS_BACKUP_DEST2" "${HWS_BACKUP_FTP2_USER:-}" "${HWS_BACKUP_FTP2_PASSWORD:-}"; then SENT="${SENT:+$SENT, }$HWS_BACKUP_DEST2"; else BAD=1; fi
+fi
+if [ $BAD -ne 0 ]; then echo "copy to a backup destination failed" >&2; exit 1; fi
 ls -1t "$OUT"/hws-backup-*.tar.gz 2>/dev/null | tail -n +$((KEEP + 1)) | xargs -r rm -f
 rm -f "$FAILED" 2>/dev/null || true
-echo "Backup $NAME done${HWS_BACKUP_DEST:+, copied to $HWS_BACKUP_DEST}"
+echo "Backup $NAME done${SENT:+, copied to $SENT}"

@@ -1,3 +1,6 @@
+#### V2026.11.25.05
+- Backups via FTP (curl) and optional second destination, strapline in title gold
+
 #### V2026.11.25.04
 - Strapline under logo, news driven by editable file, automatic updates, off-Pi backups, storage/power health alerts, selftest.sh and CI
 

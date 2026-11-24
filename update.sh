@@ -6,7 +6,7 @@
 set -euo pipefail
 REPO=${HWS_UPDATE_REPO:-mgs1965/HWS-Webcam-Control}
 BASE=/mnt/weathercam/app
-if [ -z "${GITHUB_TOKEN:-}" ] && [ -r /etc/weathercam/dashboard.env ]; then
+if [ -z "${GITHUB_TOKEN:-}" ]; then
   GITHUB_TOKEN=$(sudo grep -E '^GITHUB_TOKEN=' /etc/weathercam/dashboard.env | head -1 | cut -d= -f2- || true)
 fi
 [ -n "${GITHUB_TOKEN:-}" ] || { echo "GITHUB_TOKEN is not set (needed because $REPO is private)."; exit 1; }

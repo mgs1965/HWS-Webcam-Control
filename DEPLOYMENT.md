@@ -1,6 +1,6 @@
-# V55.12 Deployment
+# V55.13 Deployment
 
-V55.12 adds selectable-year daily and monthly Meteobridge health trends, while retaining the telemetry-v4 (58-field) contract.
+V55.13 adds selectable-year daily and monthly Meteobridge health trends, while retaining the telemetry-v4 (58-field) contract.
 
 ## Pre-install
 
@@ -24,7 +24,7 @@ systemctl is-active weathercam.service
 systemctl is-active weathercam-dashboard.timer
 ```
 
-Expected release: `/mnt/weathercam/app/releases/HarpendenWeatherCamera-V55.12` (an updated V55.12 installation uses a timestamped suffix). The dashboard publisher is a oneshot service and may be inactive between timer runs.
+Expected release: `/mnt/weathercam/app/releases/HarpendenWeatherCamera-V55.13` (an updated V55.13 installation uses a timestamped suffix). The dashboard publisher is a oneshot service and may be inactive between timer runs.
 
 ## Force one publication
 
@@ -35,7 +35,7 @@ sudo bash -c 'set -a; . /etc/weathercam/dashboard.env; set +a; exec sudo -u mgs 
 ## Verify the generated dashboard
 
 ```bash
-grep -E 'V55.12|Recommended checks|Timelapse|Daily reliability reports|Recent captures|CPU temperature|30 days' /mnt/weathercam/dashboard/dashboard.html | head
+grep -E 'V55.13|Recommended checks|Timelapse|Daily reliability reports|Recent captures|CPU temperature|30 days' /mnt/weathercam/dashboard/dashboard.html | head
 ! grep -q '__DATA__' /mnt/weathercam/dashboard/dashboard.html
 ```
 

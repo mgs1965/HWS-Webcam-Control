@@ -278,3 +278,41 @@ def test_backfill_saves_on_interrupt(tmp_path):
     result = ws.backfill_archive('bridge', str(path), days=4, today=NOW.date(), fetch=fetch, sleep=lambda _: None)
     assert result['stopped'] == '2026-11-18'
     assert '2026-11-19' in json.loads(path.read_text())['days']
+
+
+def test_number_and_bounds_reject_junk():
+    assert ws._number('3.5') == 3.5 and ws._number('nan') is None and ws._number('x') is None and ws._number(None) is None
+    assert ws._bounded('wind_gust_mph', 20.123) == 20.12
+    assert ws._bounded('wind_gust_mph', 900) is None and ws._bounded('wind_gust_mph', None) is None
+
+
+def test_backfill_day_parsing_filters_and_converts():
+    day = ws.parse_backfill_day('temp_max_c=21.5;rain_mm=nope;sunshine_min=90;unknown=5\ntemp_min_c=-300')
+    assert day.get('temp_max_c') == 21.5 and day.get('sunshine_hours') == 1.5
+    assert 'rain_mm' not in day and 'unknown' not in day and 'temp_min_c' not in day
+    assert ws.parse_backfill_day(None) == {}
+
+
+def test_backfill_expressions_insert_day_offset_before_unit():
+    exprs = dict(ws.backfill_expressions(3))
+    assert all('@D3' in e for e in exprs.values())
+    assert any(e.endswith(('=mph', '=mm')) or '=' not in e for e in exprs.values())
+
+
+def test_local_trends_need_forty_minutes_of_data():
+    base = datetime(2026, 11, 20, 12, 0, tzinfo=timezone.utc)
+    def run(minutes):
+        return [{'t': (base + timedelta(minutes=m)).isoformat(), 'temperature_c': 10 + m / 60, 'wind_gust_mph': m % 7}
+                for m in range(0, minutes, 2)]
+    assert ws.local_trends(run(10)) == {}
+    longer = ws.local_trends(run(60))
+    assert longer['temp_change_1h_c'] > 0 and longer['wind_gust_max_1h_mph'] == 6
+    assert ws.local_trends([{'t': 'bad'}] * 20) == {}
+
+
+def test_record_daily_keeps_extremes_for_the_day(tmp_path):
+    path = str(tmp_path / 'daily.json')
+    for temp, rain in ((8.0, 0.0), (15.5, 1.2), (11.0, 1.0)):
+        ws.record_daily({'updated': '2026-11-20T12:00:00+00:00', 'temperature_c': temp, 'rain_today_mm': rain}, path)
+    day = json.load(open(path))['days']['2026-11-20']
+    assert day['temp_max_c'] == 15.5 and day['temp_min_c'] == 8.0 and day['rain_mm'] == 1.2

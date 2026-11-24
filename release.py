@@ -64,9 +64,9 @@ def main():
     run(sys.executable, 'verify.py')
     run(sys.executable, '-m', 'unittest', 'test_site_smoke')
     if subprocess.run([sys.executable, '-m', 'pytest', '--version'], cwd=ROOT, capture_output=True).returncode == 0:
-        run(sys.executable, '-m', 'pytest', '-q', 'test_v54_9.py', 'test_weather_station.py')
+        run(sys.executable, '-m', 'pytest', '-q', 'test_ops.py', 'test_camera.py', 'test_dashboard.py', 'test_weather_station.py')
     else:
-        print('pytest not installed: skipped test_v54_9.py and test_weather_station.py (pip install pytest)')
+        print('pytest not installed: skipped the unit tests (pip install pytest)')
     run(sys.executable, 'build_release.py')
     zipfile = 'dist/HWS-Webcam-Control-%s.zip' % new
     if not args.publish:

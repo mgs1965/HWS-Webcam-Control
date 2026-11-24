@@ -1,6 +1,6 @@
-# Harpenden Weather Camera V2026.11.25.06
+# Harpenden Weather Camera V2026.11.25.07
 
-V2026.11.25.06 adds selectable-year Meteobridge health trends, with daily and monthly views of available history. Telemetry-v4 remains unchanged.
+Raspberry Pi weather camera and the Harpenden Weather Station site generator. Releases are date-numbered (`V2026.11.25.07`); `CHANGELOG.md` lists what changed in each. Telemetry-v4 is unchanged.
 
 ## Camera and image features
 
@@ -22,13 +22,25 @@ V2026.11.25.06 adds selectable-year Meteobridge health trends, with daily and mo
 
 Trend history is kept bounded for Raspberry Pi memory: the most recent 24 hours of capture telemetry remains full-resolution, while older 30-day history is sampled. Health snapshots remain at their recorded hourly cadence. Dashboard recommendations are observational and do not change camera settings.
 
+## Operations
+
+All settings live in `/etc/weathercam/dashboard.env` (see `dashboard.env.example`).
+
+- **Updates:** `bash update.sh` installs the latest release and rolls back if the camera does not start; `HWS_AUTO_UPDATE=1` runs it daily.
+- **Health alerts:** `alerts.py` (every 5 minutes) reports a stale camera or weather feed, a full or read-only disk, SD-card errors, under-voltage, heat and failed services or jobs by ntfy, webhook or email.
+- **Pi health page:** CPU, memory and disk trends, plus power/throttling, SD-card errors, filesystem state, last backup and last update check.
+- **Backups:** `backup.sh` (daily) archives the logs folder to `/mnt/weathercam/backups` and copies it to up to two destinations (FTP, ssh/rsync or a folder). `HWS_BACKUP_REMOTE_KEEP_DAYS=N` deletes this script's archives older than N days from the destinations.
+- **Restore:** `bash restore.sh --list`, then `sudo bash restore.sh --latest` (or an archive path; `--dry-run` previews, `--with-env` also restores `dashboard.env`).
+- **Weekly digest:** `HWS_DIGEST=1` sends a Monday summary of the previous seven days (rain, extremes, strongest gust, open problems); preview with `python3 digest.py --print`.
+- **Self check:** `bash selftest.sh` checks the install, services and timers.
+
 ## Install
 
 Create `/etc/weathercam/dashboard.env` from `dashboard.env.example` and set `HWS_FTP_PASSWORD` before installing on a new host.
 
 ```bash
-unzip HWS-Webcam-Control-2026.11.25.06.zip
-cd HWS-Webcam-Control-2026.11.25.06
+unzip HWS-Webcam-Control-2026.11.25.07.zip
+cd HWS-Webcam-Control-2026.11.25.07
 python3 verify.py
 sudo bash ./install.sh
 ```

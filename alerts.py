@@ -96,9 +96,9 @@ def kernel_log():
     try:
         out = subprocess.run(['journalctl', '-k', '-p', 'err', '--since', '1 hour ago', '--no-pager', '-q'],
                              capture_output=True, text=True, timeout=20)
-        return out.stdout if out.returncode == 0 else ''
+        return out.stdout if out.returncode == 0 else None
     except (OSError, subprocess.SubprocessError):
-        return ''
+        return None
 
 
 def throttled_flags(raw):
@@ -123,6 +123,20 @@ def cpu_temp_c(path='/sys/class/thermal/thermal_zone0/temp'):
         return int(Path(path).read_text().strip()) / 1000
     except (OSError, ValueError):
         return None
+
+
+def system_status():
+    """Storage and power facts for the Pi health page. None means 'could not tell'."""
+    log = kernel_log()
+    under, throttled = board_health()
+    return {
+        'read_only': read_only_mount(ROOT),
+        'inode_percent': round(inode_percent(ROOT), 1),
+        'under_voltage': under,
+        'throttled': throttled,
+        'sd_errors_1h': None if log is None else len(storage_errors(log)),
+        'cpu_temp_c': cpu_temp_c(),
+    }
 
 
 def marker_problem(path, label):
@@ -160,7 +174,7 @@ def find_problems(now=None):
     inodes = inode_percent(ROOT)
     if inodes > env_number('HWS_ALERT_INODE_PERCENT', 90):
         problems['inodes'] = 'Filesystem is %.0f%% out of inodes' % inodes
-    errors = storage_errors(kernel_log())
+    errors = storage_errors(kernel_log() or '')
     if errors:
         problems['storage'] = 'Storage errors in the kernel log: ' + errors[-1][-160:]
     under, throttled = board_health()

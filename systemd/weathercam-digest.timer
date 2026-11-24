@@ -1,0 +1,8 @@
+[Unit]
+Description=Send the Harpenden Weather Station weekly digest on Mondays
+[Timer]
+OnCalendar=Mon *-*-* 08:00:00
+Persistent=true
+Unit=weathercam-digest.service
+[Install]
+WantedBy=timers.target

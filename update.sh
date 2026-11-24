@@ -15,18 +15,21 @@ JSON=$(curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: applicati
 LATEST=$(printf '%s' "$JSON" | python3 -c 'import json,sys;print(json.load(sys.stdin)["tag_name"])')
 CURRENT=$(python3 -c 'import re,sys;print(re.search(r"VERSION=\"(V(?:[0-9]{4}\.[0-9]{2}\.[0-9]{2}\.[0-9]{2}|[0-9]+\.[0-9]+|[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{2}))\"",open(sys.argv[1]).read()).group(1))' "$BASE/current/version.py" 2>/dev/null || echo none)
 echo "Installed: $CURRENT   Latest: $LATEST"
-if [ "$CURRENT" = "$LATEST" ]; then echo "Already up to date."; exit 0; fi
+LOGDIR=${HWS_LOG_DIR:-/mnt/weathercam/logs}
+# The health page shows this as "last update check".
+stamp_ok() { printf '{"time": "%s", "version": "%s"}\n' "$(date -Is)" "$1" > "$LOGDIR/update_last_ok.json" 2>/dev/null || true; }
+if [ "$CURRENT" = "$LATEST" ]; then stamp_ok "$CURRENT"; echo "Already up to date."; exit 0; fi
 if [ "${1:-}" = "--check" ]; then echo "Update available."; exit 0; fi
 ASSET_URL=$(printf '%s' "$JSON" | python3 -c 'import json,sys;a=[x for x in json.load(sys.stdin)["assets"] if x["name"].endswith(".zip")];print(a[0]["url"] if a else "")')
 [ -n "$ASSET_URL" ] || { echo "Latest release has no zip asset."; exit 1; }
-FAILED=${HWS_LOG_DIR:-/mnt/weathercam/logs}/update_failed
+FAILED=$LOGDIR/update_failed
 INSTALLING=1
 STAGE=$(mktemp -d /tmp/hws-update.XXXXXX)
 finish() {
   rc=$?
   rm -rf "$STAGE"
   if [ "$INSTALLING" = 1 ]; then
-    if [ $rc -eq 0 ]; then rm -f "$FAILED" 2>/dev/null || true
+    if [ $rc -eq 0 ]; then rm -f "$FAILED" 2>/dev/null || true; stamp_ok "$LATEST"
     else echo "update to $LATEST failed (exit $rc) at $(date -Is); see /var/log/hws-update.log or journalctl -u weathercam-update" > "$FAILED" 2>/dev/null || true; fi
   fi
 }

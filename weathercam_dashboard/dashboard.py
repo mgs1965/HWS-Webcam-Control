@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import argparse,csv,ftplib,json,math,os,re,shutil,socket,tempfile
+import argparse,csv,ftplib,json,math,os,re,shutil,socket,sys,tempfile
 from datetime import datetime,timedelta,timezone
 from html import escape
 from pathlib import Path
 from zoneinfo import ZoneInfo
-V='2026.11.25.06'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
+V='2026.11.25.07'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
 IMG=Path(os.getenv('WEATHERCAM_LATEST_IMAGE',str(ROOT/'frames/latest.jpg'))); HD=Path(os.getenv('WEATHERCAM_HEALTH_DIR',str(ROOT/'telemetry/health'))); TD=Path(os.getenv('WEATHERCAM_TELEMETRY_DIR',str(ROOT/'logs'))); LD=Path(os.getenv('WEATHERCAM_LOG_DIR',str(ROOT/'logs')))
 def envnum(name,default):
  try:
@@ -554,7 +554,7 @@ def generate(upload=False):
  winsight=weather_insight(weather,scene)+frost_notes(weather)+record_notes(weather,whistory)+([sc['note']] if sc and sc.get('note') and sc.get('verdict')!='AGREE' else [])
  schedule=mode_schedule(now)
  safe_config={
-  'release':'V2026.11.25.06','telemetry_schema':4,'dashboard_refresh_minutes':5,'console_poll_seconds':30,
+  'release':'V2026.11.25.07','telemetry_schema':4,'dashboard_refresh_minutes':5,'console_poll_seconds':30,
   'capture_interval_seconds':10,'ftp_configured':bool(os.getenv('DASHBOARD_FTP_HOST')),
   'ftp_tls':os.getenv('DASHBOARD_FTP_TLS','0')!='0',
   'thresholds':TH,'stale_after_minutes':TH['dashboard_stale_minutes'],'month_start':month_start(now).isoformat(),
@@ -610,7 +610,7 @@ def generate(upload=False):
  page('news.html',{'news':news})
  page('donate.html',{'paypal_button':os.environ.get('DASHBOARD_PAYPAL_BUTTON_ID','EX92D2ZBL7V3Y')})
  page('mbhealth.html',{'health':meteobridge_health(now,weather,station,daily,weather_archive()),'weather':weather,'weather_series':wseries,'graphs':graphs,'station_status':station,'generated':now.isoformat()})
- page('pihealth.html',{k:payload.get(k) for k in ('metrics','series','disk_forecast','hostname','version','generated','state')})
+ page('pihealth.html',{k:payload.get(k) for k in ('metrics','series','disk_forecast','hostname','version','generated','state')}|{'system':system_status(),'ops':ops_status()})
  page('records.html',{'legacy':LEGACY_RECORDS,'records':records_data(daily,now),'year_records':(whistory or {}).get('year_records')})
  page('reports.html',{'daily':daily})
  page('almanac.html',{'sun_moon':payload['sun_moon'],'almanac':almanac_data(now),'weather':weather,'scene':scene})
@@ -620,6 +620,22 @@ def generate(upload=False):
  atomic(OUT/'dashboard-data.json',json.dumps(payload,indent=2))
  result=publish() if upload else 'generated'
  print(json.dumps({'result':result,'state':state,'mode':mode,'capture_age_seconds':capture_age,'health_records':len(health_rows),'telemetry_records':len(telemetry_rows)}))
+def system_status():
+ try:
+  sys.path.insert(0,str(Path(__file__).resolve().parent.parent))
+  import alerts
+  return alerts.system_status()
+ except Exception as exc:
+  print('[SYSTEM STATUS] failed:',exc);return None
+def ops_status():
+ out={}
+ for key,name in (('backup','backup_last_ok.json'),('update','update_last_ok.json')):
+  try:out[key]=json.loads((LD/name).read_text(encoding='utf-8'))
+  except (OSError,ValueError):out[key]=None
+ for key,name in (('backup_failed','backup_failed'),('update_failed','update_failed')):
+  try:out[key]=(LD/name).read_text(encoding='utf-8').strip() or 'failed'
+  except OSError:out[key]=None
+ return out
 def main():
  p=argparse.ArgumentParser()
  p.add_argument('--upload',action='store_true')

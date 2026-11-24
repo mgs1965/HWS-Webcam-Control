@@ -1,6 +1,6 @@
-# V2026.11.25.06 Deployment
+# V2026.11.25.07 Deployment
 
-V2026.11.25.06 adds selectable-year daily and monthly Meteobridge health trends, while retaining the telemetry-v4 (58-field) contract.
+V2026.11.25.07 adds selectable-year daily and monthly Meteobridge health trends, while retaining the telemetry-v4 (58-field) contract.
 
 ## Pre-install
 
@@ -24,7 +24,7 @@ systemctl is-active weathercam.service
 systemctl is-active weathercam-dashboard.timer
 ```
 
-Expected release: `/mnt/weathercam/app/releases/HarpendenWeatherCamera-V2026.11.25.06` (an updated V2026.11.25.06 installation uses a timestamped suffix). The dashboard publisher is a oneshot service and may be inactive between timer runs.
+Expected release: `/mnt/weathercam/app/releases/HarpendenWeatherCamera-V2026.11.25.07` (an updated V2026.11.25.07 installation uses a timestamped suffix). The dashboard publisher is a oneshot service and may be inactive between timer runs.
 
 ## Force one publication
 
@@ -35,7 +35,7 @@ sudo bash -c 'set -a; . /etc/weathercam/dashboard.env; set +a; exec sudo -u mgs 
 ## Verify the generated dashboard
 
 ```bash
-grep -E 'V2026.11.25.06|Recommended checks|Timelapse|Daily reliability reports|Recent captures|CPU temperature|30 days' /mnt/weathercam/dashboard/dashboard.html | head
+grep -E 'V2026.11.25.07|Recommended checks|Timelapse|Daily reliability reports|Recent captures|CPU temperature|30 days' /mnt/weathercam/dashboard/dashboard.html | head
 ! grep -q '__DATA__' /mnt/weathercam/dashboard/dashboard.html
 ```
 
@@ -48,7 +48,7 @@ The dashboard displays recommended checks and historical readings but does not m
 `alerts.py` (run every 5 minutes by `weathercam-alerts.timer`) reports a stale camera image, stale weather data, a full disk or a stopped service, repeats after `HWS_ALERT_REPEAT_HOURS`, and sends a recovery message. Set `HWS_ALERT_NTFY_URL`, `HWS_ALERT_WEBHOOK_URL` or the `HWS_ALERT_SMTP_*` settings in `/etc/weathercam/dashboard.env`; the installer enables the timer only when one is set. `python3 alerts.py --test` sends a test message.
 
 ## Releasing (maintainers)
-`python3 release.py 2026.11.25.06 "What changed"` bumps the version everywhere, updates the changelog and manifest, runs `verify.py` and the tests, and builds the zip. Add `--publish` to commit, push `main` and create the GitHub release.
+`python3 release.py 2026.11.25.07 "What changed"` bumps the version everywhere, updates the changelog and manifest, runs `verify.py` and the tests, and builds the zip. Add `--publish` to commit, push `main` and create the GitHub release.
 
 ## Rollback
 
@@ -130,6 +130,9 @@ The News page is driven by `/mnt/weathercam/logs/dashboard_news.json`, a list of
 
 - **Self-test:** `cd /mnt/weathercam/app/current && bash selftest.sh` (add `--notify` to send a test alert) prints PASS/WARN/FAIL for the camera, weather feed, site, timers, news file, health checks and update check.
 - **Automatic updates:** put `HWS_AUTO_UPDATE=1` and `GITHUB_TOKEN=...` in `/etc/weathercam/dashboard.env`, then `sudo systemctl enable --now weathercam-update.timer` (install.sh does this when the flag is set). It runs `update.sh` at about 03:30; a failed install rolls back and leaves `logs/update_failed`, which `alerts.py` reports until the next success. Output: `journalctl -u weathercam-update`.
-- **Backups:** set `HWS_BACKUP_DEST` (`user@host:/path` over ssh/rsync, a mounted folder, or plain FTP: `HWS_BACKUP_DEST=ftp://host/dir/` with `HWS_BACKUP_FTP_USER` and `HWS_BACKUP_FTP_PASSWORD`; set `HWS_BACKUP_FTP_TLS=1` if the host supports FTPS. Keep the folder outside the public web root). A second destination goes in `HWS_BACKUP_DEST2` (FTP login: `HWS_BACKUP_FTP2_USER` / `HWS_BACKUP_FTP2_PASSWORD`). `weathercam-backup.timer` runs `backup.sh` at 02:30, keeps the last `HWS_BACKUP_KEEP` (14) archives in `/mnt/weathercam/backups` and copies each to the destination. `HWS_BACKUP_INCLUDE_ENV=1` also stores `dashboard.env` (contains secrets: only use a trusted destination). Failures leave `logs/backup_failed` and are alerted. To restore, extract the archive over `/`.
+- **Backups:** set `HWS_BACKUP_DEST` (`user@host:/path` over ssh/rsync, a mounted folder, or plain FTP: `HWS_BACKUP_DEST=ftp://host/dir/` with `HWS_BACKUP_FTP_USER` and `HWS_BACKUP_FTP_PASSWORD`; set `HWS_BACKUP_FTP_TLS=1` if the host supports FTPS. Keep the folder outside the public web root). A second destination goes in `HWS_BACKUP_DEST2` (FTP login: `HWS_BACKUP_FTP2_USER` / `HWS_BACKUP_FTP2_PASSWORD`). `weathercam-backup.timer` runs `backup.sh` at 02:30, keeps the last `HWS_BACKUP_KEEP` (14) archives in `/mnt/weathercam/backups` and copies each to the destination. `HWS_BACKUP_INCLUDE_ENV=1` also stores `dashboard.env` (contains secrets: only use a trusted destination). Failures leave `logs/backup_failed` and are alerted. `HWS_BACKUP_REMOTE_KEEP_DAYS=N` deletes this script's archives older than N days from the destinations (off by default; a host given as `ftp.example.com/dir/` gets `ftp://` added, and `ftps://` forces TLS).
+- **Restore:** `bash restore.sh --list`, `bash restore.sh --latest --dry-run`, then `sudo bash restore.sh --latest` (or an archive path; `--yes` skips the prompt, `--with-env` also restores `dashboard.env`). On a new SD card first download an archive: `curl --user USER:PASS -o backup.tar.gz ftp://ftp.example.com/backups/hws-backup-....tar.gz`, then `sudo bash restore.sh backup.tar.gz`. Restart afterwards: `sudo systemctl restart weathercam weathercam-dashboard`.
+- **Weekly digest:** add `HWS_DIGEST=1` and re-run the installer (or `sudo systemctl enable --now weathercam-digest.timer`). It sends last week's rain, extremes, strongest gust and open problems every Monday at 08:00 through the alert channels. Preview: `python3 digest.py --print`.
+- **Pi health page:** shows power/throttling, SD-card errors, filesystem state, last backup and last update check.
 - **Storage and board health:** `alerts.py` also reports a read-only filesystem, inode exhaustion, SD-card/kernel I/O errors, Pi under-voltage or throttling and CPU temperature (`HWS_ALERT_INODE_PERCENT`, `HWS_ALERT_TEMP_C`).
 - **CI:** `.github/workflows/test.yml` runs verify.py, the unit tests, the headless-Chrome smoke test and the release build on every push and pull request.

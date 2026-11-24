@@ -1,4 +1,4 @@
-# V2026.11.25.06 Architecture
+# V2026.11.25.07 Architecture
 
 ## Runtime assembly
 
@@ -24,4 +24,8 @@ Weather, rainfall-rate and Meteobridge health trend charts use detailed samples 
 
 ## Release and deployment
 
-`version.py` is the release identity source for V2026.11.25.06 and telemetry schema v4. `manifest.json` records the release baseline, package filename and file inventory. `verify.py` checks the release identity, telemetry contract, dashboard payload structure and regression guards. The installer deploys to `/mnt/weathercam/app/releases/HarpendenWeatherCamera-V2026.11.25.06`, records a rollback target, and installs the camera unit only when no existing unit is registered.
+`version.py` is the release identity source for V2026.11.25.07 and telemetry schema v4. `manifest.json` records the release baseline, package filename and file inventory. `verify.py` checks the release identity, telemetry contract, dashboard payload structure and regression guards. The installer deploys to `/mnt/weathercam/app/releases/HarpendenWeatherCamera-V2026.11.25.07`, records a rollback target, and installs the camera unit only when no existing unit is registered.
+
+## Operations tooling
+
+`alerts.py` runs from a systemd timer, compares `find_problems()` with its saved state and sends new, repeated and recovered problems. `system_status()` exposes the same storage and power facts to the dashboard, which adds them to the Pi health page together with `backup_last_ok.json` and `update_last_ok.json` written by `backup.sh` and `update.sh` into the logs folder. `backup.sh` and `restore.sh` handle off-Pi copies (FTP via curl, rsync over ssh, or a folder) and recovery; remote pruning only touches names matching `hws-backup-YYYYMMDD-HHMMSS.tar.gz`. `digest.py` builds the weekly summary from the weather history and daily log. Tests are grouped by area: `test_dashboard.py`, `test_camera.py`, `test_ops.py`, `test_weather_station.py`, with shared helpers in `hws_testlib.py`.

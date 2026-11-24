@@ -1,3 +1,6 @@
+#### V2026.11.25.03
+- New HWS logo on every page, icon and share card; 'Keeping an eye on the weather!' strapline in each page header
+
 #### V2026.11.25.02
 - Merge V55.13 updater fixes; accept dotted date versions (YYYY.MM.DD.NN) in release, install and update scripts
 

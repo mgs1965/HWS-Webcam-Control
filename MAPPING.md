@@ -1,6 +1,6 @@
 # Function map
 
-Current release: V2026.11.25.02. The dashboard template is rendered by `weathercam_dashboard/dashboard.py` and is not deployed with its `__DATA__` placeholder intact.
+Current release: V2026.11.25.03. The dashboard template is rendered by `weathercam_dashboard/dashboard.py` and is not deployed with its `__DATA__` placeholder intact.
 
 ## camera.py
 - `CameraAcquisitionError`
@@ -159,7 +159,7 @@ Current release: V2026.11.25.02. The dashboard template is rendered by `weatherc
 - Reads dashboard data from the `dashboard-data` JSON block; the source template remains navigable before data injection.
 
 ## Release and package files
-- `version.py` contains the V2026.11.25.02 release identity and telemetry schema version.
+- `version.py` contains the V2026.11.25.03 release identity and telemetry schema version.
 - `manifest.json` records the release baseline, package filename and release file inventory.
 - `verify.py` validates release identity, telemetry contract, dashboard structure and release guards.
 - `test_v54_9.py` contains focused dashboard-data and runtime regression checks.

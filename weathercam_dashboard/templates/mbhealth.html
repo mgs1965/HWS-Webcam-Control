@@ -61,6 +61,8 @@ function renderPeriod(period){
  let series=G[period]||G['24h']||{t:[]};
  year.hidden=period!=='daily'&&period!=='monthly';
  note.textContent='';
+ const fallback=new Set((G[period]?.daily_fallback_fields||'').split(','));
+ if((period==='7d'||period==='month')&&(specs.some(([,key])=>fallback.has(key))||fallback.has('signal_min')||fallback.has('signal_max')))note.textContent='Daily summaries are used for graph series without detailed samples.';
  if(!year.hidden){
   const daily=history.filter(r=>r.date.slice(0,4)===year.value);
   note.textContent=daily.length+' recorded days with health readings in '+(year.value||'the selected year')+'. '+(period==='monthly'?'Monthly averages use available daily values; uptime is the last reading and signal shows extrema.':'Only available daily readings are shown.');

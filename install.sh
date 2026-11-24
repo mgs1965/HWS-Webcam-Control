@@ -2,7 +2,7 @@
 set -euo pipefail
 SRC=$(cd "$(dirname "$0")" && pwd -P)
 BASE=/mnt/weathercam/app
-VERSION=$(python3 -c "import re,sys;print(re.search(r'VERSION=\"(V[0-9.]+)\"',open(sys.argv[1]).read()).group(1))" "$SRC/version.py")
+VERSION=$(python3 -c "import re,sys;print(re.search(r'VERSION=\"(V(?:[0-9]+\\.[0-9]+|[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{2}))\"',open(sys.argv[1]).read()).group(1))" "$SRC/version.py")
 DEST=$BASE/releases/HarpendenWeatherCamera-$VERSION
 REC=/etc/weathercam/rollback-target
 python3 "$SRC/verify.py"

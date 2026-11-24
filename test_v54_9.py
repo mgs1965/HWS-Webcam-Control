@@ -13,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parent
-VERSION = re.search(r'VERSION="(V[\d.]+)"', (ROOT / 'version.py').read_text(encoding='utf-8')).group(1)
+VERSION = re.search(r'VERSION="(V(?:\d+\.\d+|\d{4}-\d{2}-\d{2}-\d{2}))"', (ROOT / 'version.py').read_text(encoding='utf-8')).group(1)
 NUM = VERSION[1:]
 
 def test_release_identity():
@@ -781,6 +781,93 @@ def test_graph_data_buckets_and_pages(tmp_path, monkeypatch):
     assert '__DATA__' not in page and 'graph-data' in page
 
 
+def test_sensor_graphs_fall_back_to_daily_history_when_scene_samples_are_missing(tmp_path):
+    dash = _dash(tmp_path)
+    now = datetime(2026, 11, 23, 12, 0, tzinfo=timezone.utc)
+    local_daily = {
+        '2026-11-20': {
+            'temp_avg_c': 9.5, 'dew_min_c': 2.0, 'dew_max_c': 6.0,
+            'humidity_avg': 75, 'humidity_min': 65, 'humidity_max': 80,
+            'pressure_avg_hpa': 1012, 'pressure_min_hpa': 1008, 'pressure_max_hpa': 1015,
+            'wind_avg_mph': 3.5, 'wind_gust_mph': 18, 'rain_max_mm_h': 0.4,
+            'rain_mm': 2.0, 'solar_max_wm2': 350,
+            'cpu_load_avg': 45, 'uptime_last': 8, 'storage_usage_avg': 36,
+            'ram_usage_avg': 42, 'power_consumption_avg': 3.1, 'process_count_avg': 95,
+            'data_age_avg': 30, 'voltage_avg': 5.1, 'current_avg': 0.5,
+            'signal_min': 40, 'signal_max': 70, 'base_board_temp_avg_c': 34,
+            'rf_board_temp_avg_c': 38,
+            'ground_temp_avg_c': 7.5, 'soil_wetness_avg_cbar': 68,
+            'soil_temp_avg_c': 10.2, 'greenhouse_temp_avg_c': 14.1,
+        },
+        '2026-11-22': {
+            'temp_avg_c': 10.5, 'dew_min_c': 3.0, 'dew_max_c': 7.0,
+            'humidity_avg': 72, 'humidity_min': 62, 'humidity_max': 78,
+            'pressure_avg_hpa': 1013, 'pressure_min_hpa': 1009, 'pressure_max_hpa': 1016,
+            'wind_avg_mph': 4.0, 'wind_gust_mph': 20, 'rain_max_mm_h': 1.2,
+            'rain_mm': 0.5, 'solar_max_wm2': 500,
+            'cpu_load_avg': 48, 'uptime_last': 10, 'storage_usage_avg': 37,
+            'ram_usage_avg': 43, 'power_consumption_avg': 3.2, 'process_count_avg': 96,
+            'data_age_avg': 32, 'voltage_avg': 5.0, 'current_avg': 0.6,
+            'signal_min': 42, 'signal_max': 72, 'base_board_temp_avg_c': 35,
+            'rf_board_temp_avg_c': 39,
+            'ground_temp_avg_c': 8.0, 'soil_wetness_avg_cbar': 72,
+            'soil_temp_avg_c': 11.0, 'greenhouse_temp_avg_c': 15.3,
+        },
+    }
+    series = [
+        {'t': (now - timedelta(minutes=5)).isoformat(), 'ground_temperature_c': 6.0,
+         'soil_wetness_cbar': 65, 'soil_temperature_c': 9.0, 'greenhouse_temperature_c': 13.0},
+        {'t': now.isoformat(), 'ground_temperature_c': 7.0,
+         'soil_wetness_cbar': 67, 'soil_temperature_c': 10.0, 'greenhouse_temperature_c': 14.0},
+    ]
+    graphs = dash.graph_data(now, series, [], {}, local_daily=local_daily)
+    expected = {
+        'temperature_c': [9.5, 10.5], 'dew_point_c': [4.0, 5.0],
+        'humidity_percent': [75, 72], 'pressure_hpa': [1012, 1013],
+        'wind_speed_mph': [3.5, 4.0], 'wind_gust_mph': [18, 20],
+        'rain_rate_mm_h': [0.4, 1.2], 'rain_today_mm': [2.0, 0.5],
+        'solar_radiation_wm2': [350, 500],
+        'ground_temperature_c': [7.5, 8.0],
+        'soil_wetness_cbar': [68, 72],
+        'soil_temperature_c': [10.2, 11.0],
+        'greenhouse_temperature_c': [14.1, 15.3],
+        'cpu_load_percent': [45, 48], 'bridge_uptime_hours': [8, 10],
+        'storage_usage_percent': [36, 37], 'ram_usage_percent': [42, 43],
+        'power_consumption_w': [3.1, 3.2], 'process_count': [95, 96],
+        'bridge_data_age_s': [30, 32], 'voltage_v': [5.1, 5.0],
+        'current_a': [0.5, 0.6], 'signal_min': [40, 42], 'signal_max': [70, 72],
+        'base_board_temperature_c': [34, 35], 'rf_board_temperature_c': [38, 39],
+    }
+    for period in ('7d', 'month'):
+        assert graphs[period]['daily_fallback_used'] is True
+        assert set(graphs[period]['daily_fallback_fields'].split(',')) == set(expected)
+        assert len(graphs[period]['t']) == 2
+        for field, values in expected.items():
+            assert graphs[period][field] == values
+    for field in expected:
+        assert len(graphs['24h'][field]) == 2
+    for row, day in zip(graphs['daily'], local_daily.values()):
+        assert row['ground_temp_avg_c'] == day['ground_temp_avg_c']
+        assert row['greenhouse_temp_avg_c'] == day['greenhouse_temp_avg_c']
+
+
+def test_sensor_graphs_prefer_detailed_scene_samples_over_daily_fallback(tmp_path):
+    dash = _dash(tmp_path)
+    now = datetime(2026, 11, 23, 12, 0, tzinfo=timezone.utc)
+    scene = [
+        {'t': now - timedelta(days=2), 'ground_temperature_c': 5.0},
+        {'t': now - timedelta(days=1), 'ground_temperature_c': 6.0},
+    ]
+    graphs = dash.graph_data(now, [], scene, {}, local_daily={
+        '2026-11-20': {'ground_temp_avg_c': 17.0, 'greenhouse_temp_avg_c': 13.0},
+        '2026-11-22': {'ground_temp_avg_c': 18.0, 'greenhouse_temp_avg_c': 14.0},
+    })
+    for period in ('7d', 'month'):
+        assert graphs[period]['daily_fallback_used'] is True
+        assert [v for v in graphs[period]['ground_temperature_c'] if v is not None] == [5.0, 6.0]
+        assert [v for v in graphs[period]['greenhouse_temperature_c'] if v is not None] == [13.0, 14.0]
+
+
 def test_forecast_parse_cache_and_site_pages(tmp_path, monkeypatch):
     import io, json as _json, urllib.request
     dash = _dash(tmp_path)
@@ -897,6 +984,7 @@ def test_meteobridge_health_history_year_selection_and_monthly_aggregation():
         pytest.skip('Node is required for the Meteobridge history regression')
     template = (ROOT / 'weathercam_dashboard/templates/mbhealth.html').read_text(encoding='utf-8')
     script = template[template.index('const historyMap='):template.index('</script></div>')]
+    script = script.replace('function lineChart(box,list,unit,dig,xfmt){', 'function lineChart(box,list,unit,dig,xfmt){drawn.push({series:list});')
     harness = r"""
 const assert=require('assert');
 const D={graphs:{daily:[
@@ -913,7 +1001,7 @@ const tabs={children:[],querySelectorAll(){return this.children}};
 let drawn=[];
 const HWS={chart(box,o){drawn.push(o)}};
 function el(tag,cls,text,parent){
- const e={tag,textContent:text,children:[],classList:{add(){},remove(){}}};
+ const e={tag,textContent:text,children:[],classList:{add(){},remove(){}},insertAdjacentHTML(){}};
  if(parent){parent.children.push(e);if(parent===year&&!year.value)year.value=text;}
  return e;
 }
@@ -968,8 +1056,8 @@ def test_signal_graph_extrema_and_legacy_units(tmp_path):
         '2026-11-22': {'signal_min': 3, 'signal_max': 94, 'uptime_last': 72},
     })
     for period in ('24h', '7d', 'month'):
-        assert graphs[period]['signal_min'] == [11]
-        assert graphs[period]['signal_max'] == [80]
+        assert [v for v in graphs[period]['signal_min'] if v is not None] == [11]
+        assert [v for v in graphs[period]['signal_max'] if v is not None] == [80]
     assert graphs['daily'][0]['signal_min'] == 3
     assert graphs['daily'][0]['signal_max'] == 94
     assert graphs['daily'][0]['uptime_last'] == 72
@@ -1049,7 +1137,7 @@ def test_browser_weather_refresh_fallback_and_monotonic_dates():
         pytest.skip('Node is required for the browser helper regression')
     script = r"""
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
-const context={console,Date,Intl,Number,Error,localStorage:{getItem(){return null}},
+const context={console,Date,Intl,Number,Error,addEventListener(){},localStorage:{getItem(){return null}},
  document:{documentElement:{dataset:{}},addEventListener(){}},window:{},fetch:null};
 vm.createContext(context);vm.runInContext(fs.readFileSync(process.argv[1],'utf8'),context);
 const H=context.window.HWS;

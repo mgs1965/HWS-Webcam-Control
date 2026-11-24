@@ -1,13 +1,14 @@
 {
   "edition": "camera-and-image-intelligence",
-  "release": "V55.13",
+  "release": "V2026-11-24-01",
   "baseline": "V51.0.2",
-  "package": "HWS-Webcam-Control-55.13.zip",
-  "package_directory": "HWS-Webcam-Control-55.13",
+  "package": "HWS-Webcam-Control-2026-11-24-01.zip",
+  "package_directory": "HWS-Webcam-Control-2026-11-24-01",
   "built": "2026-11-24",
   "telemetry_schema": 4,
   "telemetry_fields": 58,
   "features": [
+    "Use daily summaries when detailed trend samples are missing",
     "update.sh reads GITHUB_TOKEN from the root-only dashboard.env via sudo",
     "Live webcam shows the whole image with its overlay; all pages 1550px wide; CSV download on Graphs, Rainfall and Records; health alerts (alerts.py); one-command release.py and Pi update.sh; version-neutral install/rollback/verify scripts; shared page helper and tidied stylesheet; headless-Chrome smoke test",
     "Live page last-reading line below the header; keogram removed from Home",

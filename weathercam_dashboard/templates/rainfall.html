@@ -3,7 +3,7 @@
 </head><body class="s-base"><div class="s-page">
 <header class="s-head"><h1>Rainfall</h1><div class="s-nav muted">__NAV__</div></header>
 <div class="s-tiles" id="tiles"></div>
-<div class="s-tabs" id="tabs"></div><label for="year">Year for historical rainfall</label> <select class="s-btn" id="year"></select>
+<div class="s-tabs" id="tabs"></div><label for="year">Year for historical rainfall</label> <select class="s-btn" id="year"></select><p class="muted" id="source-note"></p>
 <div class="s-grid rg"><div class="s-card" id="ratecard"><h2 id="ratetitle">Rain Rate</h2><div id="rate"></div></div>
 <div class="s-card"><h2 id="dtitle">Daily Rainfall</h2><div id="d90"></div></div>
 <div class="s-card"><h2>Monthly totals</h2><div id="months"></div></div>
@@ -27,7 +27,7 @@ for(const y of [...new Set([yr,...rows.map(r=>r.d.slice(0,4))])].sort().reverse(
 let active='24h';
 function show(k){active=k;for(const b of $('tabs').children)b.classList.toggle('on',b.dataset.range===k);$('ratecard').hidden=k==='year';
  const label=ranges.find(r=>r[0]===k)[1];$('ratetitle').textContent='Rain Rate - '+label;$('dtitle').textContent=k==='24h'?'Rain Today - Last 24 Hours':'Daily Rainfall - '+(k==='year'?$('year').value:label);
- $('rate').textContent='';const g=G[k]||{},pts=(g.t||[]).map((t,i)=>[Date.parse(t),(g.rain_rate_mm_h||[])[i]]).filter(p=>has(p[1]));
+ $('rate').textContent='';const g=G[k]||{};$('source-note').textContent=(g.daily_fallback_fields||'').split(',').includes('rain_rate_mm_h')?'Daily peak rain rates are shown where detailed samples are unavailable.':'';const pts=(g.t||[]).map((t,i)=>[Date.parse(t),(g.rain_rate_mm_h||[])[i]]).filter(p=>has(p[1]));
  if(k!=='year')HWS.chart($('rate'),{series:[{name:'Peak rain rate',color:'#4ea9ff',pts}],unit:' mm/h',dig:1,zero:true,xfmt:t=>new Date(t).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})});
  const selected=k==='month'?rows.filter(r=>r.d.startsWith(ym)):k==='year'?rows.filter(r=>r.d.startsWith($('year').value)):last(k==='7d'?7:1);
  $('d90').textContent='';

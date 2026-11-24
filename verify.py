@@ -16,7 +16,7 @@ for filename in modules:
 
 version = {}
 exec((root / 'version.py').read_text(encoding='utf-8'), version)
-assert re.fullmatch(r'V\d+\.\d+', version['VERSION'])
+assert re.fullmatch(r'V(?:\d+\.\d+|\d{4}-\d{2}-\d{2}-\d{2})', version['VERSION'])
 assert version['TELEMETRY_SCHEMA_VERSION'] == 4
 
 manifest = json.loads((root / 'manifest.json').read_text(encoding='utf-8'))

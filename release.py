@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """One-command release.
 
-  python3 release.py 55.12 "What changed"            bump, test and build dist/HWS-Webcam-Control-55.12.zip
-  python3 release.py 55.12 "What changed" --publish  also commit, push main and create the GitHub release
+  python3 release.py 55.12 "What changed"                   bump, test and build a dotted release
+  python3 release.py V2026-11-24-01 "What changed" --publish also publish a date-based release
 
 The new version is written to every file that carries it, the changelog and manifest get a new entry,
 verify.py and the tests run, and the zip is built. Nothing is committed unless --publish is given.
@@ -16,9 +16,10 @@ from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
+VERSION_PATTERN = r'(?:\d+\.\d+|\d{4}-\d{2}-\d{2}-\d{2})'
 VERSIONED = ['ARCHITECTURE.md', 'README.md', 'DEPLOYMENT.md', 'MAPPING.md', 'version.py', 'core.py', 'manifest.json',
              'weathercam_dashboard/dashboard.py', 'weathercam_dashboard/templates/dashboard.html']
-TRAILER = 'Co-authored-by: Copilot App <223556219+Copilot@users.noreply.github.com>'
+TRAILER = 'Co-authored-by: copilot-swe-agent[bot] <198982749+Copilot@users.noreply.github.com>'
 
 
 def run(*cmd, check=True):
@@ -27,7 +28,7 @@ def run(*cmd, check=True):
 
 
 def current_version():
-    return re.search(r'VERSION="V(\d+\.\d+)"', (ROOT / 'version.py').read_text(encoding='utf-8')).group(1)
+    return re.search(r'VERSION="V(' + VERSION_PATTERN + r')"', (ROOT / 'version.py').read_text(encoding='utf-8')).group(1)
 
 
 def bump(old, new, today):
@@ -50,14 +51,14 @@ def bump(old, new, today):
 def main():
     global CHANGE
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('version', help='new version, e.g. 55.12 or V55.12')
+    ap.add_argument('version', help='new version, e.g. 55.14 or V2026-11-24-01')
     ap.add_argument('change', help='one-line description for the changelog')
     ap.add_argument('--publish', action='store_true', help='commit, push main and create the GitHub release')
     args = ap.parse_args()
     CHANGE = args.change.strip()
     new, old = args.version.lstrip('Vv'), current_version()
-    if not re.fullmatch(r'\d+\.\d+', new):
-        sys.exit('Version must look like 55.12')
+    if not re.fullmatch(VERSION_PATTERN, new):
+        sys.exit('Version must be dotted (55.14) or date-based (2026-11-24-01)')
     if new != old:
         bump(old, new, date.today().isoformat())
     run(sys.executable, 'verify.py')

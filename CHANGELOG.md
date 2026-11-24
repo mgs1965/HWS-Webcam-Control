@@ -1,3 +1,6 @@
+#### V2026-11-24-01
+- Use daily summaries when detailed trend samples are missing
+
 #### V55.13
 - update.sh reads GITHUB_TOKEN from the root-only dashboard.env via sudo
 

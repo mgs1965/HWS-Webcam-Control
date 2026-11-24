@@ -1,4 +1,4 @@
-# V55.13 Architecture
+# V2026-11-24-01 Architecture
 
 ## Runtime assembly
 
@@ -20,6 +20,8 @@ The generator keeps numeric trend series bounded and publishes gallery images be
 
 The Meteobridge health page uses the shared daily graph data, including available local and imported history, to offer daily and monthly trends by year. Monthly values average available daily readings, except uptime uses the last available reading and signal strength uses extrema.
 
+Weather, rainfall-rate and Meteobridge health trend charts use detailed samples when present and fall back per series to matching daily summaries for 7-day and current-month views. The pages label fallback use. Wind roses and local camera/Pi health charts remain tied to their own source readings because daily weather summaries cannot represent those measurements.
+
 ## Release and deployment
 
-`version.py` is the release identity source for V55.13 and telemetry schema v4. `manifest.json` records the release baseline, package filename and file inventory. `verify.py` checks the release identity, telemetry contract, dashboard payload structure and regression guards. The installer deploys to `/mnt/weathercam/app/releases/HarpendenWeatherCamera-V55.13`, records a rollback target, and installs the camera unit only when no existing unit is registered.
+`version.py` is the release identity source for V2026-11-24-01 and telemetry schema v4. `manifest.json` records the release baseline, package filename and file inventory. `verify.py` checks the release identity, telemetry contract, dashboard payload structure and regression guards. The installer deploys to `/mnt/weathercam/app/releases/HarpendenWeatherCamera-V2026-11-24-01`, records a rollback target, and installs the camera unit only when no existing unit is registered.

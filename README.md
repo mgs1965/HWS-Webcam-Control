@@ -1,6 +1,6 @@
-# Harpenden Weather Camera V55.13
+# Harpenden Weather Camera V2026-11-24-01
 
-V55.13 adds selectable-year Meteobridge health trends, with daily and monthly views of available history. Telemetry-v4 remains unchanged.
+V2026-11-24-01 adds selectable-year Meteobridge health trends, with daily and monthly views of available history. Telemetry-v4 remains unchanged.
 
 ## Camera and image features
 
@@ -13,6 +13,7 @@ V55.13 adds selectable-year Meteobridge health trends, with daily and monthly vi
 
 - **Live:** latest image, capture age, camera/FTP/control health, Raspberry Pi status, recommended checks, and timelapse/capture report.
 - **Trends:** 24-hour, 7-day and current-calendar-month image and Pi-health graphs. Warning/error events are marked on the timeline; each graph shows its source sample count and time span.
+- Weather and Meteobridge trend charts use detailed samples where available and fall back to matching daily summaries for missing series; the page identifies when it does so. Wind roses and Pi-health trends require their own source readings and do not substitute unrelated weather data.
 - **Reports:** daily capture completeness, health and timelapse summaries, with CSV export.
 - **Archive:** browse the latest 48 available camera frames.
 - **Events and Advanced:** recent incidents, camera diagnostics, publishing status and system details.
@@ -26,8 +27,8 @@ Trend history is kept bounded for Raspberry Pi memory: the most recent 24 hours 
 Create `/etc/weathercam/dashboard.env` from `dashboard.env.example` and set `HWS_FTP_PASSWORD` before installing on a new host.
 
 ```bash
-unzip HWS-Webcam-Control-55.13.zip
-cd HWS-Webcam-Control-55.13
+unzip HWS-Webcam-Control-2026-11-24-01.zip
+cd HWS-Webcam-Control-2026-11-24-01
 python3 verify.py
 sudo bash ./install.sh
 ```

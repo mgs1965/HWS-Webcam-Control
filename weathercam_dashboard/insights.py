@@ -406,6 +406,21 @@ def bucket_series(rows,now,hours,step_minutes):
  return out
 DAILY_KEEP=4200
 DAILY_EXTRA=('pressure_max_hpa','pressure_min_hpa','wind_gust_mph','temp_avg_c','humidity_max','humidity_min','dew_max_c','dew_min_c','pressure_avg_hpa','wind_avg_mph','wind_chill_min_c','heat_index_max_c','solar_max_wm2','uv_max','sunshine_hours','cpu_load_avg','uptime_last','storage_usage_avg','ram_usage_avg','power_consumption_avg','process_count_avg','data_age_avg','voltage_avg','current_avg','signal_min','signal_max','base_board_temp_avg_c','rf_board_temp_avg_c','ground_temp_avg_c','soil_wetness_avg_cbar','soil_temp_avg_c','greenhouse_temp_avg_c')
+DAILY_GRAPH_FIELDS=(
+ ('temperature_c','temp_avg_c','temp_min_c','temp_max_c'),('dew_point_c',None,'dew_min_c','dew_max_c'),
+ ('humidity_percent','humidity_avg','humidity_min','humidity_max'),('pressure_hpa','pressure_avg_hpa','pressure_min_hpa','pressure_max_hpa'),
+ ('wind_speed_mph','wind_avg_mph',None,None),('wind_gust_mph','wind_gust_mph',None,None),
+ ('rain_rate_mm_h','rain_max_mm_h',None,None),('rain_today_mm','rain_mm',None,None),
+ ('solar_radiation_wm2','solar_max_wm2',None,None),('ground_temperature_c','ground_temp_avg_c',None,None),
+ ('soil_wetness_cbar','soil_wetness_avg_cbar',None,None),('soil_temperature_c','soil_temp_avg_c',None,None),
+ ('greenhouse_temperature_c','greenhouse_temp_avg_c',None,None),
+ ('cpu_load_percent','cpu_load_avg',None,None),('bridge_uptime_hours','uptime_last',None,None),
+ ('storage_usage_percent','storage_usage_avg',None,None),('ram_usage_percent','ram_usage_avg',None,None),
+ ('power_consumption_w','power_consumption_avg',None,None),('process_count','process_count_avg',None,None),
+ ('bridge_data_age_s','data_age_avg',None,None),('voltage_v','voltage_avg',None,None),
+ ('current_a','current_avg',None,None),('signal_min','signal_min',None,None),('signal_max','signal_max',None,None),
+ ('base_board_temperature_c','base_board_temp_avg_c',None,None),('rf_board_temperature_c','rf_board_temp_avg_c',None,None),
+)
 def graph_data(now,wseries,scene,days,history=None,archive=None,local_daily=None):
  """Chart data for 24 h, 7 days, the current calendar month and daily history."""
  live=[(dt(p.get('t')),{k:num(p.get(k)) for k,_ in GRAPH_FIELDS}) for p in wseries or []]
@@ -420,4 +435,31 @@ def graph_data(now,wseries,scene,days,history=None,archive=None,local_daily=None
  daily=[{'date':d,**{k:s.get(k) for k in ('temp_max_c','temp_min_c','humidity_avg','rain_max_mm_h','rain_mm')+DAILY_EXTRA}} for d,s in sorted(merged.items())[-DAILY_KEEP:]]
  month=[(t,v) for t,v in hist if t>=month_start(now)]
  month_hours=(now-month_start(now)).total_seconds()/3600
- return {'24h':bucket_series(live,now,24,5),'7d':bucket_series(hist,now,168,60),'30d':bucket_series(hist,now,720,180),'month':bucket_series(month,now,month_hours,180),'daily':daily}
+ week_graph=bucket_series(hist,now,168,60)
+ month_graph=bucket_series(month,now,month_hours,180)
+ def add_daily_fallback(graph,cutoff):
+  additions={};fallback_fields=[]
+  for field,daily_field,lower_field,upper_field in DAILY_GRAPH_FIELDS:
+   if any(num(value) is not None for value in graph[field]):continue
+   for row in daily:
+    try:stamp=datetime.fromisoformat(str(row['date'])+'T12:00:00+00:00')
+    except (KeyError,ValueError,TypeError):continue
+    value=num(row.get(daily_field)) if daily_field else None
+    if value is None and lower_field and upper_field:
+     lower,upper=num(row.get(lower_field)),num(row.get(upper_field))
+     value=(lower+upper)/2 if lower is not None and upper is not None else None
+    if cutoff<=stamp<=now and value is not None:
+     additions.setdefault(stamp.isoformat(),{})[field]=round(value,2)
+     if field not in fallback_fields:fallback_fields.append(field)
+  if not additions:return []
+  old={field:dict(zip(graph['t'],graph[field])) for field in graph if field!='t' and isinstance(graph[field],list)}
+  timestamps=sorted(set(graph['t'])|set(additions))
+  graph['t']=timestamps
+  for field,values in old.items():
+   graph[field]=[values.get(stamp) if values.get(stamp) is not None else additions.get(stamp,{}).get(field) for stamp in timestamps]
+  return fallback_fields
+ for graph,cutoff in ((week_graph,now-timedelta(days=7)),(month_graph,month_start(now))):
+  fallback_fields=add_daily_fallback(graph,cutoff)
+  graph['daily_fallback_used']=bool(fallback_fields)
+  graph['daily_fallback_fields']=','.join(fallback_fields)
+ return {'24h':bucket_series(live,now,24,5),'7d':week_graph,'30d':bucket_series(hist,now,720,180),'month':month_graph,'daily':daily}

@@ -19,7 +19,10 @@ NAME=hws-backup-$(date +%Y%m%d-%H%M%S).tar.gz
 ITEMS=("$LOGS")
 [ -f /etc/weathercam/rollback-target ] && ITEMS+=(/etc/weathercam/rollback-target)
 [ "${HWS_BACKUP_INCLUDE_ENV:-0}" = 1 ] && [ -f /etc/weathercam/dashboard.env ] && ITEMS+=(/etc/weathercam/dashboard.env)
-tar -czf "$OUT/$NAME" --exclude='*.log' --exclude='*.log.*' --exclude='*.jpg' --exclude='*.mp4' "${ITEMS[@]}"
+# tar exits 1 when a file changed while it was read (the logs are live); that is only a warning.
+rc=0
+tar -czf "$OUT/$NAME" --exclude='*.log' --exclude='*.log.*' --exclude='*.jpg' --exclude='*.mp4' "${ITEMS[@]}" || rc=$?
+[ $rc -le 1 ] || exit $rc
 tar -tzf "$OUT/$NAME" >/dev/null
 esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
 send() {  # $1 destination, $2 FTP user, $3 FTP password

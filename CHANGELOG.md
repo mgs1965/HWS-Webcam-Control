@@ -1,3 +1,6 @@
+#### V2026.11.25.06
+- Fix backup failing when logs change during archiving
+
 #### V2026.11.25.05
 - Backups via FTP (curl) and optional second destination, strapline in title gold
 

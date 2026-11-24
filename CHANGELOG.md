@@ -1,3 +1,6 @@
+#### V2026.11.25.02
+- Merge V55.13 updater fixes; accept dotted date versions (YYYY.MM.DD.NN) in release, install and update scripts
+
 #### V2026-11-24-01
 - Use daily summaries when detailed trend samples are missing
 

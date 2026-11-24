@@ -16,7 +16,7 @@ from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-VERSION_PATTERN = r'(?:\d+\.\d+|\d{4}-\d{2}-\d{2}-\d{2})'
+VERSION_PATTERN = r'(?:\d{4}\.\d{2}\.\d{2}\.\d{2}|\d+\.\d+|\d{4}-\d{2}-\d{2}-\d{2})'
 VERSIONED = ['ARCHITECTURE.md', 'README.md', 'DEPLOYMENT.md', 'MAPPING.md', 'version.py', 'core.py', 'manifest.json',
              'weathercam_dashboard/dashboard.py', 'weathercam_dashboard/templates/dashboard.html']
 TRAILER = 'Co-authored-by: copilot-swe-agent[bot] <198982749+Copilot@users.noreply.github.com>'

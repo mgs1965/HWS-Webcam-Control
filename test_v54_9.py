@@ -13,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parent
-VERSION = re.search(r'VERSION="(V(?:\d+\.\d+|\d{4}-\d{2}-\d{2}-\d{2}))"', (ROOT / 'version.py').read_text(encoding='utf-8')).group(1)
+VERSION = re.search(r'VERSION="(V(?:\d{4}\.\d{2}\.\d{2}\.\d{2}|\d+\.\d+|\d{4}-\d{2}-\d{2}-\d{2}))"', (ROOT / 'version.py').read_text(encoding='utf-8')).group(1)
 NUM = VERSION[1:]
 
 def test_release_identity():

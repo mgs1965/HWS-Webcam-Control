@@ -1,6 +1,6 @@
-# V2026-11-24-01 Deployment
+# V2026.11.25.02 Deployment
 
-V2026-11-24-01 adds selectable-year daily and monthly Meteobridge health trends, while retaining the telemetry-v4 (58-field) contract.
+V2026.11.25.02 adds selectable-year daily and monthly Meteobridge health trends, while retaining the telemetry-v4 (58-field) contract.
 
 ## Pre-install
 
@@ -24,7 +24,7 @@ systemctl is-active weathercam.service
 systemctl is-active weathercam-dashboard.timer
 ```
 
-Expected release: `/mnt/weathercam/app/releases/HarpendenWeatherCamera-V2026-11-24-01` (an updated V2026-11-24-01 installation uses a timestamped suffix). The dashboard publisher is a oneshot service and may be inactive between timer runs.
+Expected release: `/mnt/weathercam/app/releases/HarpendenWeatherCamera-V2026.11.25.02` (an updated V2026.11.25.02 installation uses a timestamped suffix). The dashboard publisher is a oneshot service and may be inactive between timer runs.
 
 ## Force one publication
 
@@ -35,7 +35,7 @@ sudo bash -c 'set -a; . /etc/weathercam/dashboard.env; set +a; exec sudo -u mgs 
 ## Verify the generated dashboard
 
 ```bash
-grep -E 'V2026-11-24-01|Recommended checks|Timelapse|Daily reliability reports|Recent captures|CPU temperature|30 days' /mnt/weathercam/dashboard/dashboard.html | head
+grep -E 'V2026.11.25.02|Recommended checks|Timelapse|Daily reliability reports|Recent captures|CPU temperature|30 days' /mnt/weathercam/dashboard/dashboard.html | head
 ! grep -q '__DATA__' /mnt/weathercam/dashboard/dashboard.html
 ```
 
@@ -48,7 +48,7 @@ The dashboard displays recommended checks and historical readings but does not m
 `alerts.py` (run every 5 minutes by `weathercam-alerts.timer`) reports a stale camera image, stale weather data, a full disk or a stopped service, repeats after `HWS_ALERT_REPEAT_HOURS`, and sends a recovery message. Set `HWS_ALERT_NTFY_URL`, `HWS_ALERT_WEBHOOK_URL` or the `HWS_ALERT_SMTP_*` settings in `/etc/weathercam/dashboard.env`; the installer enables the timer only when one is set. `python3 alerts.py --test` sends a test message.
 
 ## Releasing (maintainers)
-`python3 release.py 2026-11-24-01 "What changed"` bumps the version everywhere, updates the changelog and manifest, runs `verify.py` and the tests, and builds the zip. Add `--publish` to commit, push `main` and create the GitHub release.
+`python3 release.py 2026.11.25.02 "What changed"` bumps the version everywhere, updates the changelog and manifest, runs `verify.py` and the tests, and builds the zip. Add `--publish` to commit, push `main` and create the GitHub release.
 
 ## Rollback
 

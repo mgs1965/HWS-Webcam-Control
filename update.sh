@@ -13,7 +13,7 @@ fi
 API=https://api.github.com/repos/$REPO/releases/latest
 JSON=$(curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" "$API")
 LATEST=$(printf '%s' "$JSON" | python3 -c 'import json,sys;print(json.load(sys.stdin)["tag_name"])')
-CURRENT=$(python3 -c 'import re,sys;print(re.search(r"VERSION=\"(V(?:[0-9]+\.[0-9]+|[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{2}))\"",open(sys.argv[1]).read()).group(1))' "$BASE/current/version.py" 2>/dev/null || echo none)
+CURRENT=$(python3 -c 'import re,sys;print(re.search(r"VERSION=\"(V(?:[0-9]{4}\.[0-9]{2}\.[0-9]{2}\.[0-9]{2}|[0-9]+\.[0-9]+|[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{2}))\"",open(sys.argv[1]).read()).group(1))' "$BASE/current/version.py" 2>/dev/null || echo none)
 echo "Installed: $CURRENT   Latest: $LATEST"
 if [ "$CURRENT" = "$LATEST" ]; then echo "Already up to date."; exit 0; fi
 if [ "${1:-}" = "--check" ]; then echo "Update available."; exit 0; fi

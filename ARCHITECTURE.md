@@ -1,4 +1,4 @@
-# V2026.11.25.08 Architecture
+# V2026.11.25.09 Architecture
 
 ## Runtime assembly
 
@@ -24,7 +24,7 @@ Weather, rainfall-rate and Meteobridge health trend charts use detailed samples 
 
 ## Release and deployment
 
-`version.py` is the release identity source for V2026.11.25.08 and telemetry schema v4. `manifest.json` records the release baseline, package filename and file inventory. `verify.py` checks the release identity, telemetry contract, dashboard payload structure and regression guards. The installer deploys to `/mnt/weathercam/app/releases/HarpendenWeatherCamera-V2026.11.25.08`, records a rollback target, and installs the camera unit only when no existing unit is registered.
+`version.py` is the release identity source for V2026.11.25.09 and telemetry schema v4. `manifest.json` records the release baseline, package filename and file inventory. `verify.py` checks the release identity, telemetry contract, dashboard payload structure and regression guards. The installer deploys to `/mnt/weathercam/app/releases/HarpendenWeatherCamera-V2026.11.25.09`, records a rollback target, and installs the camera unit only when no existing unit is registered.
 
 ## Operations tooling
 

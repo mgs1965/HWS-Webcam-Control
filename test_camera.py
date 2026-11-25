@@ -589,7 +589,7 @@ const context={console,Date,Intl,Number,Error,URL,location:{href:'https://exampl
  window:{setInterval(fn,delay){timers.push({fn,delay})}},fetch:null};
 vm.createContext(context);vm.runInContext(fs.readFileSync(process.argv[1],'utf8'),context);
 const H=context.window.HWS;
-assert.equal(timers[0].delay,10000);timers[0].fn();assert.match(images[0].url,/latest\.jpg\?ts=/);assert.equal(images[1].url,'banner.jpg');
+assert.equal(timers[0].delay,10000);timers[0].fn();assert.match(images[0].url,/newcam\.jpg\?ts=/);images[0].onerror();assert.match(images[0].url,/latest\.jpg\?ts=/);assert.equal(images[1].url,'banner.jpg');
 assert.equal(H.date('20261122'),'22 Nov 2026');
 assert.equal(H.date('2026-11-22'),'22 Nov 2026');
 assert.equal(H.date('broken'),'Date unavailable');

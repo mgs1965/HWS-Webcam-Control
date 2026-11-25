@@ -1,3 +1,6 @@
+#### V2026.11.25.09
+- Site pages show the camera's newcam.jpg (uploaded every frame) refreshed every 10s, falling back to latest.jpg
+
 #### V2026.11.25.08
 - Publish V2026.11.25.08
 

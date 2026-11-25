@@ -1,0 +1,8 @@
+v1.0.0
+- Canonical SQLite schema with WAL and quality flags.
+- Streaming/resumable Weather Display importer.
+- High-confidence historical fields only.
+- Verified Extra Temp 1 ground-temperature extraction.
+- Reset-aware interval rainfall reconstruction.
+- Daily summary builder and verification utility.
+- Synthetic regression test passed.

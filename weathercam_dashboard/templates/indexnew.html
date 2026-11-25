@@ -45,5 +45,5 @@ if(tp.length){$('today').hidden=false;$('todaytxt').textContent=tp.join(' ')}
 if((D.news||[]).length){$('newsbox').hidden=false;for(const n of D.news){const d=el('div','',undefined,$('newslist'));el('b','',n.title||'Update',d);el('span','muted',' '+n.date,d);const t=String(n.text);el('div','muted',t.length>200?t.slice(0,200)+'…':t,d)}}
 if(location.protocol!=='file:'){for(const[id,f]of[['vrise','latest_sunrise.mp4'],['vset','latest_sunset.mp4']]){const v=$(id);v.addEventListener('loadedmetadata',()=>{$('sunclips').hidden=false});v.preload='metadata';v.src=(D.media_base||'')+f}}
 async function poll(){if(location.protocol==='file:'||document.hidden)return;try{W=await HWS.refreshWeather(W);refreshError=false}catch(e){console.warn(e);refreshError=true}render()}
-poll();setInterval(poll,30000);setInterval(render,30000);document.addEventListener('visibilitychange',poll);setInterval(()=>{const i=$('cam');if(i&&!i.hidden)i.src='latest.jpg?ts='+Date.now()},300000);
+poll();setInterval(poll,30000);setInterval(render,30000);document.addEventListener('visibilitychange',poll);
 </script></div></body></html>

@@ -22,6 +22,15 @@ const HWS={units,theme,
  csvButton(parent,label,name,build){const b=document.createElement('button');b.className='s-btn s-export';b.textContent=label||'Download CSV';b.onclick=()=>{const r=build();if(r&&r.rows.length)HWS.csv(name,r.header,r.rows)};parent.prepend(b);return b},
  compass(deg){const N=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];return has(deg)?N[Math.round((((Number(deg)%360)+360)%360)/22.5)%16]:'–'}};
 window.HWS=HWS;
+const refreshWebcamImages=()=>{
+ if(document.hidden)return;
+ document.querySelectorAll('img[src]').forEach(image=>{
+  const source=new URL(image.getAttribute('src'),location.href);
+  if(source.pathname.endsWith('/latest.jpg')){source.searchParams.set('ts',Date.now());image.src=source.toString()}
+ });
+};
+window.setInterval(refreshWebcamImages,10000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshWebcamImages()});
 HWS.rainfallMonths=function(rows,year){return Array.from({length:12},(_,i)=>{const month=year+'-'+String(i+1).padStart(2,'0'),data=rows.filter(r=>r.d.startsWith(month)&&has(r.v));return [new Date(2000,i,1).toLocaleDateString('en-GB',{month:'short'}),data.length?data.reduce((sum,r)=>sum+Number(r.v),0):null]})};
 HWS.date=function(value){const s=String(value||''),iso=/^\d{8}$/.test(s)?s.slice(0,4)+'-'+s.slice(4,6)+'-'+s.slice(6,8):s,d=new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso)?iso+'T12:00:00':iso);return Number.isFinite(d.getTime())?d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'Date unavailable'};
 HWS.stationDate=function(){const parts=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()),part=k=>parts.find(p=>p.type===k).value;return part('year')+'-'+part('month')+'-'+part('day')};

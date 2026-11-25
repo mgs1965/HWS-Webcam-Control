@@ -29,5 +29,4 @@ render();
 const F=D.forecast;if(F&&F.daily){const box=document.getElementById('fc');for(const d of F.daily.slice(0,3)){const e=document.createElement('div');e.innerHTML='<div class="muted"></div><div class="i"></div><div></div>';e.children[0].textContent=new Date(d.date+'T12:00:00').toLocaleDateString([],{weekday:'short'});e.children[1].textContent=icon(d.symbol);e.children[2].textContent=fmt(d.temp_max_c,0,'°')+' / '+fmt(d.temp_min_c,0,'°');box.append(e)}}
 async function poll(){if(location.protocol==='file:'||document.hidden)return;try{W=await HWS.refreshWeather(W);refreshError=false}catch(e){console.warn(e);refreshError=true}render()}
 poll();setInterval(poll,POLL);setInterval(render,POLL);document.addEventListener('visibilitychange',poll);
-setInterval(()=>{const i=document.getElementById('cam');if(i&&!i.hidden)i.src='latest.jpg?ts='+Date.now()},300000);
 </script></div></body></html>

@@ -17,7 +17,11 @@ CURRENT=$(python3 -c 'import re,sys;print(re.search(r"VERSION=\"(V(?:[0-9]{4}\.[
 echo "Installed: $CURRENT   Latest: $LATEST"
 LOGDIR=${HWS_LOG_DIR:-/mnt/weathercam/logs}
 # The health page shows this as "last update check".
-stamp_ok() { printf '{"time": "%s", "version": "%s"}\n' "$(date -Is)" "$1" > "$LOGDIR/update_last_ok.json" 2>/dev/null || true; }
+stamp_ok() {
+  local f="$LOGDIR/update_last_ok.json" line
+  line=$(printf '{"time": "%s", "version": "%s"}' "$(date -Is)" "$1")
+  { printf '%s\n' "$line" > "$f" || printf '%s\n' "$line" | sudo -n tee "$f" > /dev/null; } 2> /dev/null || true
+}
 if [ "$CURRENT" = "$LATEST" ]; then stamp_ok "$CURRENT"; echo "Already up to date."; exit 0; fi
 if [ "${1:-}" = "--check" ]; then echo "Update available."; exit 0; fi
 ASSET_URL=$(printf '%s' "$JSON" | python3 -c 'import json,sys;a=[x for x in json.load(sys.stdin)["assets"] if x["name"].endswith(".zip")];print(a[0]["url"] if a else "")')

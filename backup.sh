@@ -87,5 +87,5 @@ if [ $BAD -ne 0 ]; then echo "copy to a backup destination failed" >&2; exit 1; 
 ls -1t "$OUT"/hws-backup-*.tar.gz 2>/dev/null | tail -n +$((KEEP + 1)) | xargs -r rm -f
 rm -f "$FAILED" 2>/dev/null || true
 # The health page shows this as "last backup".
-printf '{"time": "%s", "name": "%s", "size_bytes": %s, "destinations": "%s"}\n' "$(date -Is)" "$NAME" "$(wc -c < "$OUT/$NAME" | tr -d ' ')" "$SENT" > "$LOGS/backup_last_ok.json" 2>/dev/null || true
+{ printf '{"time": "%s", "name": "%s", "size_bytes": %s, "destinations": "%s"}\n' "$(date -Is)" "$NAME" "$(wc -c < "$OUT/$NAME" | tr -d ' ')" "$SENT" > "$LOGS/backup_last_ok.json"; } 2>/dev/null || true
 echo "Backup $NAME done${SENT:+, copied to $SENT}"

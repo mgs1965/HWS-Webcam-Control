@@ -1,3 +1,6 @@
+#### V2026.11.25.11
+- update.sh and backup.sh no longer show a permission error when the log folder is not writable
+
 #### V2026.11.25.10
 - Health page: status banner, Pi and backup card, ages, uploads, 24h history, events, disk forecast, sensor checks, quick actions; removed dashboard image overlay
 

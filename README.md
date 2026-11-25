@@ -1,6 +1,6 @@
-# Harpenden Weather Camera V2026.11.25.10
+# Harpenden Weather Camera V2026.11.25.11
 
-Raspberry Pi weather camera and the Harpenden Weather Station site generator. Releases are date-numbered (`V2026.11.25.10`); `CHANGELOG.md` lists what changed in each. Telemetry-v4 is unchanged.
+Raspberry Pi weather camera and the Harpenden Weather Station site generator. Releases are date-numbered (`V2026.11.25.11`); `CHANGELOG.md` lists what changed in each. Telemetry-v4 is unchanged.
 
 ## Camera and image features
 
@@ -39,8 +39,8 @@ All settings live in `/etc/weathercam/dashboard.env` (see `dashboard.env.example
 Create `/etc/weathercam/dashboard.env` from `dashboard.env.example` and set `HWS_FTP_PASSWORD` before installing on a new host.
 
 ```bash
-unzip HWS-Webcam-Control-2026.11.25.10.zip
-cd HWS-Webcam-Control-2026.11.25.10
+unzip HWS-Webcam-Control-2026.11.25.11.zip
+cd HWS-Webcam-Control-2026.11.25.11
 python3 verify.py
 sudo bash ./install.sh
 ```

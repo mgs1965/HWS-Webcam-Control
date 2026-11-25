@@ -1,13 +1,14 @@
 {
   "edition": "camera-and-image-intelligence",
-  "release": "V2026.11.25.07",
+  "release": "V2026.11.25.08",
   "baseline": "V51.0.2",
-  "package": "HWS-Webcam-Control-2026.11.25.07.zip",
-  "package_directory": "HWS-Webcam-Control-2026.11.25.07",
-  "built": "2026-11-24",
+  "package": "HWS-Webcam-Control-2026.11.25.08.zip",
+  "package_directory": "HWS-Webcam-Control-2026.11.25.08",
+  "built": "2026-11-25",
   "telemetry_schema": 4,
   "telemetry_fields": 58,
   "features": [
+    "Publish V2026.11.25.08",
     "Pi health storage/power/last backup/update tiles, remote backup pruning, restore.sh, weekly digest, ftp. prefix and ftps:// for backups, tests split by area, docs refresh",
     "Fix backup failing when logs change during archiving",
     "Backups via FTP (curl) and optional second destination, strapline in title gold",

@@ -1,3 +1,6 @@
+#### V2026.11.25.08
+- Publish V2026.11.25.08
+
 #### V2026.11.25.07
 - Pi health storage/power/last backup/update tiles, remote backup pruning, restore.sh, weekly digest, ftp. prefix and ftps:// for backups, tests split by area, docs refresh
 

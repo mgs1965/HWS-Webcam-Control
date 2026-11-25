@@ -7,13 +7,72 @@
 <script>
 const {D,$,has,el,tile}=HWS.page();
 const F=(v,d,u,delta)=>HWS.fmt(v,d,u,delta),day=s=>new Date(s+'T12:00:00'),hm=s=>s?new Date(s).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'–';
-const W=D.weather||{},S=D.station_status||{},M=D.metrics||{};
-function card(title,rows){const c=el('section','s-card',undefined,$('grid'));el('h2','',title,c);for(const[k,v,cls]of rows){const r=el('div','',undefined,c);r.style.cssText='display:flex;justify-content:space-between;gap:8px;padding:3px 0';el('span','muted',k,r);el('b',cls||'',v,r)}}
-const age=Date.parse(W.updated||'');
-card('Weather station',[['Status',S.known===false?'Unknown':S.stale?'Stale':'OK',S.stale?'s-bad':'s-good'],['Last reading',isFinite(age)?new Date(age).toLocaleString():'–'],['Source',W.source||'–'],['Bridge data age',has(W.bridge_data_age_s)?Math.round(W.bridge_data_age_s)+' s':'–'],['Message',S.message||'No problems']]);
-const gen=Date.parse(D.generated||'');
-card('Camera and dashboard',[['Camera state',D.state||'–',/GOOD|OK/i.test(D.state||'')?'s-good':/WARN/i.test(D.state||'')?'s-warn':''],['Mode',D.mode||'–'],['Last capture',D.capture_time||'–'],['Dashboard built',isFinite(gen)?new Date(gen).toLocaleString():'–'],['Host',D.hostname||'–'],['Version',D.version||'–']]);
-const keys=Object.keys(M).filter(k=>typeof M[k]!=='object').slice(0,14);if(keys.length)card('Latest image measurements',keys.map(k=>[k.replace(/_/g,' '),String(M[k])]));
-if((D.reasons||[]).length)card('Notes',D.reasons.map((r,i)=>[String(i+1),String(r)]));
-if(D.counts)card('Stored records',Object.entries(D.counts).map(([k,v])=>[k,String(v)]));
+const W=D.weather||{},S=D.station_status||{},M=D.metrics||{},Y=D.system||{},O=D.ops||{};
+const dur=s=>!has(s)?'–':s<3600?Math.round(s/60)+' min':s<172800?(s/3600).toFixed(1)+' h':Math.round(s/86400)+' days';
+const ago=ms=>{if(!isFinite(ms))return '–';const m=Math.max(0,Math.round(ms/60000));return m<1?'just now':m<90?m+' min ago':m<2880?Math.round(m/60)+' h ago':Math.round(m/1440)+' days ago'};
+const lvl=(ms,warn,bad)=>!isFinite(ms)?'s-warn':ms>bad*60000?'s-bad':ms>warn*60000?'s-warn':'s-good';
+const when=t=>isFinite(t)&&t>1e12?new Date(t).toLocaleString()+' ('+ago(Date.now()-t)+')':'–';
+function card(title,rows){const c=el('section','s-card',undefined,$('grid'));el('h2','',title,c);for(const[k,v,cls]of rows){const r=el('div','',undefined,c);r.style.cssText='display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 8px;padding:3px 0';el('span','muted',k,r);el('b',cls||'',v,r)}}
+const wAge=Date.parse(W.updated||''),gen=Date.parse(D.generated||''),cap=Date.parse(D.capture_time||'');
+const wCls=S.known===false?'s-warn':S.stale?'s-bad':'s-good';
+const sCls=/CRIT|ERR|FAIL|BAD/i.test(D.state||'')?'s-bad':/WARN|UNKNOWN/i.test(D.state||'')?'s-warn':/GOOD|OK/i.test(D.state||'')?'s-good':'';
+const bk=O.backup&&Date.parse(O.backup.time||''),up=O.update&&Date.parse(O.update.time||'');
+const issues=[...(D.problems||[]),...(D.reasons||[])];
+(D.sensors||[]).forEach(m=>issues.push(m));
+if(S.stale)issues.push('Weather station data is stale');
+if(O.backup_failed)issues.push('Last backup failed: '+O.backup_failed);
+if(O.update_failed)issues.push('Last update check failed: '+O.update_failed);
+if(Y.under_voltage)issues.push('Pi reported under-voltage');
+if(Y.sd_errors_1h>0)issues.push(Y.sd_errors_1h+' SD card errors in the last hour');
+if(sCls==='s-bad')issues.push('Camera state: '+D.state);
+const uniq=[...new Set(issues)];
+const ban=el('section','s-card',undefined,$('grid'));ban.style.gridColumn='1/-1';
+el('h2',uniq.length?'s-warn':'s-good',uniq.length?uniq.length+' thing'+(uniq.length>1?'s':'')+' need attention':'All systems OK',ban);
+uniq.forEach(u=>el('div','',u,ban));
+const mt=(s,l)=>[s,has(l)?'limit '+l+' min':''].filter(Boolean).join(' · ');
+const lastCls=(t,limitDays)=>!isFinite(t)?'s-warn':Date.now()-t>limitDays*864e5?'s-warn':'s-good';
+card('Weather station',[['Status',S.known===false?'Unknown':S.stale?'Stale':'OK',wCls],[mt('Last reading',30),when(wAge),lvl(Date.now()-wAge,15,30)],['Source',W.source||'–'],['Bridge data age',has(W.bridge_data_age_s)?Math.round(W.bridge_data_age_s)+' s':'–'],['Message',S.message||'No problems']]);
+card('Camera and dashboard',[['Camera state',D.state||'–',sCls],['Mode',D.mode||'–'],[mt('Last capture',10),when(cap),lvl(Date.now()-cap,5,10)],[mt('Dashboard built',30),when(gen),lvl(Date.now()-gen,10,30)],['Host',D.hostname||'–'],['Version',D.version||'–']]);
+const power=Y.under_voltage?'Under-voltage':Y.throttled?'Throttled':Y.under_voltage===false||Y.throttled===false?'OK':'–';
+card('Pi and backups',[['Power',power,power==='OK'?'s-good':power==='–'?'':'s-bad'],['SD errors (1h)',has(Y.sd_errors_1h)?String(Y.sd_errors_1h):'–',Y.sd_errors_1h>0?'s-bad':has(Y.sd_errors_1h)?'s-good':''],['Uptime (host / process)',has(M.host_uptime_seconds)||has(M.process_uptime_seconds)?dur(M.host_uptime_seconds)+' / '+dur(M.process_uptime_seconds):'–'],['Disk free',has(M.disk_free_gb)?F(M.disk_free_gb,1,' GB'):'–',M.disk_percent>90?'s-bad':M.disk_percent>80?'s-warn':''],['CPU temp',has(Y.cpu_temp_c)?F(Y.cpu_temp_c,0,' °C'):'–',Y.cpu_temp_c>80?'s-bad':Y.cpu_temp_c>70?'s-warn':''],['Last backup',O.backup_failed?'Failed':when(bk),O.backup_failed?'s-bad':lastCls(bk,2)],['Last update check',O.update_failed?'Failed':when(up),O.update_failed?'s-bad':lastCls(up,2)]]);
+const L=[['Brightness quality',M.quality,v=>F(v,0,'%'),v=>v<50?'s-bad':v<70?'s-warn':'s-good'],['Exposure',M.exposure_ms,v=>F(v,1,' ms')],['Gain',M.gain,v=>F(v,1)],['Capture completeness',M.capture_completeness_percent,v=>F(v,0,'%'),v=>v<90?'s-warn':'s-good'],['Memory used',M.memory_percent,v=>F(v,0,'%'),v=>v>90?'s-warn':''],['CPU load',M.cpu_load_percent,v=>F(v,0,'%')],['Camera restarts',M.restart_count,v=>String(v)]];
+const rows=L.filter(r=>has(r[1])).map(r=>[r[0],r[2](r[1]),r[3]?r[3](r[1]):'']);
+if(rows.length)card('Latest image measurements',rows);
+const N={weather_rows:'Weather readings',health_rows:'Health records',telemetry_rows:'Telemetry records',daily_rows:'Daily summaries'};
+if(D.counts)card('Stored records',Object.entries(D.counts).map(([k,v])=>[N[k]||k.replace(/_/g,' ').replace(/^./,c=>c.toUpperCase()),Number(v).toLocaleString()]));
+
+// camera thumbnail (no overlay)
+const cam=el('section','s-card',undefined,$('grid'));el('h2','','Live camera',cam);
+const im=document.createElement('img');im.src='latest.jpg';im.alt='Latest camera image';im.style.cssText='width:100%;border-radius:8px;display:block';cam.appendChild(im);
+el('div','muted','Image '+ago(Date.now()-cap),cam);
+// upload card
+card('Uploads (FTP)',[['Status',M.ftp_health||'–',/OUTAGE|FAIL/i.test(M.ftp_health||'')?'s-bad':/DEGRAD|WARN/i.test(M.ftp_health||'')?'s-warn':M.ftp_health?'s-good':''],['Last upload',has(M.upload_age_seconds)?ago(M.upload_age_seconds*1000):'–',M.upload_age_seconds>600?'s-bad':M.upload_age_seconds>120?'s-warn':'s-good'],['Consecutive failures',has(M.ftp_consecutive_failures)?String(M.ftp_consecutive_failures):'–',M.ftp_consecutive_failures>0?'s-warn':''],['Outages / recoveries',(M.ftp_outage_count||0)+' / '+(M.ftp_recovery_count||0)],['Worker',M.ftp_worker_alive===false?'Stopped':M.ftp_worker_alive?'Running':'–',M.ftp_worker_alive===false?'s-bad':'']]);
+// 24-hour history
+const H=D.history||{};
+if(Object.keys(H).length){const c=el('section','s-card',undefined,$('grid'));c.style.gridColumn='1/-1';el('h2','','Last 24 hours',c);
+for(const[n,f]of Object.entries(H)){const r=el('div','',undefined,c);r.style.cssText='display:flex;align-items:center;gap:8px;padding:3px 0';const l=el('span','muted',n,r);l.style.width='70px';const b=el('div','',undefined,r);b.style.cssText='display:flex;gap:1px;flex:1';
+f.forEach(v=>{const x=el('i','',undefined,b);x.style.cssText='flex:1;height:14px;border-radius:2px;background:'+(v?'#3ba55d':'#d04a4a')});}
+el('div','muted','Each block is 30 minutes, oldest on the left. Green = data received, red = gap.',c)}
+// uptime / restarts
+// disk forecast
+const DF=D.disk_forecast;if(DF&&typeof DF==='object')card('Disk forecast',[['Used',DF.used_percent+'%'],['Trend',DF.percent_per_day+'% per day'],['Estimate',DF.days_to_full==null?'Stable, no fill-up predicted':'Full in about '+DF.days_to_full+' days',DF.days_to_full!=null&&DF.days_to_full<30?'s-bad':'s-good']]);
+// backup / update details
+const od=[];if(O.backup)od.push(['Backup file',O.backup.name||'–'],['Backup size',O.backup.size_bytes?(O.backup.size_bytes/1048576).toFixed(1)+' MB':'–'],['Copied to',O.backup.destinations||'local only']);
+if(O.update)od.push(['Installed release',O.update.version||'–']);
+if(od.length)card('Backup and update details',od);
+// events
+const E=D.events||[];
+if(E.length){const c=el('section','s-card',undefined,$('grid'));c.style.gridColumn='1/-1';el('h2','','Recent events',c);
+E.forEach(e=>{const r=el('div','',undefined,c);r.style.cssText='padding:3px 0;display:flex;flex-wrap:wrap;gap:4px 10px';const t=Date.parse(e.time||'');el('span','muted',isFinite(t)?new Date(t).toLocaleString():'–',r);el('b',/CRIT|ERR/i.test(e.severity)?'s-bad':/WARN/i.test(e.severity)?'s-warn':'',e.severity||'INFO',r);el('span','',String(e.message||'').slice(0,160),r)})}
+// quick actions + copy
+const act=el('section','s-card',undefined,$('grid'));el('h2','','Quick actions',act);
+const links=[['dashboard-data.json','Raw status data (JSON)'],['latest.jpg','Latest camera image'],['pihealth.html','Raspberry Pi health'],['mbhealth.html','Meteobridge health']];
+links.forEach(([h,n])=>{const d=el('div','',undefined,act);d.style.padding='3px 0';const a=document.createElement('a');a.href=h;a.textContent=n;d.appendChild(a)});
+const summary=()=>['HWS health '+new Date().toLocaleString(),uniq.length?'Attention: '+uniq.join('; '):'All systems OK','Camera: '+(D.state||'–')+', last capture '+ago(Date.now()-cap),'Weather: '+(S.stale?'stale':'OK')+', last reading '+ago(Date.now()-wAge),'Version: '+(D.version||'–')+' on '+(D.hostname||'–')].join('\n');
+const btn=el('button','',undefined,act);btn.textContent='Copy status summary';btn.style.cssText='margin-top:6px;padding:6px 12px;cursor:pointer';
+btn.onclick=()=>{const t=summary();(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).catch(()=>{const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();try{document.execCommand('copy')}catch(e){}a.remove()}).finally(()=>{btn.textContent='Copied';setTimeout(()=>btn.textContent='Copy status summary',2000)})};
+// refresh countdown
+const next=Date.now()+300000,cd=el('div','muted','',act);cd.style.marginTop='8px';
+setInterval(()=>{const s=Math.max(0,Math.round((next-Date.now())/1000));cd.textContent='Next refresh in '+Math.floor(s/60)+':'+String(s%60).padStart(2,'0')},1000);
+setTimeout(()=>location.reload(),300000);
 </script></div></body></html>

@@ -534,3 +534,15 @@ def test_backfill_parses_extra_daily_fields():
     out = ws.parse_backfill_day('wind_avg_mph=4.2;dew_min_c=-2.5;solar_max_wm2=310;uv_max=1.2;sunshine_min=354;humidity_max=99;heat_index_max_c=[bad]')
     assert out == {'wind_avg_mph': 4.2, 'dew_min_c': -2.5, 'solar_max_wm2': 310.0, 'uv_max': 1.2, 'sunshine_hours': 5.9, 'humidity_max': 99.0}
     assert ws.parse_backfill_day('sunshine_min=50000') == {}
+
+
+def test_health_activity_history_and_sensor_checks(tmp_path, monkeypatch):
+    from datetime import datetime, timedelta, timezone
+    dash = _load_dashboard(tmp_path, monkeypatch)
+    now = datetime(2026, 11, 25, 12, 0, tzinfo=timezone.utc)
+    history = dash.activity_history([{'_ts': now - timedelta(minutes=5)}], [], [{'t': (now - timedelta(hours=2)).isoformat()}], now)
+    assert history['Camera'][-1] == 1 and sum(history['Camera']) == 1
+    assert sum(history['Pi']) == 0 and sum(history['Weather']) == 1
+    stuck = [{'t': (now - timedelta(minutes=15 * i)).isoformat(), 'temperature_c': 9.0, 'pressure_hpa': 1000 + i, 'humidity_percent': 120} for i in reversed(range(16))]
+    messages = ' '.join(dash.sensor_checks(stuck))
+    assert 'Temperature has not changed' in messages and 'Humidity reading' in messages and 'Pressure' not in messages

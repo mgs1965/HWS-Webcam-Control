@@ -5,7 +5,7 @@ from datetime import datetime,timedelta,timezone
 from html import escape
 from pathlib import Path
 from zoneinfo import ZoneInfo
-V='2026.11.25.09'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
+V='2026.11.25.10'; ROOT=Path(os.getenv('WEATHERCAM_ROOT','/mnt/weathercam')); OUT=Path(os.getenv('DASHBOARD_OUT',str(ROOT/'dashboard')))
 IMG=Path(os.getenv('WEATHERCAM_LATEST_IMAGE',str(ROOT/'frames/latest.jpg'))); HD=Path(os.getenv('WEATHERCAM_HEALTH_DIR',str(ROOT/'telemetry/health'))); TD=Path(os.getenv('WEATHERCAM_TELEMETRY_DIR',str(ROOT/'logs'))); LD=Path(os.getenv('WEATHERCAM_LOG_DIR',str(ROOT/'logs')))
 def envnum(name,default):
  try:
@@ -554,7 +554,7 @@ def generate(upload=False):
  winsight=weather_insight(weather,scene)+frost_notes(weather)+record_notes(weather,whistory)+([sc['note']] if sc and sc.get('note') and sc.get('verdict')!='AGREE' else [])
  schedule=mode_schedule(now)
  safe_config={
-  'release':'V2026.11.25.09','telemetry_schema':4,'dashboard_refresh_minutes':5,'console_poll_seconds':30,
+  'release':'V2026.11.25.10','telemetry_schema':4,'dashboard_refresh_minutes':5,'console_poll_seconds':30,
   'capture_interval_seconds':10,'ftp_configured':bool(os.getenv('DASHBOARD_FTP_HOST')),
   'ftp_tls':os.getenv('DASHBOARD_FTP_TLS','0')!='0',
   'thresholds':TH,'stale_after_minutes':TH['dashboard_stale_minutes'],'month_start':month_start(now).isoformat(),
@@ -614,7 +614,7 @@ def generate(upload=False):
  page('records.html',{'legacy':LEGACY_RECORDS,'records':records_data(daily,now),'year_records':(whistory or {}).get('year_records')})
  page('reports.html',{'daily':daily})
  page('almanac.html',{'sun_moon':payload['sun_moon'],'almanac':almanac_data(now),'weather':weather,'scene':scene})
- page('health.html',{k:payload.get(k) for k in ('station_status','state','reasons','metrics','mode','capture_time','counts','generated','hostname','version')}|{'weather':weather},'webcamhealth.html')
+ page('health.html',{k:payload.get(k) for k in ('station_status','state','reasons','metrics','mode','capture_time','counts','generated','hostname','version')}|{'weather':weather,'system':system_status(),'ops':ops_status(),'problems':open_problems(),'history':activity_history(telemetry_rows,health_rows,wseries_all,now),'sensors':sensor_checks(wseries_all),'events':events_payload[:10],'disk_forecast':payload.get('disk_forecast')},'webcamhealth.html')
  (OUT/'data.html').unlink(missing_ok=True)
  if os.environ.get('DASHBOARD_WRITE_REDIRECTS','').lower() in ('1','true','yes','on'):atomic(OUT/'redirects.htaccess',redirects_htaccess())
  atomic(OUT/'dashboard-data.json',json.dumps(payload,indent=2))
@@ -627,6 +627,43 @@ def system_status():
   return alerts.system_status()
  except Exception as exc:
   print('[SYSTEM STATUS] failed:',exc);return None
+def activity_history(telemetry,health,weather,now,buckets=48,minutes=30):
+ start=now-timedelta(minutes=buckets*minutes);out={}
+ def times(rows,key='_ts'):
+  for r in rows:
+   t=r.get(key)
+   if isinstance(t,str):
+    try:t=datetime.fromisoformat(t)
+    except ValueError:continue
+   if t is None:continue
+   if t.tzinfo is None:t=t.replace(tzinfo=now.tzinfo)
+   yield t
+ for name,rows,key in (('Camera',telemetry,'_ts'),('Pi',health,'_ts'),('Weather',weather,'t')):
+  flags=[0]*buckets
+  for t in times(rows,key):
+   i=int((t-start).total_seconds()//(minutes*60))
+   if 0<=i<buckets:flags[i]=1
+  out[name]=flags
+ return out
+SENSOR_RANGES={'temperature_c':(-30,45,'Temperature'),'humidity_percent':(0,100,'Humidity'),'pressure_hpa':(900,1090,'Pressure'),'wind_speed_mph':(0,120,'Wind speed')}
+def sensor_checks(samples):
+ msgs=[]
+ for key,(lo,hi,label) in SENSOR_RANGES.items():
+  vals=[(r.get('t'),r.get(key)) for r in samples or [] if r.get(key) is not None]
+  if not vals:continue
+  if not lo<=vals[-1][1]<=hi:msgs.append(f'{label} reading {vals[-1][1]} is outside the expected range')
+  if key!='wind_speed_mph' and len(vals)>=12:
+   try:span=(datetime.fromisoformat(vals[-1][0])-datetime.fromisoformat(vals[0][0])).total_seconds()
+   except (TypeError,ValueError):span=0
+   if span>=3*3600 and len({v for _,v in vals})==1:msgs.append(f'{label} has not changed for {span/3600:.0f} hours (stuck sensor?)')
+ return msgs
+def open_problems():
+ try:
+  sys.path.insert(0,str(Path(__file__).resolve().parent.parent))
+  import alerts
+  return list(alerts.find_problems().values())
+ except Exception as exc:
+  print('[PROBLEMS] failed:',exc);return []
 def ops_status():
  out={}
  for key,name in (('backup','backup_last_ok.json'),('update','update_last_ok.json')):

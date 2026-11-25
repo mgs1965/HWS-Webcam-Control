@@ -1,3 +1,6 @@
+#### V2026.11.25.10
+- Health page: status banner, Pi and backup card, ages, uploads, 24h history, events, disk forecast, sensor checks, quick actions; removed dashboard image overlay
+
 #### V2026.11.25.09
 - Site pages show the camera's newcam.jpg (uploaded every frame) refreshed every 10s, falling back to latest.jpg
 

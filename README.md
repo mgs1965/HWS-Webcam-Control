@@ -1,6 +1,6 @@
-# Harpenden Weather Camera V2026.11.25.11
+# Harpenden Weather Camera V2026.11.26.01
 
-Raspberry Pi weather camera and the Harpenden Weather Station site generator. Releases are date-numbered (`V2026.11.25.11`); `CHANGELOG.md` lists what changed in each. Telemetry-v4 is unchanged.
+Raspberry Pi weather camera and the Harpenden Weather Station site generator. Releases are date-numbered (`V2026.11.26.01`); `CHANGELOG.md` lists what changed in each. Telemetry-v4 is unchanged.
 
 ## Camera and image features
 
@@ -20,7 +20,7 @@ Raspberry Pi weather camera and the Harpenden Weather Station site generator. Re
 - **Meteobridge health:** daily and monthly trends for each year with stored or imported health readings.
 - Export the selected trend period as CSV. The dashboard refreshes automatically on the existing five-minute publication cycle.
 
-Trend history is kept bounded for Raspberry Pi memory: the most recent 24 hours of capture telemetry remains full-resolution, while older 30-day history is sampled. Health snapshots remain at their recorded hourly cadence. Dashboard recommendations are observational and do not change camera settings.
+Trend history is kept bounded for Raspberry Pi memory: the most recent 24 hours of capture telemetry remains full-resolution, while older 30-day history is sampled. Health snapshots remain at their recorded 15-minute cadence. Dashboard recommendations are observational and do not change camera settings.
 
 ## Operations
 
@@ -39,8 +39,8 @@ All settings live in `/etc/weathercam/dashboard.env` (see `dashboard.env.example
 Create `/etc/weathercam/dashboard.env` from `dashboard.env.example` and set `HWS_FTP_PASSWORD` before installing on a new host.
 
 ```bash
-unzip HWS-Webcam-Control-2026.11.25.11.zip
-cd HWS-Webcam-Control-2026.11.25.11
+unzip HWS-Webcam-Control-2026.11.26.01.zip
+cd HWS-Webcam-Control-2026.11.26.01
 python3 verify.py
 sudo bash ./install.sh
 ```

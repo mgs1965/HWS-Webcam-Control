@@ -1,3 +1,6 @@
+#### V2026.11.26.01
+- Record Pi health snapshots every 15 minutes
+
 #### V2026.11.25.11
 - update.sh and backup.sh no longer show a permission error when the log folder is not writable
 

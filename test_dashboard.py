@@ -536,6 +536,41 @@ def test_backfill_parses_extra_daily_fields():
     assert ws.parse_backfill_day('sunshine_min=50000') == {}
 
 
+def test_pi_snapshots_fill_half_hour_history_blocks(tmp_path, monkeypatch):
+    dash = _load_dashboard(tmp_path, monkeypatch)
+    core = ast.parse((ROOT / 'core.py').read_text(encoding='utf-8'))
+    interval = next(node for node in core.body if isinstance(node, ast.Assign) and
+                    any(isinstance(target, ast.Name) and target.id == 'HEALTH_SNAPSHOT_INTERVAL_MINUTES' for target in node.targets))
+    monitoring = ast.parse((ROOT / 'monitoring.py').read_text(encoding='utf-8'))
+    snapshot = next(node for node in monitoring.body if isinstance(node, ast.FunctionDef) and node.name == 'log_system_health_snapshot')
+    start = datetime(2026, 11, 25, tzinfo=timezone.utc)
+    clock = [start]
+    records = []
+    def collect(now):
+        return {'timestamp': now, 'overall_health': 'HEALTHY',
+                'system': {'cpu_temperature_c': 20, 'load_1m': 0, 'load_5m': 0, 'load_15m': 0},
+                'memory': {'used_percent': 20, 'process_rss_bytes': 0, 'process_rss_delta_bytes': 0},
+                'storage': {'used_percent': 20, 'free_space_gb': 50},
+                'service': {'camera_mode': 'DAY', 'capture_processing_average_ms': 0, 'capture_processing_max_ms': 0}}
+    def persist(row):
+        records.append({'_ts': row['timestamp']})
+        return 'health.jsonl'
+    ns = {'timedelta': timedelta, 'local_now': lambda: clock[0], 'logger': logging.getLogger(__name__),
+          'collect_system_health_snapshot': collect, 'persist_system_health_snapshot': persist,
+          'last_health_snapshot_time': None, 'health_snapshot_count': 0, 'health_snapshot_failure_count': 0}
+    exec(compile(ast.Module(body=[interval, snapshot], type_ignores=[]), '<health-test>', 'exec'), ns)
+    ns['log_system_health_snapshot']()
+    clock[0] = start + timedelta(minutes=14, seconds=59)
+    assert ns['log_system_health_snapshot']() is None
+    for i in range(1, 96):
+        clock[0] = start + timedelta(minutes=15 * i)
+        assert ns['log_system_health_snapshot']() is not None
+    assert len(records) == 96
+    assert all(dash.activity_history([], records, [], start + timedelta(days=1))['Pi'])
+    clock[0] += timedelta(seconds=1)
+    assert ns['log_system_health_snapshot'](force=True) is not None
+
+
 def test_health_activity_history_and_sensor_checks(tmp_path, monkeypatch):
     from datetime import datetime, timedelta, timezone
     dash = _load_dashboard(tmp_path, monkeypatch)
